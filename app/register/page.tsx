@@ -35,7 +35,6 @@ export default function RegisterPage() {
             }
 
             setSuccess(true);
-            setTimeout(() => router.push("/login"), 3000);
         } catch (err: any) {
             console.error("Register error:", err);
             setError("No se pudo conectar con el servidor. Inténtalo de nuevo.");
@@ -51,11 +50,14 @@ export default function RegisterPage() {
                     <div className="w-20 h-20 bg-green-500/20 border border-green-500/50 rounded-full flex items-center justify-center mx-auto mb-6">
                         <User className="text-green-500 w-10 h-10" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-2">¡Registro Exitoso!</h2>
-                    <p className="text-gray-400 mb-6">Tu cuenta ha sido creada. Serás redirigido al login en unos segundos.</p>
-                    <div className="w-full bg-white/[0.05] h-1 rounded-full overflow-hidden">
-                        <div className="bg-green-500 h-full animate-[progress_3s_linear] w-full" />
-                    </div>
+                    <h2 className="text-2xl font-bold text-white mb-2">¡Casi listo!</h2>
+                    <p className="text-gray-400 mb-6">Hemos enviado un enlace de verificación a tu correo. Por favor, revísalo para activar tu cuenta.</p>
+                    <Link
+                        href="/login"
+                        className="inline-flex items-center justify-center gap-2 w-full py-4 px-6 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition-all"
+                    >
+                        Volver al Login
+                    </Link>
                 </div>
             </div>
         );

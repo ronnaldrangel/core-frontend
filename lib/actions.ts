@@ -8,10 +8,13 @@ export async function registerUser(data: any) {
         // Usamos registerUser del SDK que apunta a /users/register
         // Este endpoint es el que usa la configuración de "Public Registration"
         // de Directus y asigna el rol por defecto automáticamente.
+        const verification_url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email`;
+
         await directus.request(
             registerUserDirectus(data.email, data.password, {
                 first_name: data.first_name,
                 last_name: data.last_name,
+                verification_url: verification_url,
             })
         );
         return { success: true };
@@ -29,6 +32,35 @@ export async function registerUser(data: any) {
 
         const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
         return { error: `Error del servidor: ${detail}` };
+    }
+}
+
+export async function verifyEmail(token: string) {
+    try {
+        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+        if (!directusUrl) throw new Error("Directus URL no encontrada");
+
+
+
+        // Seguimos la documentación exacta: GET /users/register/verify-email?token=<token>
+        const response = await fetch(`${directusUrl}/users/register/verify-email?token=${token}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Error Directus API:", errorBody);
+            throw new Error("Fallo en la verificación");
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error verifying email:", error);
+        return { error: "El token de verificación es inválido o ha expirado." };
     }
 }
 

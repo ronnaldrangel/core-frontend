@@ -7,7 +7,8 @@ export default auth((req) => {
     const isAuthRoute = nextUrl.pathname.startsWith("/login") ||
         nextUrl.pathname.startsWith("/register") ||
         nextUrl.pathname.startsWith("/forgot-password") ||
-        nextUrl.pathname.startsWith("/reset-password");
+        nextUrl.pathname.startsWith("/reset-password") ||
+        nextUrl.pathname.startsWith("/verify-email");
 
     if (isAuthRoute) {
         if (isLoggedIn) {
