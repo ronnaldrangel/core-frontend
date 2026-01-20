@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { checkUserStatus } from "@/lib/actions";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -26,6 +27,13 @@ export default function LoginPage() {
             });
 
             if (result?.error) {
+                // Verificar si es por cuenta no verificada
+                const statusCheck = await checkUserStatus(email);
+                if (statusCheck?.status === 'unverified' || statusCheck?.status === 'draft') {
+                    setError("Tu cuenta aún no ha sido activada. Por favor revisa tu correo para verificarla.");
+                    return;
+                }
+
                 setError("Correo o contraseña incorrectos");
                 return;
             }

@@ -1,7 +1,7 @@
 "use server";
 
 import { directus } from "./directus";
-import { registerUser as registerUserDirectus, passwordRequest, passwordReset } from "@directus/sdk";
+import { registerUser as registerUserDirectus, passwordRequest, passwordReset, createDirectus, rest, staticToken, readUsers } from "@directus/sdk";
 
 export async function registerUser(data: any) {
     try {
@@ -88,5 +88,37 @@ export async function resetPassword(token: string, password: string) {
     } catch (error: any) {
         console.error("Error resetting password:", error);
         return { error: "El enlace es inválido o ha expirado. Por favor solicita uno nuevo." };
+    }
+}
+
+export async function checkUserStatus(email: string) {
+    try {
+        const adminToken = process.env.DIRECTUS_ADMIN_TOKEN;
+        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+
+        if (!adminToken || !directusUrl) {
+            console.warn("Falta configuración de Admin Token o URL para verificar estado de usuario.");
+            return { error: "Configuración incompleta" };
+        }
+
+        const adminClient = createDirectus(directusUrl)
+            .with(staticToken(adminToken))
+            .with(rest());
+
+        const users = await adminClient.request(
+            readUsers({
+                filter: { email: { _eq: email } },
+                fields: ['status'],
+            })
+        );
+
+        if (users && users.length > 0) {
+            return { status: users[0].status };
+        }
+
+        return { status: 'not_found' };
+    } catch (error: any) {
+        console.error("Error checking user status:", error);
+        return { error: "Error al verificar estado del usuario" };
     }
 }
