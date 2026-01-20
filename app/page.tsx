@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { LogOut, User, LayoutDashboard, Settings, Bell, Search } from "lucide-react";
+import { LogOut, User, LayoutDashboard, Settings, Bell, Search, Boxes } from "lucide-react";
 import Link from "next/link";
 import LogoutButton from "@/components/LogoutButton";
 
@@ -23,6 +23,10 @@ export default async function Home() {
             <LayoutDashboard className="w-5 h-5" />
             <span className="font-medium">Dashboard</span>
           </button>
+          <Link href="/workspaces" className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all">
+            <Boxes className="w-5 h-5" />
+            <span className="font-medium">Workspaces</span>
+          </Link>
           <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:bg-white/[0.05] hover:text-white rounded-xl transition-all">
             <Search className="w-5 h-5" />
             <span className="font-medium">Explorar</span>

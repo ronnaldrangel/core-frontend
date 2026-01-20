@@ -2,6 +2,12 @@ import { createDirectus, rest, authentication } from '@directus/sdk';
 
 const url = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL || '';
 
+// Client WITHOUT automatic auth injection - used for refresh and login operations
+export const directusPublic = createDirectus(url)
+    .with(authentication("json"))
+    .with(rest());
+
+// Client WITH automatic auth injection from session - used for authenticated requests
 export const directus = createDirectus(url, {
     globals: {
         fetch: async (url: string, options: any) => {
@@ -29,3 +35,4 @@ export const directus = createDirectus(url, {
 })
     .with(authentication("json"))
     .with(rest());
+

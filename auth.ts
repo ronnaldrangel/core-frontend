@@ -1,6 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { directus } from "@/lib/directus";
+import { directusPublic } from "@/lib/directus";
 import { readMe, refresh } from "@directus/sdk";
 
 // Extend types
@@ -43,8 +43,21 @@ interface DirectusRole {
     name: string;
 }
 
-async function getUser() {
-    const user = await directus.request<DirectusUser>(readMe({ fields: ["*", "role.*"] }));
+async function getUser(token: string) {
+    const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+    const response = await fetch(`${directusUrl}/users/me?fields=*,role.*`, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch user");
+    }
+
+    const result = await response.json();
+    const user = result.data as DirectusUser;
     if (!user) {
         throw new Error("User is invalid");
     }
@@ -77,14 +90,13 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                     const email = credentials?.email as string;
                     const password = credentials?.password as string;
 
-                    const authData = await directus.login(email, password);
+                    const authData = await directusPublic.login(email, password);
                     if (!authData || !authData.access_token) {
                         return null;
                     }
 
-                    // We need to set the token manually for the next request during authorize
-                    directus.setToken(authData.access_token);
-                    const userData = await getUser();
+                    // Fetch user data with the new token
+                    const userData = await getUser(authData.access_token as string);
 
                     return {
                         id: userData.id,
@@ -114,32 +126,68 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                 };
             }
 
-            const expiresAt = (token.expires_at as number) || 0;
-            const isExpiring = expiresAt - Date.now() < 60 * 1000; // 60 sec buffer
-
-            if (token.access_token && !isExpiring) {
+            // If no access token, return as-is (will redirect to login)
+            if (!token.access_token) {
                 return token;
             }
 
-            // Refreshing token
-            if (token.refresh_token && isExpiring) {
+            const expiresAt = (token.expires_at as number) || 0;
+            const now = Date.now();
+            const isExpiring = expiresAt - now < 60 * 1000; // 60 sec buffer
+
+            // Token is still valid, return it
+            if (!isExpiring) {
+                return token;
+            }
+
+            // Token is expiring and we have a refresh token
+            if (token.refresh_token && !token._isRefreshing) {
                 try {
                     console.log("Refreshing directus token...");
-                    const authData = await directus.request(refresh("json", token.refresh_token as string));
 
-                    directus.setToken(authData.access_token as string);
-                    const userData = await getUser();
+                    // Mark as refreshing to prevent loops
+                    token._isRefreshing = true;
+
+                    const authData = await directusPublic.request(refresh("json", token.refresh_token as string));
+
+                    // Use fetch directly to avoid circular dependency with auth
+                    const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+                    const userResponse = await fetch(`${directusUrl}/users/me?fields=*,role.*`, {
+                        headers: {
+                            'Authorization': `Bearer ${authData.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    });
+
+                    if (!userResponse.ok) {
+                        throw new Error("Failed to fetch user data");
+                    }
+
+                    const userResult = await userResponse.json();
+                    const userData = userResult.data;
+                    const role = userData.role && typeof userData.role === 'object' ? userData.role : null;
 
                     return {
                         ...token,
                         access_token: authData.access_token,
                         refresh_token: authData.refresh_token,
                         expires_at: Date.now() + (authData.expires || 3600000),
-                        user_data: userData,
+                        user_data: {
+                            id: userData.id,
+                            first_name: userData.first_name,
+                            last_name: userData.last_name,
+                            email: userData.email,
+                            avatar: userData.avatar,
+                            role: {
+                                id: role?.id || "",
+                                name: role?.name || "No Role",
+                            },
+                        },
+                        _isRefreshing: false,
                     };
                 } catch (error) {
                     console.error("Error refreshing token", error);
-                    return { ...token, error: "RefreshAccessTokenError" };
+                    return { ...token, error: "RefreshAccessTokenError", _isRefreshing: false };
                 }
             }
 
@@ -147,6 +195,11 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
         },
         async session({ session, token }: any) {
             if (token) {
+                // If there was a refresh error, signal it to the client
+                if (token.error === "RefreshAccessTokenError") {
+                    session.error = "RefreshAccessTokenError";
+                }
+
                 session.access_token = token.access_token;
                 session.user = {
                     ...session.user,

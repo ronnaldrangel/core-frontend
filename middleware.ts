@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 
 export default auth((req) => {
     const isLoggedIn = !!req.auth;
+    const hasRefreshError = (req.auth as any)?.error === "RefreshAccessTokenError";
     const { nextUrl } = req;
 
     const isAuthRoute = nextUrl.pathname.startsWith("/login") ||
@@ -11,14 +12,17 @@ export default auth((req) => {
         nextUrl.pathname.startsWith("/verify-email");
 
     if (isAuthRoute) {
-        if (isLoggedIn) {
+        if (isLoggedIn && !hasRefreshError) {
             return Response.redirect(new URL("/", nextUrl));
         }
         return;
     }
 
-    if (!isLoggedIn && !nextUrl.pathname.startsWith("/api/auth")) {
-        return Response.redirect(new URL("/login", nextUrl));
+    // Redirect to login if not logged in or if there's a refresh token error
+    if (!isLoggedIn || hasRefreshError) {
+        if (!nextUrl.pathname.startsWith("/api/auth")) {
+            return Response.redirect(new URL("/login", nextUrl));
+        }
     }
 });
 
