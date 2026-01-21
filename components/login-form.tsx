@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button"
 import {
   Field,
   FieldGroup,
-  FieldLabel, // Removed FieldSeparator as we removed the OAuth part
+  FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { useState } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { checkUserStatus } from "@/lib/actions"
 import { Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export function LoginForm({
   className,
@@ -21,13 +23,11 @@ export function LoginForm({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError("")
 
     try {
       const result = await signIn("credentials", {
@@ -40,19 +40,20 @@ export function LoginForm({
         // Verificar si es por cuenta no verificada
         const statusCheck = await checkUserStatus(email)
         if (statusCheck?.status === "unverified" || statusCheck?.status === "draft") {
-          setError("Tu cuenta aún no ha sido activada. Por favor revisa tu correo para verificarla.")
+          toast.info("Cuenta no verificada. Revisa tu correo.")
           return
         }
 
-        setError("Correo o contraseña incorrectos")
+        toast.error("Correo o contraseña incorrectos")
         return
       }
 
+      toast.success("¡Bienvenido de nuevo!")
       console.log("%c🚀 LOGIN EXITOSO", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;")
       router.push("/")
       router.refresh()
     } catch (err: any) {
-      setError("Ocurrió un error al iniciar sesión")
+      toast.error("Error al iniciar sesión")
     } finally {
       setLoading(false)
     }
@@ -62,13 +63,13 @@ export function LoginForm({
     <form className={cn("flex flex-col gap-6", className)} onSubmit={handleLogin} {...props}>
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Login to your account</h1>
+          <h1 className="text-2xl font-bold">Inicia sesión en tu cuenta</h1>
           <p className="text-muted-foreground text-sm text-balance">
-            Enter your email below to login to your account
+            Ingresa tu correo electrónico para acceder
           </p>
         </div>
         <Field>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <FieldLabel htmlFor="email">Correo electrónico</FieldLabel>
           <Input
             id="email"
             type="email"
@@ -80,38 +81,31 @@ export function LoginForm({
         </Field>
         <Field>
           <div className="flex items-center">
-            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <FieldLabel htmlFor="password">Contraseña</FieldLabel>
             <a
               href="/forgot-password"
               className="ml-auto text-sm underline-offset-4 hover:underline"
             >
-              Forgot your password?
+              ¿Olvidaste tu contraseña?
             </a>
           </div>
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
 
-        {error && (
-          <div className="bg-destructive/15 text-destructive text-sm py-2 px-4 rounded-md text-center">
-            {error}
-          </div>
-        )}
-
         <Field>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Logging in...
+                Iniciando sesión...
               </>
             ) : (
-              "Login"
+              "Iniciar Sesión"
             )}
           </Button>
         </Field>
@@ -127,9 +121,9 @@ export function LoginForm({
             Login with GitHub
           </Button> */}
         <div className="text-center text-sm">
-          Don&apos;t have an account?{" "}
+          ¿No tienes una cuenta?{" "}
           <a href="/signup" className="underline underline-offset-4">
-            Sign up
+            Regístrate
           </a>
         </div>
         {/* </Field> */}
@@ -137,4 +131,3 @@ export function LoginForm({
     </form>
   )
 }
-

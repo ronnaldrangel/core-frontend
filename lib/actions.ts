@@ -5,6 +5,21 @@ import { registerUser as registerUserDirectus, passwordRequest, passwordReset, c
 
 export async function registerUser(data: any) {
     try {
+        // Primero verificamos si el usuario ya existe para dar mejor feedback
+        // Esto evita depender del error de "RECORD_NOT_UNIQUE" que puede variar
+        const statusCheck = await checkUserStatus(data.email);
+
+        if (statusCheck?.status && statusCheck.status !== 'not_found' && !statusCheck.error) {
+            if (statusCheck.status === "active") {
+                return { error: "Este correo ya está registrado. Por favor inicia sesión." };
+            } else if (statusCheck.status === "unverified" || statusCheck.status === "draft") {
+                // Opcionalmente, aquí podríamos reenviar el correo de verificación si Directus tuviera un endpoint fácil para ello
+                return { error: "Esta cuenta ya existe pero aún no ha sido verificada. Por favor revisa tu correo." };
+            } else {
+                return { error: "Este correo ya está registrado." };
+            }
+        }
+
         // Usamos registerUser del SDK que apunta a /users/register
         // Este endpoint es el que usa la configuración de "Public Registration"
         // de Directus y asigna el rol por defecto automáticamente.
@@ -21,7 +36,7 @@ export async function registerUser(data: any) {
     } catch (error: any) {
         console.error("Error in registerUser action:", error);
 
-        // Handle common Directus errors
+        // Fallback for race conditions or other errors
         if (error.errors && error.errors[0]?.extensions?.code === "RECORD_NOT_UNIQUE") {
             return { error: "Este correo ya está registrado." };
         }

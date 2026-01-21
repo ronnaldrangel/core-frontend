@@ -8,10 +8,12 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { PasswordInput } from "@/components/ui/password-input"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { registerUser } from "@/lib/actions"
 import { Loader2, ArrowRight, User } from "lucide-react"
+import { toast } from "sonner"
 
 export function SignupForm({
   className,
@@ -22,14 +24,12 @@ export function SignupForm({
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
   const [success, setSuccess] = useState(false)
   const router = useRouter() // eslint-disable-line @typescript-eslint/no-unused-vars
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError("")
 
     try {
       const result = await registerUser({
@@ -40,14 +40,15 @@ export function SignupForm({
       })
 
       if (result.error) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
 
+      toast.success("¡Cuenta creada! Revisa tu correo.")
       setSuccess(true)
     } catch (err: any) {
       console.error("Register error:", err)
-      setError("No se pudo conectar con el servidor. Inténtalo de nuevo.")
+      toast.error("Error al conectar con el servidor")
     } finally {
       setLoading(false)
     }
@@ -76,29 +77,29 @@ export function SignupForm({
     <form className={cn("flex flex-col gap-6", className)} onSubmit={handleRegister} {...props}>
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-bold">Create your account</h1>
+          <h1 className="text-2xl font-bold">Crea tu cuenta</h1>
           <p className="text-muted-foreground text-sm text-balance">
-            Fill in the form below to create your account
+            Completa el formulario para registrarte
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field>
-            <FieldLabel htmlFor="first-name">First Name</FieldLabel>
+            <FieldLabel htmlFor="first-name">Nombre</FieldLabel>
             <Input
               id="first-name"
               type="text"
-              placeholder="John"
+              placeholder="Juan"
               required
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="last-name">Last Name</FieldLabel>
+            <FieldLabel htmlFor="last-name">Apellido</FieldLabel>
             <Input
               id="last-name"
               type="text"
-              placeholder="Doe"
+              placeholder="Pérez"
               required
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -106,7 +107,7 @@ export function SignupForm({
           </Field>
         </div>
         <Field>
-          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <FieldLabel htmlFor="email">Correo electrónico</FieldLabel>
           <Input
             id="email"
             type="email"
@@ -117,10 +118,9 @@ export function SignupForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
-          <Input
+          <FieldLabel htmlFor="password">Contraseña</FieldLabel>
+          <PasswordInput
             id="password"
-            type="password"
             required
             minLength={8}
             value={password}
@@ -128,35 +128,28 @@ export function SignupForm({
           />
         </Field>
 
-        {error && (
-          <div className="bg-destructive/15 text-destructive text-sm py-2 px-4 rounded-md text-center">
-            {error}
-          </div>
-        )}
-
         <Field>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating account...
+                Creando cuenta...
               </>
             ) : (
               <>
-                Create Account <ArrowRight className="ml-2 h-4 w-4" />
+                Crear Cuenta <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
           </Button>
         </Field>
 
         <div className="text-center text-sm">
-          Already have an account?{" "}
+          ¿Ya tienes una cuenta?{" "}
           <a href="/login" className="underline underline-offset-4">
-            Sign in
+            Inicia sesión
           </a>
         </div>
       </FieldGroup>
     </form>
   )
 }
-
