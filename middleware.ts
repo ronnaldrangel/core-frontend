@@ -14,7 +14,7 @@ export default auth((req) => {
 
     if (isAuthRoute) {
         if (isLoggedIn && !hasRefreshError) {
-            return Response.redirect(new URL("/", nextUrl));
+            return Response.redirect(new URL("/workspaces", nextUrl));
         }
         return;
     }

@@ -50,7 +50,7 @@ export function LoginForm({
 
       toast.success("¡Bienvenido de nuevo!")
       console.log("%c🚀 LOGIN EXITOSO", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;")
-      router.push("/workspaces")
+      router.push("/workspaces") // Primero seleccionar workspace
       router.refresh()
     } catch (err: any) {
       toast.error("Error al iniciar sesión")

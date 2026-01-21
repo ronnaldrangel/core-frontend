@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 
 interface Workspace {
     id: string;
     name: string;
-    description?: string;
-    color?: string;
-    icon?: string;
+    description?: string | null;
+    color?: string | null;
+    icon?: string | null;
     members?: any[];
     // Campos simulados para UI por ahora
     plan?: string;
@@ -28,6 +29,7 @@ interface WorkspaceSelectorProps {
 
 export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: WorkspaceSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     // Filtrar workspaces
     const filteredWorkspaces = initialWorkspaces.filter(ws =>
@@ -35,26 +37,29 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
     );
 
     return (
-        <div className="w-full max-w-5xl mx-auto p-6 space-y-8">
+        <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-foreground tracking-tight">Tus Espacios de Trabajo</h1>
-                    <p className="text-muted-foreground mt-1">Selecciona una organización para continuar</p>
+                    <h1 className="text-3xl font-bold text-foreground tracking-tight">Tus Workspaces</h1>
+                    <p className="text-muted-foreground mt-1">Selecciona un espacio de trabajo para continuar</p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <div className="relative w-full md:w-64">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Buscar organización..."
+                            placeholder="Buscar workspace..."
                             className="pl-9 bg-background/50 border-input text-foreground placeholder:text-muted-foreground/70 focus-visible:ring-blue-500/50"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button className="bg-green-600 hover:bg-green-700 text-white gap-2 font-medium">
+                    <Button
+                        className="bg-green-600 hover:bg-green-700 text-white gap-2 font-medium"
+                        onClick={() => setIsCreateModalOpen(true)}
+                    >
                         <Plus className="h-4 w-4" />
-                        Nueva organización
+                        Nuevo Workspace
                     </Button>
                 </div>
             </div>
@@ -111,18 +116,27 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
                         <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <Boxes className="h-6 w-6 text-muted-foreground" />
                         </div>
-                        <h3 className="text-lg font-medium text-foreground mb-2">No se encontraron organizaciones</h3>
+                        <h3 className="text-lg font-medium text-foreground mb-2">No se encontraron workspaces</h3>
                         <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-                            {searchTerm ? "Intenta con otro término de búsqueda." : "Aún no eres miembro de ninguna organización."}
+                            {searchTerm ? "Intenta con otro término de búsqueda." : "Aún no eres miembro de ningún workspace."}
                         </p>
                         {!searchTerm && (
-                            <Button variant="outline" className="border-border text-foreground hover:bg-accent">
-                                Crear mi primera organización
+                            <Button
+                                variant="outline"
+                                className="border-border text-foreground hover:bg-accent"
+                                onClick={() => setIsCreateModalOpen(true)}
+                            >
+                                Crear mi primer workspace
                             </Button>
                         )}
                     </div>
                 )}
             </div>
+
+            <CreateWorkspaceModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
         </div>
     );
 }
