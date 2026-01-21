@@ -335,7 +335,7 @@ export async function removeWorkspaceMember(memberId: string) {
 }
 
 // Update a member's role
-export async function updateMemberRole(memberId: string, role: "admin" | "editor" | "viewer") {
+export async function updateMemberRole(memberId: string, role: "admin" | "editor" | "viewer", workspaceSlug?: string) {
     try {
         const session = await auth();
         if (!session?.user?.id) {
@@ -347,10 +347,132 @@ export async function updateMemberRole(memberId: string, role: "admin" | "editor
         );
 
         revalidatePath("/workspaces");
+        if (workspaceSlug) {
+            revalidatePath(`/dashboard/${workspaceSlug}/members`);
+        }
         return { success: true, data: member };
     } catch (error: any) {
         console.error("Error updating member role:", error);
         const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
         return { error: `Error al actualizar el rol: ${detail}` };
+    }
+}
+
+// Search user by email
+export async function searchUserByEmail(email: string) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { error: "No estás autenticado" };
+        }
+
+        const users = await directus.request(
+            readItems("directus_users", {
+                filter: {
+                    email: { _eq: email }
+                },
+                fields: ["id", "email", "first_name", "last_name", "avatar"],
+                limit: 1,
+            })
+        );
+
+        if (!users || users.length === 0) {
+            return { error: "Usuario no encontrado" };
+        }
+
+        return { data: users[0] };
+    } catch (error: any) {
+        console.error("Error searching user:", error);
+        return { error: "Error al buscar el usuario" };
+    }
+}
+
+// Add a member to a workspace by email
+export async function addWorkspaceMemberByEmail(
+    workspaceId: string,
+    email: string,
+    role: "admin" | "editor" | "viewer" = "viewer",
+    workspaceSlug?: string
+) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { error: "No estás autenticado" };
+        }
+
+        // First, find the user by email
+        const users = await directus.request(
+            readItems("directus_users", {
+                filter: {
+                    email: { _eq: email }
+                },
+                fields: ["id", "email", "first_name", "last_name"],
+                limit: 1,
+            })
+        );
+
+        if (!users || users.length === 0) {
+            return { error: "No se encontró ningún usuario con ese email" };
+        }
+
+        const userId = users[0].id;
+
+        // Check if user is already a member
+        const existingMembers = await directus.request(
+            readItems("workspaces_members", {
+                filter: {
+                    _and: [
+                        { workspace_id: { _eq: workspaceId } },
+                        { user_id: { _eq: userId } }
+                    ]
+                },
+                limit: 1,
+            })
+        );
+
+        if (existingMembers && existingMembers.length > 0) {
+            return { error: "Este usuario ya es miembro del workspace" };
+        }
+
+        // Add the member
+        const member = await directus.request(
+            createItem("workspaces_members", {
+                workspace_id: workspaceId,
+                user_id: userId,
+                role: role,
+            })
+        );
+
+        revalidatePath("/workspaces");
+        if (workspaceSlug) {
+            revalidatePath(`/dashboard/${workspaceSlug}/members`);
+        }
+        return { success: true, data: member };
+    } catch (error: any) {
+        console.error("Error adding member by email:", error);
+        const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
+        return { error: `Error al añadir el miembro: ${detail}` };
+    }
+}
+
+// Remove a member from a workspace (updated with revalidation)
+export async function removeWorkspaceMemberWithSlug(memberId: string, workspaceSlug?: string) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { error: "No estás autenticado" };
+        }
+
+        await directus.request(deleteItem("workspaces_members", memberId));
+
+        revalidatePath("/workspaces");
+        if (workspaceSlug) {
+            revalidatePath(`/dashboard/${workspaceSlug}/members`);
+        }
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error removing member:", error);
+        const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
+        return { error: `Error al eliminar el miembro: ${detail}` };
     }
 }

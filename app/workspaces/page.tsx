@@ -1,6 +1,6 @@
-
 import { auth } from "@/auth";
 import { getUserWorkspaces } from "@/lib/actions";
+import { getPendingInvitations } from "@/lib/invitation-actions";
 import { WorkspaceSelector } from "@/components/workspace-selector";
 import { redirect } from "next/navigation";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -14,14 +14,15 @@ export default async function WorkspacesPage() {
     }
 
     const { workspaces, error } = await getUserWorkspaces();
+    const { data: pendingInvitations } = await getPendingInvitations();
 
-    // Si hay error (probablemente config), mostramos lista vacía o manejamos error.
-    // Por ahora, pasamos array vacío si falla.
+    // Si hay error, mostramos lista vacía
     const safeWorkspaces = workspaces || [];
+    const safeInvitations = pendingInvitations || [];
 
     return (
         <div className="min-h-screen bg-background text-foreground flex flex-col transition-colors duration-300">
-            {/* Navbar simple solo para esta vista */}
+            {/* Navbar */}
             <header className="border-b border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -47,6 +48,7 @@ export default async function WorkspacesPage() {
                 {/* @ts-ignore */}
                 <WorkspaceSelector
                     initialWorkspaces={safeWorkspaces}
+                    pendingInvitations={safeInvitations}
                     userName={session.user.first_name || ""}
                     userEmail={session.user.email || ""}
                 />

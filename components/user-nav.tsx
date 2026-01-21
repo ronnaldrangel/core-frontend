@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 
-import { LogOut } from "lucide-react";
+import { LogOut, User, Boxes } from "lucide-react";
 
 
 interface UserNavProps {
@@ -44,6 +45,21 @@ export function UserNav({ user }: UserNavProps) {
                         </p>
                     </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/account">
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Mi Perfil</span>
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/workspaces">
+                            <Boxes className="mr-2 h-4 w-4" />
+                            <span>Workspaces</span>
+                        </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                     className="text-red-500 focus:text-red-500 focus:bg-red-100 dark:focus:bg-red-900/10 cursor-pointer"
