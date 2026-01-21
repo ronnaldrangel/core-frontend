@@ -36,6 +36,8 @@ interface ProfileClientProps {
     directusUrl: string;
 }
 
+
+
 export function ProfileClient({ profile, directusUrl }: ProfileClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
@@ -335,6 +337,8 @@ export function ProfileClient({ profile, directusUrl }: ProfileClientProps) {
                     </div>
                 </CardContent>
             </Card>
+
+
 
             {/* Remove Avatar Dialog */}
             <AlertDialog open={showRemoveDialog} onOpenChange={setShowRemoveDialog}>

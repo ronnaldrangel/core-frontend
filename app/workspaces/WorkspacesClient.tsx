@@ -17,6 +17,7 @@ import { Workspace, deleteWorkspace } from "@/lib/workspace-actions";
 import WorkspaceCard from "@/components/WorkspaceCard";
 import WorkspaceModal from "@/components/WorkspaceModal";
 import LogoutButton from "@/components/LogoutButton";
+import { Logo } from "@/components/logo";
 
 interface WorkspacesClientProps {
     workspaces: Workspace[];
@@ -66,10 +67,7 @@ export default function WorkspacesClient({ workspaces, currentUserId }: Workspac
             {/* Sidebar */}
             <aside className="fixed left-0 top-0 h-full w-64 bg-white/[0.02] border-r border-white/[0.05] p-6 hidden md:block">
                 <div className="flex items-center gap-3 mb-10 px-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                        <LayoutDashboard className="w-5 h-5" />
-                    </div>
-                    <span className="font-bold text-xl tracking-tight">DirectOS</span>
+                    <Logo height={32} width={130} />
                 </div>
 
                 <nav className="space-y-2">

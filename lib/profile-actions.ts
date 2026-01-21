@@ -139,3 +139,51 @@ export async function removeAvatar() {
         return { error: `Error al eliminar el avatar: ${detail}` };
     }
 }
+
+export interface ChangePasswordData {
+    currentPassword: string;
+    newPassword: string;
+}
+
+// Change user password
+export async function changePassword(data: ChangePasswordData) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id || !session?.user?.email) {
+            return { error: "No estás autenticado" };
+        }
+
+        // Validate new password length
+        if (data.newPassword.length < 8) {
+            return { error: "La nueva contraseña debe tener al menos 8 caracteres" };
+        }
+
+        // Validate that new password is different from current password
+        if (data.currentPassword === data.newPassword) {
+            return { error: "La nueva contraseña no puede ser igual a la contraseña actual" };
+        }
+
+        // Verify current password by attempting to login
+        const { authentication, createDirectus, rest } = await import("@directus/sdk");
+        const tempClient = createDirectus(process.env.NEXT_PUBLIC_DIRECTUS_URL!).with(rest()).with(authentication());
+
+        try {
+            await tempClient.login(session.user.email, data.currentPassword);
+        } catch (loginError) {
+            return { error: "La contraseña actual es incorrecta" };
+        }
+
+        // Update password
+        await directus.request(
+            updateUser(session.user.id, {
+                password: data.newPassword
+            })
+        );
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error changing password:", error);
+        const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
+        return { error: `Error al cambiar la contraseña: ${detail}` };
+    }
+}

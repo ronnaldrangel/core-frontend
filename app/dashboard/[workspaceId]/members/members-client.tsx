@@ -9,7 +9,8 @@ import {
 import {
     sendInvitation,
     getWorkspacePendingInvitations,
-    cancelInvitation
+    cancelInvitation,
+    WorkspaceInvitation
 } from "@/lib/invitation-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,16 +76,8 @@ interface PendingInvitation {
     id: string;
     role: string;
     date_created: string;
-    invited_user_id: {
-        id: string;
-        email: string;
-        first_name: string;
-        last_name: string;
-    };
-    invited_by: {
-        first_name: string;
-        last_name: string;
-    };
+    invited_user_id: any;
+    invited_by: any;
 }
 
 interface MembersClientProps {

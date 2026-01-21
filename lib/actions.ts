@@ -84,7 +84,9 @@ export async function requestPasswordReset(email: string) {
     try {
         // Usamos una ruta personalizada que apunta a nuestra aplicación Next.js
         // IMPORTANTE: Debes configurar PASSWORD_RESET_URL_ALLOW_LIST en Directus
-        const reset_url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password`;
+        // Codificamos el email en base64 para que no sea tan obvio en la URL, aunque sea público
+        const encodedEmail = Buffer.from(email).toString('base64');
+        const reset_url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?e=${encodedEmail}`;
 
         await directus.request(passwordRequest(email, reset_url));
 
@@ -97,8 +99,27 @@ export async function requestPasswordReset(email: string) {
     }
 }
 
-export async function resetPassword(token: string, password: string) {
+export async function resetPassword(token: string, password: string, email?: string) {
     try {
+        // Si tenemos el email, verificamos si la contraseña ya es la actual
+        if (email) {
+            try {
+                const { authentication, createDirectus, rest } = await import("@directus/sdk");
+                const tempClient = createDirectus(process.env.NEXT_PUBLIC_DIRECTUS_URL!).with(rest()).with(authentication());
+
+                // Intentamos login con el email y la NUEVA contraseña
+                await tempClient.login(email, password);
+
+                // Si llegamos aquí, el login fue exitoso -> la contraseña ya es la misma
+                return {
+                    error: "Esta contraseña ya está en uso. Por favor, verifica bien tus datos al momento de iniciar sesión o elige una contraseña diferente."
+                };
+            } catch (loginError) {
+                // El login falló, lo cual es BUENO en este caso (la contraseña es nueva)
+                // Continuamos con el reset normal
+            }
+        }
+
         await directus.request(passwordReset(token, password));
         return { success: true };
     } catch (error: any) {

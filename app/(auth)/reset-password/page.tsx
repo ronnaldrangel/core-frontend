@@ -22,6 +22,17 @@ function ResetPasswordForm() {
     const [error, setError] = useState("")
     const [success, setSuccess] = useState(false)
 
+    // Obtener el email codificado de la URL si existe
+    const encodedEmail = searchParams.get("e")
+    let email = ""
+    if (encodedEmail) {
+        try {
+            email = atob(encodedEmail)
+        } catch (e) {
+            console.error("Error decoding email")
+        }
+    }
+
     useEffect(() => {
         if (!token) {
             setError("Token de recuperación no encontrado. Por favor solicita un nuevo enlace.")
@@ -49,7 +60,7 @@ function ResetPasswordForm() {
         setLoading(true)
 
         try {
-            const result = await resetPassword(token, password)
+            const result = await resetPassword(token, password, email)
 
             if (result.error) {
                 toast.error(result.error)

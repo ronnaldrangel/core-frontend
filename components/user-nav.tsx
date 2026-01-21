@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 
-import { LogOut, User, Boxes } from "lucide-react";
+import { LogOut, User, Boxes, Shield } from "lucide-react";
 
 
 interface UserNavProps {
@@ -51,6 +51,12 @@ export function UserNav({ user }: UserNavProps) {
                         <Link href="/account">
                             <User className="mr-2 h-4 w-4" />
                             <span>Mi Perfil</span>
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/account/security">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Seguridad</span>
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="cursor-pointer">
