@@ -187,8 +187,6 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                     };
                 } catch (error) {
                     // console.error("Error refreshing token", error);
-                    // Por algo más limpio:
-                    console.error("Error al refrescar token:", error || "Token inválido");
                     return { ...token, error: "RefreshAccessTokenError", _isRefreshing: false };
                 }
             }
