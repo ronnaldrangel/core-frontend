@@ -5,10 +5,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
-    FolderKanban,
     Users,
     Settings,
-    BarChart3,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -36,19 +34,9 @@ export function Sidebar({ workspaces = [], currentWorkspaceId }: SidebarProps) {
             icon: LayoutDashboard,
         },
         {
-            title: "Proyectos",
-            href: `/dashboard/${currentWorkspaceId}/projects`,
-            icon: FolderKanban,
-        },
-        {
             title: "Miembros",
             href: `/dashboard/${currentWorkspaceId}/members`,
             icon: Users,
-        },
-        {
-            title: "Analíticas",
-            href: `/dashboard/${currentWorkspaceId}/analytics`,
-            icon: BarChart3,
         },
         {
             title: "Configuración",
