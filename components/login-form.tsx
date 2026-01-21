@@ -50,7 +50,7 @@ export function LoginForm({
 
       toast.success("¡Bienvenido de nuevo!")
       console.log("%c🚀 LOGIN EXITOSO", "color: #3b82f6; font-weight: bold; font-size: 1.2rem;")
-      router.push("/")
+      router.push("/workspaces")
       router.refresh()
     } catch (err: any) {
       toast.error("Error al iniciar sesión")
@@ -92,6 +92,7 @@ export function LoginForm({
           <PasswordInput
             id="password"
             required
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />

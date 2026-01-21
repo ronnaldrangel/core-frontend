@@ -1,7 +1,8 @@
 "use server";
 
 import { directus } from "./directus";
-import { registerUser as registerUserDirectus, passwordRequest, passwordReset, createDirectus, rest, staticToken, readUsers } from "@directus/sdk";
+import { registerUser as registerUserDirectus, passwordRequest, passwordReset, createDirectus, rest, staticToken, readUsers, readItems } from "@directus/sdk";
+import { auth } from "@/auth";
 
 export async function registerUser(data: any) {
     try {
@@ -135,5 +136,65 @@ export async function checkUserStatus(email: string) {
     } catch (error: any) {
         console.error("Error checking user status:", error);
         return { error: "Error al verificar estado del usuario" };
+    }
+}
+
+// Nueva función para obtener workspaces
+export async function getUserWorkspaces() {
+    try {
+        const session = await auth();
+        if (!session?.user?.email) return { error: "No autorizado" };
+
+        const adminToken = process.env.DIRECTUS_ADMIN_TOKEN;
+        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+
+        if (!adminToken || !directusUrl) {
+            return { error: "Configuración incompleta" };
+        }
+
+        const adminClient = createDirectus(directusUrl)
+            .with(staticToken(adminToken))
+            .with(rest());
+
+        // 1. Obtener ID del usuario actual basado en el email de la sesión
+        const users = await adminClient.request(
+            readUsers({
+                filter: { email: { _eq: session.user.email } },
+                fields: ['id'],
+            })
+        );
+
+        if (!users || users.length === 0) return { error: "Usuario no encontrado" };
+        const userId = users[0].id;
+
+        // 2. Buscar workspaces donde el usuario es owner
+        const ownedWorkspaces = await adminClient.request(
+            readItems('workspaces', {
+                filter: { owner: { _eq: userId } },
+                fields: ['id', 'name', 'color', 'icon', 'description', 'members', 'status'],
+            })
+        );
+
+        // 3. Buscar workspaces donde el usuario es miembro (via workspaces_members)
+        const memberRelations = await adminClient.request(
+            readItems('workspaces_members', {
+                filter: { user_id: { _eq: userId } },
+                fields: ['workspace_id.*'], // Traer datos del workspace relacionado
+            })
+        );
+
+        const memberWorkspaces = memberRelations.map((rel: any) => rel.workspace_id).filter(Boolean);
+
+        // Combinar y eliminar duplicados
+        const allWorkspaces = [...ownedWorkspaces, ...memberWorkspaces].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+
+        // Si no tiene workspaces, podríamos crear uno por defecto (opcional)
+        // Para este paso, solo devolvemos la lista
+
+        return { workspaces: allWorkspaces };
+
+    } catch (error: any) {
+        console.error("Error fetching workspaces:", error);
+        return { error: "Error al cargar los espacios de trabajo" };
     }
 }
