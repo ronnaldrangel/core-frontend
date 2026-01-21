@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, Building2, ChevronRight, Boxes } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Search, Plus, ChevronRight, Boxes } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 
@@ -16,7 +15,6 @@ interface Workspace {
     color?: string | null;
     icon?: string | null;
     members?: any[];
-    // Campos simulados para UI por ahora
     plan?: string;
     projectCount?: number;
 }
@@ -30,11 +28,17 @@ interface WorkspaceSelectorProps {
 export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: WorkspaceSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const router = useRouter();
 
     // Filtrar workspaces
     const filteredWorkspaces = initialWorkspaces.filter(ws =>
         ws.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleWorkspaceSelect = (workspaceId: string) => {
+        // Navegar directamente a la ruta del workspace
+        router.push(`/dashboard/${workspaceId}`);
+    };
 
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
@@ -67,49 +71,46 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
             <div className="grid gap-4">
                 {filteredWorkspaces.length > 0 ? (
                     filteredWorkspaces.map((workspace) => (
-                        <Link key={workspace.id} href={`/dashboard?workspace=${workspace.id}`}>
-                            <div className="group relative flex items-center p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-all duration-200 cursor-pointer">
-                                <div className="flex-shrink-0 mr-4">
-                                    <div
-                                        className={cn(
-                                            "h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg",
-                                            !workspace.color && "bg-gradient-to-br from-blue-600 to-purple-600"
-                                        )}
-                                        style={workspace.color ? { backgroundColor: workspace.color } : {}}
-                                    >
-                                        {workspace.icon ? (
-                                            // Aquí idealmente renderizarías un icono dinámico, pero por ahora usamos iniciales
-                                            workspace.name.charAt(0).toUpperCase()
-                                        ) : (
-                                            workspace.name.charAt(0).toUpperCase()
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex-grow min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base font-semibold text-foreground truncate group-hover:text-blue-500 transition-colors">
-                                            {workspace.name}
-                                        </h3>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                                        <span>{workspace.plan || "Free Plan"}</span>
-                                        <span className="w-1 h-1 rounded-full bg-foreground/20" />
-                                        <span>{workspace.projectCount || 0} proyectos</span>
-                                        {workspace.description && (
-                                            <>
-                                                <span className="w-1 h-1 rounded-full bg-foreground/20" />
-                                                <span className="truncate max-w-[200px]">{workspace.description}</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex-shrink-0 ml-4 text-muted-foreground group-hover:text-foreground transition-colors">
-                                    <ChevronRight className="h-5 w-5" />
+                        <div
+                            key={workspace.id}
+                            onClick={() => handleWorkspaceSelect(workspace.id)}
+                            className="group relative flex items-center p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-all duration-200 cursor-pointer"
+                        >
+                            <div className="flex-shrink-0 mr-4">
+                                <div
+                                    className={cn(
+                                        "h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg",
+                                        !workspace.color && "bg-gradient-to-br from-blue-600 to-purple-600"
+                                    )}
+                                    style={workspace.color ? { backgroundColor: workspace.color } : {}}
+                                >
+                                    {workspace.name.charAt(0).toUpperCase()}
                                 </div>
                             </div>
-                        </Link>
+
+                            <div className="flex-grow min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-semibold text-foreground truncate group-hover:text-blue-500 transition-colors">
+                                        {workspace.name}
+                                    </h3>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
+                                    <span>{workspace.plan || "Free Plan"}</span>
+                                    <span className="w-1 h-1 rounded-full bg-foreground/20" />
+                                    <span>{workspace.projectCount || 0} proyectos</span>
+                                    {workspace.description && (
+                                        <>
+                                            <span className="w-1 h-1 rounded-full bg-foreground/20" />
+                                            <span className="truncate max-w-[200px]">{workspace.description}</span>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex-shrink-0 ml-4 text-muted-foreground group-hover:text-foreground transition-colors">
+                                <ChevronRight className="h-5 w-5" />
+                            </div>
+                        </div>
                     ))
                 ) : (
                     <div className="text-center py-12 border border-dashed border-border rounded-xl">

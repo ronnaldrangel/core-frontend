@@ -31,7 +31,9 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
     const currentWorkspace = workspaces.find(ws => ws.id === currentWorkspaceId);
 
     const handleSwitch = (workspaceId: string) => {
-        router.push(`/dashboard?workspace=${workspaceId}`);
+        if (workspaceId === currentWorkspaceId) return;
+        // Navegar al nuevo workspace con URL limpia
+        router.push(`/dashboard/${workspaceId}`);
     };
 
     const handleGoToSelector = () => {
