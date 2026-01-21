@@ -17,23 +17,24 @@ import { Button } from "@/components/ui/button";
 interface Workspace {
     id: string;
     name: string;
+    slug: string;
     color?: string | null;
     icon?: string | null;
 }
 
 interface WorkspaceSwitcherProps {
     workspaces: Workspace[];
-    currentWorkspaceId?: string;
+    currentWorkspaceId?: string; // This is now the slug
 }
 
 export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceSwitcherProps) {
     const router = useRouter();
-    const currentWorkspace = workspaces.find(ws => ws.id === currentWorkspaceId);
+    const currentWorkspace = workspaces.find(ws => ws.slug === currentWorkspaceId);
 
-    const handleSwitch = (workspaceId: string) => {
-        if (workspaceId === currentWorkspaceId) return;
-        // Navegar al nuevo workspace con URL limpia
-        router.push(`/dashboard/${workspaceId}`);
+    const handleSwitch = (workspaceSlug: string) => {
+        if (workspaceSlug === currentWorkspaceId) return;
+        // Navegar al nuevo workspace con slug
+        router.push(`/dashboard/${workspaceSlug}`);
     };
 
     const handleGoToSelector = () => {
@@ -92,7 +93,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                 {workspaces.map((ws) => (
                     <DropdownMenuItem
                         key={ws.id}
-                        onClick={() => handleSwitch(ws.id)}
+                        onClick={() => handleSwitch(ws.slug)}
                         className="gap-2 p-2 cursor-pointer"
                     >
                         <div
@@ -102,7 +103,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                             {ws.name?.[0]?.toUpperCase() || "W"}
                         </div>
                         <span className="flex-1 truncate">{ws.name}</span>
-                        {ws.id === currentWorkspaceId && (
+                        {ws.slug === currentWorkspaceId && (
                             <Check className="size-4 text-primary" />
                         )}
                     </DropdownMenuItem>

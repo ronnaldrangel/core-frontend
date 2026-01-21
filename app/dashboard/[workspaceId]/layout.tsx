@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
-import { getWorkspace, getWorkspaces } from "@/lib/workspace-actions";
+import { getWorkspaceBySlug, getWorkspaces } from "@/lib/workspace-actions";
 
 import { DashboardHeader } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
@@ -16,8 +16,8 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
 
     const { workspaceId } = await params;
 
-    // Verificar que el workspace existe
-    const { data: workspace, error } = await getWorkspace(workspaceId);
+    // Buscar workspace por slug
+    const { data: workspace, error } = await getWorkspaceBySlug(workspaceId);
 
     if (error || !workspace) {
         notFound();
@@ -37,7 +37,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
             <div className="flex h-screen pt-16">
                 <Sidebar
                     workspaces={allWorkspaces || []}
-                    currentWorkspaceId={workspaceId}
+                    currentWorkspaceId={workspace.slug}
                 />
                 <main className="flex-1 overflow-y-auto md:ml-64 p-6 bg-muted/10">
                     {children}

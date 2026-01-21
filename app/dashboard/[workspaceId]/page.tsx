@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getWorkspace } from "@/lib/workspace-actions";
+import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,8 +22,8 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
     const session = await auth();
     if (!session?.user) redirect("/login");
 
-    const { workspaceId } = await params;
-    const { data: workspace } = await getWorkspace(workspaceId);
+    const { workspaceId } = await params; // This is now the slug
+    const { data: workspace } = await getWorkspaceBySlug(workspaceId);
 
     // Si no hay workspace, el layout ya manejó el notFound()
     if (!workspace) return null;
@@ -47,7 +47,7 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
                     </p>
                 </div>
                 <Button variant="outline" asChild>
-                    <Link href={`/dashboard/${workspaceId}/settings`}>
+                    <Link href={`/dashboard/${workspace.slug}/settings`}>
                         <Settings className="mr-2 h-4 w-4" /> Configuración
                     </Link>
                 </Button>
@@ -130,7 +130,7 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
                                         </div>
                                     </div>
                                     <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/dashboard/${workspaceId}/projects`}>
+                                        <Link href={`/dashboard/${workspace.slug}/projects`}>
                                             <ArrowRight className="h-4 w-4 text-muted-foreground" />
                                         </Link>
                                     </Button>
@@ -183,7 +183,7 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
                             )}
 
                             <Button variant="outline" className="w-full mt-4" asChild>
-                                <Link href={`/dashboard/${workspaceId}/members`}>
+                                <Link href={`/dashboard/${workspace.slug}/members`}>
                                     <Users className="mr-2 h-4 w-4" /> Invitar Miembros
                                 </Link>
                             </Button>

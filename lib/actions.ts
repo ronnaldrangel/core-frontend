@@ -171,7 +171,7 @@ export async function getUserWorkspaces() {
         const ownedWorkspaces = await adminClient.request(
             readItems('workspaces', {
                 filter: { owner: { _eq: userId } },
-                fields: ['id', 'name', 'color', 'icon', 'description', 'members', 'status'],
+                fields: ['id', 'name', 'slug', 'color', 'icon', 'description', 'members', 'status'],
             })
         );
 
@@ -179,7 +179,7 @@ export async function getUserWorkspaces() {
         const memberRelations = await adminClient.request(
             readItems('workspaces_members', {
                 filter: { user_id: { _eq: userId } },
-                fields: ['workspace_id.*'], // Traer datos del workspace relacionado
+                fields: ['workspace_id.id', 'workspace_id.name', 'workspace_id.slug', 'workspace_id.color', 'workspace_id.icon', 'workspace_id.description', 'workspace_id.status'],
             })
         );
 

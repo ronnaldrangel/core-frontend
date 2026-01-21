@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 export interface Workspace {
     id: string;
     name: string;
+    slug: string;
     description: string | null;
     color: string;
     icon: string;
@@ -16,6 +17,18 @@ export interface Workspace {
     members?: WorkspaceMember[];
     date_created: string;
     date_updated: string | null;
+}
+
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+    return name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Remove accents
+        .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single
+        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
 }
 
 export interface WorkspaceMember {
@@ -57,7 +70,15 @@ export async function getWorkspaces() {
         const workspaces = await directus.request(
             readItems("workspaces", {
                 fields: [
-                    "*",
+                    "id",
+                    "name",
+                    "slug",
+                    "description",
+                    "color",
+                    "icon",
+                    "status",
+                    "date_created",
+                    "date_updated",
                     "owner.id",
                     "owner.first_name",
                     "owner.last_name",
@@ -98,7 +119,15 @@ export async function getWorkspace(id: string) {
         const workspace = await directus.request(
             readItem("workspaces", id, {
                 fields: [
-                    "*",
+                    "id",
+                    "name",
+                    "slug",
+                    "description",
+                    "color",
+                    "icon",
+                    "status",
+                    "date_created",
+                    "date_updated",
                     "owner.id",
                     "owner.first_name",
                     "owner.last_name",
@@ -120,6 +149,55 @@ export async function getWorkspace(id: string) {
     }
 }
 
+// Get a single workspace by slug
+export async function getWorkspaceBySlug(slug: string) {
+    try {
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { error: "No estás autenticado" };
+        }
+
+        const workspaces = await directus.request(
+            readItems("workspaces", {
+                fields: [
+                    "id",
+                    "name",
+                    "slug",
+                    "description",
+                    "color",
+                    "icon",
+                    "status",
+                    "date_created",
+                    "date_updated",
+                    "owner.id",
+                    "owner.first_name",
+                    "owner.last_name",
+                    "owner.email",
+                    "members.id",
+                    "members.user_id.id",
+                    "members.user_id.first_name",
+                    "members.user_id.last_name",
+                    "members.user_id.email",
+                    "members.role",
+                ],
+                filter: {
+                    slug: { _eq: slug }
+                },
+                limit: 1,
+            })
+        );
+
+        if (!workspaces || workspaces.length === 0) {
+            return { error: "Workspace no encontrado" };
+        }
+
+        return { data: workspaces[0] as Workspace };
+    } catch (error: any) {
+        console.error("Error fetching workspace by slug:", error);
+        return { error: "Error al obtener el workspace" };
+    }
+}
+
 // Create a new workspace
 export async function createWorkspace(data: CreateWorkspaceData) {
     try {
@@ -128,9 +206,32 @@ export async function createWorkspace(data: CreateWorkspaceData) {
             return { error: "No estás autenticado" };
         }
 
+        // Generate base slug from name
+        let baseSlug = generateSlug(data.name);
+        let slug = baseSlug;
+        let counter = 1;
+
+        // Check if slug already exists and generate unique one
+        while (true) {
+            const existingWorkspaces = await directus.request(
+                readItems("workspaces", {
+                    filter: { slug: { _eq: slug } },
+                    limit: 1,
+                })
+            );
+
+            if (!existingWorkspaces || existingWorkspaces.length === 0) {
+                break; // Slug is unique
+            }
+
+            counter++;
+            slug = `${baseSlug}-${counter}`;
+        }
+
         const workspace = await directus.request(
             createItem("workspaces", {
                 name: data.name,
+                slug: slug,
                 description: data.description || null,
                 color: data.color || "#6366F1",
                 icon: data.icon || "folder",

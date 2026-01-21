@@ -11,6 +11,7 @@ import { CreateWorkspaceModal } from "@/components/create-workspace-modal";
 interface Workspace {
     id: string;
     name: string;
+    slug: string;
     description?: string | null;
     color?: string | null;
     icon?: string | null;
@@ -35,9 +36,9 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
         ws.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleWorkspaceSelect = (workspaceId: string) => {
-        // Navegar directamente a la ruta del workspace
-        router.push(`/dashboard/${workspaceId}`);
+    const handleWorkspaceSelect = (workspaceSlug: string) => {
+        // Navegar usando el slug
+        router.push(`/dashboard/${workspaceSlug}`);
     };
 
     return (
@@ -73,7 +74,7 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
                     filteredWorkspaces.map((workspace) => (
                         <div
                             key={workspace.id}
-                            onClick={() => handleWorkspaceSelect(workspace.id)}
+                            onClick={() => handleWorkspaceSelect(workspace.slug)}
                             className="group relative flex items-center p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-all duration-200 cursor-pointer"
                         >
                             <div className="flex-shrink-0 mr-4">
@@ -93,6 +94,9 @@ export function WorkspaceSelector({ initialWorkspaces, userName, userEmail }: Wo
                                     <h3 className="text-base font-semibold text-foreground truncate group-hover:text-blue-500 transition-colors">
                                         {workspace.name}
                                     </h3>
+                                    <span className="text-xs text-muted-foreground font-mono">
+                                        /{workspace.slug}
+                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
                                     <span>{workspace.plan || "Free Plan"}</span>

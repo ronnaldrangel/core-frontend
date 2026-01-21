@@ -15,19 +15,20 @@ import { WorkspaceSwitcher } from "./workspace-switcher";
 interface Workspace {
     id: string;
     name: string;
+    slug: string;
     color?: string | null;
     icon?: string | null;
 }
 
 interface SidebarProps {
     workspaces?: Workspace[];
-    currentWorkspaceId?: string;
+    currentWorkspaceId?: string; // This is now the slug
 }
 
 export function Sidebar({ workspaces = [], currentWorkspaceId }: SidebarProps) {
     const pathname = usePathname();
 
-    // Generar items del sidebar con rutas dinámicas
+    // Generar items del sidebar con rutas dinámicas usando slug
     const sidebarItems = [
         {
             title: "Vista General",
