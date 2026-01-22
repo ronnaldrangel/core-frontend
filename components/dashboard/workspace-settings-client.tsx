@@ -6,24 +6,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe } from "lucide-react";
-import { Workspace, updateWorkspace, uploadWorkspaceLogo } from "@/lib/workspace-actions";
+import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import {
+    AlertDialog,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface WorkspaceSettingsClientProps {
     workspace: Workspace;
+    role: "owner" | "admin" | "editor" | "viewer";
 }
 
 const PRESET_COLORS = [
     "#6366F1", "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#EC4899", "#8B5CF6", "#14B8A6"
 ];
 
-export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientProps) {
+export function WorkspaceSettingsClient({ workspace, role }: WorkspaceSettingsClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+    const canEdit = role === "owner" || role === "admin" || role === "editor";
+    const canDelete = role === "owner" || role === "admin";
 
     const [formData, setFormData] = useState({
         name: workspace.name,
@@ -31,6 +47,28 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
         color: workspace.color,
         logo: workspace.logo,
     });
+
+    const handleDelete = async () => {
+        if (deleteConfirmName !== workspace.name) {
+            toast.error("El nombre del workspace no coincide");
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            const result = await deleteWorkspace(workspace.id);
+            if (result.error) {
+                toast.error(result.error);
+                setIsDeleting(false);
+            } else {
+                toast.success("Workspace eliminado correctamente");
+                router.push("/workspaces");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el workspace");
+            setIsDeleting(false);
+        }
+    };
 
     const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -113,6 +151,7 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
                             value={formData.name}
                             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                             placeholder="Mi Workspace"
+                            disabled={!canEdit}
                         />
                     </div>
                     <div className="grid gap-2">
@@ -122,6 +161,7 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
                             value={formData.description}
                             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                             placeholder="Descripción opcional..."
+                            disabled={!canEdit}
                         />
                     </div>
                     <div className="grid gap-2 p-4 bg-muted/30 rounded-lg border border-border/50">
@@ -187,25 +227,27 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
                             </div>
 
                             <div className="flex-1 space-y-3">
-                                <div className="flex flex-wrap gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={isUploading}
-                                        onClick={() => document.getElementById("logo-upload")?.click()}
-                                    >
-                                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                                        Subir nueva imagen
-                                    </Button>
-                                    <input
-                                        id="logo-upload"
-                                        type="file"
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handleLogoUpload}
-                                    />
-                                </div>
+                                {canEdit && (
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={isUploading}
+                                            onClick={() => document.getElementById("logo-upload")?.click()}
+                                        >
+                                            {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                                            Subir nueva imagen
+                                        </Button>
+                                        <input
+                                            id="logo-upload"
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleLogoUpload}
+                                        />
+                                    </div>
+                                )}
                                 <p className="text-xs text-muted-foreground leading-relaxed">
                                     Recomendado: <strong>1200x300px (4:1)</strong>.
                                     <br />
@@ -223,12 +265,14 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
                                 <button
                                     key={color}
                                     type="button"
-                                    onClick={() => setFormData(prev => ({ ...prev, color }))}
+                                    onClick={() => canEdit && setFormData(prev => ({ ...prev, color }))}
+                                    disabled={!canEdit}
                                     className={cn(
                                         "h-10 w-10 rounded-full border-4 transition-all",
                                         formData.color === color
                                             ? "border-primary scale-110 shadow-md"
-                                            : "border-transparent hover:scale-105"
+                                            : "border-transparent",
+                                        canEdit ? "hover:scale-105" : "cursor-default border-border/10 opacity-70"
                                     )}
                                     style={{ backgroundColor: color }}
                                 />
@@ -238,51 +282,107 @@ export function WorkspaceSettingsClient({ workspace }: WorkspaceSettingsClientPr
                 </CardContent>
             </Card>
 
-            {/* Bottom Actions */}
-            <div className="flex items-center justify-between p-4 bg-background border border-border rounded-xl shadow-sm sticky bottom-6 z-10">
-                <p className="text-sm text-muted-foreground hidden md:block">
-                    Asegúrate de guardar todos los cambios antes de salir.
-                </p>
-                <Button
-                    onClick={handleSave}
-                    disabled={isPending}
-                    className="w-full md:w-auto px-12"
-                >
-                    {isPending ? (
-                        <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            Guardando...
-                        </>
-                    ) : (
-                        "Guardar Cambios"
-                    )}
-                </Button>
-            </div>
+            {/* Bottom Actions - Only show if can edit */}
+            {canEdit && (
+                <div className="flex items-center justify-between p-4 bg-background border border-border rounded-xl shadow-sm sticky bottom-6 z-10">
+                    <p className="text-sm text-muted-foreground hidden md:block">
+                        Asegúrate de guardar todos los cambios antes de salir.
+                    </p>
+                    <Button
+                        onClick={handleSave}
+                        disabled={isPending}
+                        className="w-full md:w-auto px-12"
+                    >
+                        {isPending ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Guardando...
+                            </>
+                        ) : (
+                            "Guardar Cambios"
+                        )}
+                    </Button>
+                </div>
+            )}
 
-            {/* Danger Zone */}
-            <Card className="border-red-500/20 bg-red-500/[0.02]">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-red-600">
-                        <Trash2 className="h-5 w-5" /> Zona de Peligro
-                    </CardTitle>
-                    <CardDescription className="text-red-500/70">
-                        Acciones irreversibles que afectan a todo el equipo.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-red-500/20 rounded-xl bg-background/50 gap-4">
-                        <div>
-                            <p className="font-semibold text-foreground">Eliminar este Workspace</p>
-                            <p className="text-sm text-muted-foreground max-w-md mt-1">
-                                Borrarás permanentemente todos los proyectos, miembros y datos asociados. No se puede deshacer.
-                            </p>
+            {/* Danger Zone - Only show if can delete */}
+            {canDelete && (
+                <Card className="border-red-500/20 bg-red-500/[0.02]">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-red-600">
+                            <Trash2 className="h-5 w-5" /> Zona de Peligro
+                        </CardTitle>
+                        <CardDescription className="text-red-500/70">
+                            Acciones irreversibles que afectan a todo el equipo.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-red-500/20 rounded-xl bg-background/50 gap-4">
+                            <div>
+                                <p className="font-semibold text-foreground">Eliminar este Workspace</p>
+                                <p className="text-sm text-muted-foreground max-w-md mt-1">
+                                    Borrarás permanentemente todos los proyectos, miembros y datos asociados. No se puede deshacer.
+                                </p>
+                            </div>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" className="font-semibold">
+                                        Eliminar definitivamente
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Esta acción no se puede deshacer. Esto eliminará permanentemente el workspace{" "}
+                                            <span className="font-bold text-foreground">"{workspace.name}"</span> y todos sus datos asociados (miembros, proyectos y archivos).
+                                            <br /><br />
+                                            Para confirmar, escribe el nombre del workspace a continuación:
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="space-y-2 py-4">
+                                        <Label htmlFor="confirm-name">
+                                            Escribe <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-red-500 font-bold">{workspace.name}</span>
+                                        </Label>
+                                        <Input
+                                            id="confirm-name"
+                                            value={deleteConfirmName}
+                                            onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                            placeholder={workspace.name}
+                                            className="border-red-500/50 focus-visible:ring-red-500"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && deleteConfirmName === workspace.name && !isDeleting) {
+                                                    handleDelete();
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel onClick={() => setDeleteConfirmName("")}>
+                                            Cancelar
+                                        </AlertDialogCancel>
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleDelete}
+                                            disabled={deleteConfirmName !== workspace.name || isDeleting}
+                                            className="font-semibold"
+                                        >
+                                            {isDeleting ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                    Eliminando...
+                                                </>
+                                            ) : (
+                                                "Entiendo las consecuencias, eliminar este workspace"
+                                            )}
+                                        </Button>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </div>
-                        <Button variant="destructive" className="font-semibold">
-                            Eliminar definitivamente
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

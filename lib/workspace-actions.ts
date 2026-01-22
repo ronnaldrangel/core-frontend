@@ -38,6 +38,40 @@ export interface WorkspaceMember {
     role: "admin" | "editor" | "viewer";
 }
 
+// Helper to check user role in workspace (Now exported for use in components)
+export async function getWorkspaceRole(workspaceId: string, userId: string): Promise<"owner" | "admin" | "editor" | "viewer" | null> {
+    try {
+        const workspace = await directus.request(
+            readItem("workspaces", workspaceId, {
+                fields: ["owner"],
+            })
+        );
+
+        const ownerId = typeof workspace.owner === 'object' ? workspace.owner.id : workspace.owner;
+        if (ownerId === userId) return "owner";
+
+        const members = await directus.request(
+            readItems("workspaces_members", {
+                filter: {
+                    _and: [
+                        { workspace_id: { _eq: workspaceId } },
+                        { user_id: { _eq: userId } }
+                    ]
+                },
+                limit: 1
+            })
+        );
+
+        if (members && members.length > 0) {
+            return members[0].role as "admin" | "editor" | "viewer";
+        }
+
+        return null;
+    } catch (error) {
+        return null;
+    }
+}
+
 export interface CreateWorkspaceData {
     name: string;
     description?: string;
@@ -59,15 +93,12 @@ export interface UpdateWorkspaceData {
 export async function getWorkspaces() {
     try {
         const session = await auth();
-        console.log("getWorkspaces - Session:", JSON.stringify(session, null, 2));
 
         if (!session?.user?.id) {
-            console.log("getWorkspaces - No user ID in session");
             return { error: "No estás autenticado" };
         }
 
         const userId = session.user.id;
-        console.log("getWorkspaces - User ID:", userId);
 
         // Get workspaces where user is owner OR member
         const workspaces = await directus.request(
@@ -104,7 +135,6 @@ export async function getWorkspaces() {
             })
         );
 
-        console.log("getWorkspaces - Result:", JSON.stringify(workspaces, null, 2));
         return { data: workspaces as Workspace[] };
     } catch (error: any) {
         console.error("Error fetching workspaces:", error);
@@ -264,6 +294,13 @@ export async function updateWorkspace(id: string, data: UpdateWorkspaceData) {
             return { error: "No estás autenticado" };
         }
 
+        const userId = session.user.id;
+        const role = await getWorkspaceRole(id, userId);
+
+        if (!role || role === "viewer") {
+            return { error: "No tienes permisos para editar este workspace" };
+        }
+
         const workspace = await directus.request(
             updateItem("workspaces", id, data)
         );
@@ -326,6 +363,13 @@ export async function deleteWorkspace(id: string) {
         const session = await auth();
         if (!session?.user?.id) {
             return { error: "No estás autenticado" };
+        }
+
+        const userId = session.user.id;
+        const role = await getWorkspaceRole(id, userId);
+
+        if (role !== "owner" && role !== "admin") {
+            return { error: "Solo el propietario o administradores pueden eliminar el workspace" };
         }
 
         await directus.request(deleteItem("workspaces", id));
@@ -462,6 +506,13 @@ export async function addWorkspaceMemberByEmail(
 
         if (!users || users.length === 0) {
             return { error: "No se encontró ningún usuario con ese email" };
+        }
+
+        const userIdFromSession = session.user.id;
+        const role = await getWorkspaceRole(workspaceId, userIdFromSession);
+
+        if (role !== "owner" && role !== "admin") {
+            return { error: "No tienes permiso para invitar miembros" };
         }
 
         const userId = users[0].id;
