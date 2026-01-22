@@ -238,8 +238,30 @@ export async function getWorkspaceBySlug(slug: string) {
 export async function createWorkspace(data: CreateWorkspaceData) {
     try {
         const session = await auth();
-        if (!session?.user?.id) {
+        if (!session?.user?.id || !session.access_token) {
             return { error: "No estás autenticado" };
+        }
+
+        // Check if user has paid (Real-time premium check)
+        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+        let hasPaid = false;
+
+        try {
+            const userRes = await fetch(`${directusUrl}/users/me?fields=has_paid`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` },
+                cache: 'no-store'
+            });
+            if (userRes.ok) {
+                const userData = await userRes.json();
+                hasPaid = !!userData.data.has_paid;
+            }
+        } catch (error) {
+            // Fallback to session if fetch fails
+            hasPaid = !!session.user.has_paid;
+        }
+
+        if (!hasPaid) {
+            return { error: "Debes tener una suscripción activa para crear un workspace" };
         }
 
         // Generate base slug from name

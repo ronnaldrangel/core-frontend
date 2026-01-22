@@ -10,14 +10,39 @@ import { Logo } from "@/components/logo";
 export default async function WorkspacesPage() {
     const session = await auth();
 
-    if (!session?.user) {
+    if (!session?.user?.id || !session.access_token) {
         redirect("/login");
     }
+
+    // Default to strict false
+    let hasPaid = false;
+    const isAdmin = session.user.role?.name?.toLowerCase().includes("admin") || false;
+    const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+
+    try {
+        const userRes = await fetch(`${directusUrl}/users/me?fields=has_paid`, {
+            headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            next: { revalidate: 0 }
+        });
+
+        if (userRes.ok) {
+            const userData = await userRes.json();
+            // Strictly check for boolean true. Null or undefined will fail.
+            hasPaid = userData.data.has_paid === true;
+        }
+    } catch (error) {
+        console.error("Error fetching latest user status:", error);
+        hasPaid = false;
+    }
+
+    // Admins bypass the paid check
+    const finalHasPaid = isAdmin || hasPaid;
 
     const { workspaces, error } = await getUserWorkspaces();
     const { data: pendingInvitations } = await getPendingInvitations();
 
-    // Si hay error, mostramos lista vacía
     const safeWorkspaces = workspaces || [];
     const safeInvitations = pendingInvitations || [];
 
@@ -46,6 +71,7 @@ export default async function WorkspacesPage() {
                     pendingInvitations={safeInvitations}
                     userName={session.user.first_name || ""}
                     userEmail={session.user.email || ""}
+                    hasPaid={finalHasPaid}
                 />
             </main>
         </div>

@@ -17,6 +17,7 @@ declare module "next-auth" {
                 id: string;
                 name: string;
             };
+            has_paid: boolean;
         } & DefaultSession["user"];
     }
 
@@ -36,6 +37,7 @@ interface DirectusUser {
     email: string;
     avatar: string | null;
     role: string | { id: string; name: string };
+    has_paid: boolean;
 }
 
 interface DirectusRole {
@@ -74,6 +76,7 @@ async function getUser(token: string) {
             id: role?.id || "",
             name: role?.name || "No Role",
         },
+        has_paid: user.has_paid,
     };
 }
 
@@ -182,6 +185,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                                 id: role?.id || "",
                                 name: role?.name || "No Role",
                             },
+                            has_paid: userData.has_paid,
                         },
                         _isRefreshing: false,
                     };

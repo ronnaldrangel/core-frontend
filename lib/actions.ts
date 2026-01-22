@@ -1,6 +1,6 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusPublic } from "./directus";
 import { registerUser as registerUserDirectus, passwordRequest, passwordReset, createDirectus, rest, staticToken, readUsers, readItems } from "@directus/sdk";
 import { auth } from "@/auth";
 
@@ -26,7 +26,7 @@ export async function registerUser(data: any) {
         // de Directus y asigna el rol por defecto automáticamente.
         const verification_url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/verify-email`;
 
-        await directus.request(
+        await directusPublic.request(
             registerUserDirectus(data.email, data.password, {
                 first_name: data.first_name,
                 last_name: data.last_name,

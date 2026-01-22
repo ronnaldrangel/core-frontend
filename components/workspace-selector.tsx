@@ -50,6 +50,7 @@ interface WorkspaceSelectorProps {
     pendingInvitations?: Invitation[];
     userName?: string;
     userEmail?: string;
+    hasPaid: boolean;
 }
 
 const roleLabels: Record<string, string> = {
@@ -77,7 +78,8 @@ export function WorkspaceSelector({
     initialWorkspaces,
     pendingInvitations = [],
     userName,
-    userEmail
+    userEmail,
+    hasPaid
 }: WorkspaceSelectorProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -156,14 +158,45 @@ export function WorkspaceSelector({
                         />
                     </div>
                     <Button
-                        className="bg-green-600 hover:bg-green-700 text-white gap-2 font-medium"
-                        onClick={() => setIsCreateModalOpen(true)}
+                        className={cn(
+                            "gap-2 font-medium transition-all shadow-sm active:scale-95",
+                            hasPaid
+                                ? "bg-green-600 hover:bg-green-700 text-white"
+                                : "bg-muted-foreground/10 text-muted-foreground cursor-not-allowed hover:bg-muted-foreground/20"
+                        )}
+                        onClick={() => {
+                            if (!hasPaid) {
+                                toast.error("Función Premium", {
+                                    description: "Debes activar un plan para crear este workspace."
+                                });
+                                return;
+                            }
+                            setIsCreateModalOpen(true);
+                        }}
                     >
-                        <Plus className="h-4 w-4" />
-                        Nuevo Workspace
+                        {hasPaid ? <Plus className="h-4 w-4" /> : <Boxes className="h-4 w-4" />}
+                        {hasPaid ? "Nuevo Workspace" : "Mejorar Plan"}
                     </Button>
                 </div>
             </div>
+
+            {/* Premium trial reminder if not paid */}
+            {!hasPaid && (
+                <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/[0.03] flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                            <Boxes className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div>
+                            <p className="font-semibold text-foreground">Modo Visualizador</p>
+                            <p className="text-sm text-muted-foreground">Adquiere un plan para poder crear tus propios espacios de trabajo.</p>
+                        </div>
+                    </div>
+                    <Button variant="outline" className="border-blue-500/30 text-blue-600 hover:bg-blue-500/10 shrink-0">
+                        Ver Planes
+                    </Button>
+                </div>
+            )}
 
             {/* Pending Invitations */}
             {pendingInvitations.length > 0 && (
@@ -326,7 +359,7 @@ export function WorkspaceSelector({
                             <p className="text-muted-foreground max-w-sm mx-auto mb-6">
                                 {searchTerm ? "Intenta con otro término de búsqueda." : "Aún no eres miembro de ningún workspace."}
                             </p>
-                            {!searchTerm && (
+                            {!searchTerm && hasPaid && (
                                 <Button
                                     variant="outline"
                                     className="border-border text-foreground hover:bg-accent"
