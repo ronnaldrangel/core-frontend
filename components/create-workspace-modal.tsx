@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Loader2 } from "lucide-react";
-import { createWorkspace } from "@/lib/workspace-actions";
+import { X, Loader2, Upload, Plus } from "lucide-react";
+import { createWorkspace, uploadWorkspaceLogo } from "@/lib/workspace-actions";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -33,9 +34,34 @@ export function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalPr
         name: "",
         description: "",
         color: PRESET_COLORS[0],
+        logo: null as string | null,
     });
+    const [isUploading, setIsUploading] = useState(false);
 
     if (!isOpen) return null;
+
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const uploadData = new FormData();
+        uploadData.append("logo", file);
+
+        try {
+            const result = await uploadWorkspaceLogo(uploadData);
+            if (result.error) {
+                toast.error(result.error);
+            } else if (result.id) {
+                setFormData(prev => ({ ...prev, logo: result.id }));
+                toast.success("Logo cargado!");
+            }
+        } catch (error) {
+            toast.error("Error al subir el logo");
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -52,6 +78,7 @@ export function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalPr
                 name: formData.name,
                 description: formData.description,
                 color: formData.color,
+                logo: formData.logo || undefined,
                 icon: "boxes", // Default icon
             });
 
@@ -61,7 +88,7 @@ export function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalPr
                 toast.success("Espacio de trabajo creado exitosamente");
                 router.refresh(); // Refresh server components
                 onClose();
-                setFormData({ name: "", description: "", color: PRESET_COLORS[0] });
+                setFormData({ name: "", description: "", color: PRESET_COLORS[0], logo: null });
             }
         } catch (error) {
             toast.error("Ocurrió un error inesperado");
@@ -116,15 +143,69 @@ export function CreateWorkspaceModal({ isOpen, onClose }: CreateWorkspaceModalPr
 
                         <div className="space-y-2">
                             <label className="text-sm font-medium leading-none">
+                                Logo (Opcional)
+                            </label>
+                            <div className="flex items-center gap-4 mt-2">
+                                <div
+                                    className="h-16 w-64 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted/30 relative"
+                                    style={!formData.logo ? { backgroundColor: formData.color } : {}}
+                                >
+                                    {formData.logo ? (
+                                        <Image
+                                            src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${formData.logo}`}
+                                            alt="Preview"
+                                            fill
+                                            className="object-contain"
+                                        />
+                                    ) : (
+                                        <Plus className="h-6 w-6 text-white/50" />
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={isUploading}
+                                        onClick={() => document.getElementById("create-logo-upload")?.click()}
+                                    >
+                                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                                        {formData.logo ? "Cambiar logo" : "Subir logo"}
+                                    </Button>
+                                    <input
+                                        id="create-logo-upload"
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleLogoUpload}
+                                    />
+                                    {formData.logo && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ ...prev, logo: null }))}
+                                            className="text-xs text-red-500 hover:text-red-600 font-medium text-left"
+                                        >
+                                            Eliminar logo
+                                        </button>
+                                    )}
+                                    <p className="text-[10px] text-muted-foreground leading-tight mt-1 max-w-[180px]">
+                                        Óptimo: SVG o PNG (1200x300px).
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none">
                                 Color del Espacio
                             </label>
-                            <div className="flex flex-wrap gap-3 mt-1.5">
+                            <div className="flex flex-wrap gap-2 mt-1.5">
                                 {PRESET_COLORS.map((color) => (
                                     <button
                                         key={color}
                                         type="button"
                                         className={cn(
-                                            "w-8 h-8 rounded-full transition-all border-2",
+                                            "w-7 h-7 rounded-full transition-all border-2",
                                             formData.color === color
                                                 ? "border-foreground scale-110 shadow-sm"
                                                 : "border-transparent hover:scale-105"

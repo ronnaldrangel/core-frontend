@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Plus, Check, Boxes } from "lucide-react";
+import Image from "next/image";
 
 import {
     DropdownMenu,
@@ -20,6 +21,7 @@ interface Workspace {
     slug: string;
     color?: string | null;
     icon?: string | null;
+    logo?: string | null; // Added logo
 }
 
 interface WorkspaceSwitcherProps {
@@ -65,10 +67,10 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                     className="w-full justify-start gap-2 px-2 py-2 h-auto data-[state=open]:bg-accent"
                 >
                     <div
-                        className="flex size-8 items-center justify-center rounded-lg text-white text-sm font-bold"
+                        className="flex size-8 items-center justify-center rounded-lg text-white text-sm font-bold overflow-hidden relative"
                         style={{ backgroundColor: currentWorkspace?.color || "#6366F1" }}
                     >
-                        {currentWorkspace?.name?.[0]?.toUpperCase() || <Boxes className="size-4" />}
+                        <Boxes className="size-5" />
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="truncate font-semibold">
@@ -97,10 +99,10 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                         className="gap-2 p-2 cursor-pointer"
                     >
                         <div
-                            className="flex size-6 items-center justify-center rounded-md text-white text-xs font-bold"
+                            className="flex size-6 items-center justify-center rounded-md text-white text-xs font-bold overflow-hidden relative"
                             style={{ backgroundColor: ws.color || "#6366F1" }}
                         >
-                            {ws.name?.[0]?.toUpperCase() || "W"}
+                            <Boxes className="size-3.5" />
                         </div>
                         <span className="flex-1 truncate">{ws.name}</span>
                         {ws.slug === currentWorkspaceId && (

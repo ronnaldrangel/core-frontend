@@ -33,6 +33,10 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
                     email: session.user.email || "",
                     image: session.user.image,
                 }}
+                workspaceId={workspace.id}
+                workspaceLogo={workspace.logo}
+                workspaceName={workspace.name}
+                workspaceColor={workspace.color}
             />
             <div className="flex h-screen pt-16">
                 <Sidebar

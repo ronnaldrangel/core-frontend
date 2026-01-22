@@ -16,6 +16,7 @@ export interface WorkspaceInvitation {
         slug: string;
         color: string;
         icon: string;
+        logo: string | null;
     };
     invited_user_id: string | {
         id: string;
@@ -150,6 +151,7 @@ export async function getPendingInvitations() {
                     "workspace_id.slug",
                     "workspace_id.color",
                     "workspace_id.icon",
+                    "workspace_id.logo",
                     "invited_by.id",
                     "invited_by.email",
                     "invited_by.first_name",

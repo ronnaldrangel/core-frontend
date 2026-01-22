@@ -161,7 +161,7 @@ export async function checkUserStatus(email: string) {
 }
 
 // Nueva función para obtener workspaces
-export async function getUserWorkspaces() {
+export async function getUserWorkspaces(): Promise<{ workspaces?: any[], error?: string }> {
     try {
         const session = await auth();
         if (!session?.user?.email) return { error: "No autorizado" };
@@ -192,7 +192,7 @@ export async function getUserWorkspaces() {
         const ownedWorkspaces = await adminClient.request(
             readItems('workspaces', {
                 filter: { owner: { _eq: userId } },
-                fields: ['id', 'name', 'slug', 'color', 'icon', 'description', 'members', 'status'],
+                fields: ['id', 'name', 'slug', 'color', 'icon', 'logo', 'description', 'members', 'status'],
             })
         );
 
@@ -200,7 +200,7 @@ export async function getUserWorkspaces() {
         const memberRelations = await adminClient.request(
             readItems('workspaces_members', {
                 filter: { user_id: { _eq: userId } },
-                fields: ['workspace_id.id', 'workspace_id.name', 'workspace_id.slug', 'workspace_id.color', 'workspace_id.icon', 'workspace_id.description', 'workspace_id.status'],
+                fields: ['workspace_id.id', 'workspace_id.name', 'workspace_id.slug', 'workspace_id.color', 'workspace_id.icon', 'workspace_id.logo', 'workspace_id.description', 'workspace_id.status'],
             })
         );
 

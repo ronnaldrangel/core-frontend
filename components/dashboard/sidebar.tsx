@@ -16,6 +16,7 @@ interface Workspace {
     slug: string;
     color?: string | null;
     icon?: string | null;
+    logo?: string | null;
 }
 
 interface SidebarProps {

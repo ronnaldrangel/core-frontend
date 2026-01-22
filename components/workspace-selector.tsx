@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, ChevronRight, Boxes, Mail, Check, X, Clock } from "lucide-react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ interface Workspace {
     description?: string | null;
     color?: string | null;
     icon?: string | null;
+    logo?: string | null; // Added logo
     members?: any[];
     plan?: string;
     projectCount?: number;
@@ -33,6 +35,7 @@ interface Invitation {
         slug: string;
         color: string;
         icon: string;
+        logo: string | null; // Added logo
     };
     invited_by: string | {
         id: string;
@@ -58,7 +61,7 @@ const roleLabels: Record<string, string> = {
 // Helper functions for type unions
 const getWorkspaceInfo = (workspace_id: Invitation["workspace_id"]) => {
     if (typeof workspace_id === 'string') {
-        return { name: 'Workspace', color: '#6366F1', slug: '', icon: '' };
+        return { name: 'Workspace', color: '#6366F1', slug: '', icon: '', logo: null };
     }
     return workspace_id;
 };
@@ -187,10 +190,19 @@ export function WorkspaceSelector({
                                 >
                                     <div className="flex-shrink-0 mr-4">
                                         <div
-                                            className="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
+                                            className="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden relative"
                                             style={{ backgroundColor: wsInfo.color || "#6366F1" }}
                                         >
-                                            {wsInfo.name?.charAt(0).toUpperCase() || "W"}
+                                            {wsInfo.logo ? (
+                                                <Image
+                                                    src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${wsInfo.logo}`}
+                                                    alt={wsInfo.name}
+                                                    fill
+                                                    className="object-contain"
+                                                />
+                                            ) : (
+                                                wsInfo.name?.charAt(0).toUpperCase() || "W"
+                                            )}
                                         </div>
                                     </div>
 
@@ -260,12 +272,21 @@ export function WorkspaceSelector({
                                 <div className="flex-shrink-0 mr-4">
                                     <div
                                         className={cn(
-                                            "h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg",
-                                            !workspace.color && "bg-gradient-to-br from-blue-600 to-purple-600"
+                                            "h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden relative",
+                                            !workspace.color && !workspace.logo && "bg-gradient-to-br from-blue-600 to-purple-600"
                                         )}
-                                        style={workspace.color ? { backgroundColor: workspace.color } : {}}
+                                        style={workspace.color && !workspace.logo ? { backgroundColor: workspace.color } : {}}
                                     >
-                                        {workspace.name.charAt(0).toUpperCase()}
+                                        {workspace.logo ? (
+                                            <Image
+                                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspace.logo}`}
+                                                alt={workspace.name}
+                                                fill
+                                                className="object-contain"
+                                            />
+                                        ) : (
+                                            workspace.name.charAt(0).toUpperCase()
+                                        )}
                                     </div>
                                 </div>
 

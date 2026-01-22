@@ -14,18 +14,29 @@ interface DashboardHeaderProps {
         email: string;
         image?: string | null;
     };
+    workspaceId?: string;
+    workspaceLogo?: string | null;
+    workspaceName?: string;
+    workspaceColor?: string;
 }
+import { Logo } from "@/components/logo";
 
-export function DashboardHeader({ user }: DashboardHeaderProps) {
+export function DashboardHeader({ user, workspaceLogo, workspaceName, workspaceColor }: DashboardHeaderProps) {
+    const logoUrl = workspaceLogo
+        ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
+        : undefined;
+
     return (
         <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
             <MobileSidebar />
             <div className="flex items-center gap-2 font-semibold">
-                <Link href="/dashboard" className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                        <span className="font-bold text-white">C</span>
-                    </div>
-                    <span className="">Core System</span>
+                <Link href="/workspaces" className="flex items-center gap-2">
+                    <Logo
+                        height={32}
+                        src={logoUrl}
+                        initial={workspaceName}
+                        color={workspaceColor}
+                    />
                 </Link>
             </div>
 

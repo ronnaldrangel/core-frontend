@@ -12,6 +12,7 @@ export interface Workspace {
     description: string | null;
     color: string;
     icon: string;
+    logo: string | null; // Added logo field
     status: string;
     owner: string | { id: string; first_name: string; last_name: string; email: string };
     members?: WorkspaceMember[];
@@ -42,6 +43,7 @@ export interface CreateWorkspaceData {
     description?: string;
     color?: string;
     icon?: string;
+    logo?: string;
 }
 
 export interface UpdateWorkspaceData {
@@ -49,6 +51,7 @@ export interface UpdateWorkspaceData {
     description?: string;
     color?: string;
     icon?: string;
+    logo?: string | null;
     status?: string;
 }
 
@@ -76,6 +79,7 @@ export async function getWorkspaces() {
                     "description",
                     "color",
                     "icon",
+                    "logo",
                     "status",
                     "date_created",
                     "date_updated",
@@ -125,6 +129,7 @@ export async function getWorkspace(id: string) {
                     "description",
                     "color",
                     "icon",
+                    "logo",
                     "status",
                     "date_created",
                     "date_updated",
@@ -166,6 +171,7 @@ export async function getWorkspaceBySlug(slug: string) {
                     "description",
                     "color",
                     "icon",
+                    "logo",
                     "status",
                     "date_created",
                     "date_updated",
@@ -235,6 +241,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
                 description: data.description || null,
                 color: data.color || "#6366F1",
                 icon: data.icon || "folder",
+                logo: data.logo || null,
                 owner: session.user.id,
                 status: "published",
             })
@@ -262,12 +269,54 @@ export async function updateWorkspace(id: string, data: UpdateWorkspaceData) {
         );
 
         revalidatePath("/workspaces");
-        revalidatePath(`/workspaces/${id}`);
+        revalidatePath(`/dashboard/${workspace.slug}`);
+        revalidatePath(`/dashboard/${workspace.slug}/settings`);
         return { success: true, data: workspace };
     } catch (error: any) {
         console.error("Error updating workspace:", error);
         const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
         return { error: `Error al actualizar el workspace: ${detail}` };
+    }
+}
+
+// Upload workspace logo
+export async function uploadWorkspaceLogo(formData: FormData) {
+    try {
+        const { uploadFiles } = await import("@directus/sdk");
+        const session = await auth();
+        if (!session?.user?.id) {
+            return { error: "No estás autenticado" };
+        }
+
+        const file = formData.get("logo") as File;
+        if (!file || file.size === 0) {
+            return { error: "No se seleccionó ningún archivo" };
+        }
+
+        // Validate file type
+        const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+        if (!validTypes.includes(file.type)) {
+            return { error: "Tipo de archivo no válido. Usa JPG, PNG, GIF, WebP o SVG." };
+        }
+
+        // Validate file size (max 2MB for logos)
+        if (file.size > 2 * 1024 * 1024) {
+            return { error: "El archivo es demasiado grande. Máximo 2MB." };
+        }
+
+        // Upload file to Directus
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+
+        const uploadedFile = await directus.request(
+            uploadFiles(uploadFormData)
+        );
+
+        return { success: true, id: uploadedFile.id };
+    } catch (error: any) {
+        console.error("Error uploading workspace logo:", error);
+        const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
+        return { error: `Error al subir el logo: ${detail}` };
     }
 }
 
