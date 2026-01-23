@@ -7,6 +7,7 @@ import {
     LayoutDashboard,
     Users,
     Settings,
+    Package,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -38,6 +39,11 @@ export function Sidebar({ workspaces = [], currentWorkspaceId }: SidebarProps) {
             title: "Miembros",
             href: `/dashboard/${currentWorkspaceId}/members`,
             icon: Users,
+        },
+        {
+            title: "Productos",
+            href: `/dashboard/${currentWorkspaceId}/products`,
+            icon: Package,
         },
         {
             title: "Configuración",
