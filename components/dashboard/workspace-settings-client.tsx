@@ -120,13 +120,13 @@ export function WorkspaceSettingsClient({ workspace, role }: WorkspaceSettingsCl
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500 pb-12">
-            <div className="flex flex-col gap-4">
+        <div className="space-y-6 animate-in fade-in duration-500 pb-12">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
                         <Settings className="h-8 w-8 text-primary" />
                         Configuración del Workspace
-                    </h2>
+                    </h1>
                     <p className="text-muted-foreground mt-1">
                         Gestiona los detalles y la apariencia de <strong>{workspace.name}</strong>.
                     </p>

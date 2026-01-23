@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
@@ -28,13 +29,20 @@ export function DashboardHeader({
     workspaceColor,
     initialInvitations = []
 }: DashboardHeaderProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
         : undefined;
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-            <MobileSidebar />
+            {mounted ? <MobileSidebar /> : <div className="h-10 w-10 md:hidden" />}
+
             <div className="flex items-center gap-2 font-semibold">
                 <Link href="/workspaces" className="flex items-center gap-2">
                     <Logo
@@ -47,11 +55,11 @@ export function DashboardHeader({
             </div>
 
             <div className="flex flex-1 items-center justify-end gap-4 md:gap-2 lg:gap-4">
-                <NotificationBell initialInvitations={initialInvitations} />
+                {mounted && <NotificationBell initialInvitations={initialInvitations} />}
                 <div className="hidden md:flex">
                     <ModeToggle />
                 </div>
-                <UserNav user={user} />
+                {mounted && <UserNav user={user} />}
             </div>
         </header>
     );

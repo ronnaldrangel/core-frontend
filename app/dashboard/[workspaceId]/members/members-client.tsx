@@ -62,6 +62,7 @@ import {
     Clock,
     X
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface Workspace {
@@ -215,11 +216,11 @@ export function MembersClient({
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
                         <Users className="h-6 w-6" />
                         Miembros del Equipo
                     </h1>
@@ -301,204 +302,127 @@ export function MembersClient({
                 )}
             </div>
 
-            {/* Owner Card */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <Crown className="h-4 w-4 text-yellow-500" />
-                        Propietario
-                    </CardTitle>
-                    <CardDescription>
-                        El propietario tiene control total sobre el workspace
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold">
-                                {owner?.first_name?.[0]?.toUpperCase() || "O"}
-                            </div>
-                            <div>
-                                <p className="font-medium">
-                                    {owner ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() : 'Propietario'}
-                                    {owner?.id === currentUserId && (
-                                        <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                                            Tú
-                                        </span>
-                                    )}
-                                </p>
-                                <p className="text-sm text-muted-foreground">{owner?.email || 'Sin email'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Crown className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm font-medium text-yellow-600">Propietario</span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Pending Invitations */}
-            {pendingInvitations.length > 0 && (
-                <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/10">
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-base flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-blue-500" />
-                            Invitaciones Pendientes ({pendingInvitations.length})
-                        </CardTitle>
-                        <CardDescription>
-                            Estas invitaciones están esperando ser aceptadas
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            {pendingInvitations.map((invitation) => {
-                                const user = invitation.invited_user_id;
-                                const roleInfo = roleLabels[invitation.role as keyof typeof roleLabels] || roleLabels.viewer;
-                                const RoleIcon = roleInfo.icon;
-
-                                return (
-                                    <div
-                                        key={invitation.id}
-                                        className="flex items-center justify-between p-3 rounded-lg bg-background/80"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium">
-                                                {user?.first_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || "?"}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium">
-                                                    {user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : user?.email}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">{user?.email}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className="text-right">
-                                                <div className={`flex items-center gap-1.5 ${roleInfo.color}`}>
-                                                    <RoleIcon className="h-4 w-4" />
-                                                    <span className="text-sm font-medium">{roleInfo.label}</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    {formatDate(invitation.date_created)}
-                                                </p>
-                                            </div>
-
-                                            {isAdmin && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                    onClick={() => setInvitationToCancel(invitation)}
-                                                >
-                                                    <X className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
             {/* Members List */}
             <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Miembros ({members.length})
-                    </CardTitle>
-                    <CardDescription>
-                        Usuarios con acceso a este workspace
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {members.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                            <p>No hay miembros adicionales en este workspace.</p>
-                            {isAdmin && (
-                                <Button
-                                    variant="link"
-                                    className="mt-2"
-                                    onClick={() => setIsInviteOpen(true)}
-                                >
-                                    Invitar al primer miembro
-                                </Button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {members.map((member) => {
-                                const info = getMemberInfo(member);
-                                const roleInfo = roleLabels[member.role as keyof typeof roleLabels] || roleLabels.viewer;
-                                const RoleIcon = roleInfo.icon;
-                                const isCurrentUser = info.id === currentUserId;
-
-                                return (
-                                    <div
-                                        key={member.id}
-                                        className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors"
-                                    >
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                                <tr>
+                                    <th className="px-4 py-3 min-w-[280px]">Usuario</th>
+                                    <th className="px-4 py-3">Rol</th>
+                                    <th className="px-4 py-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {/* Owner Row */}
+                                <tr className="hover:bg-muted/30 transition-colors group">
+                                    <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 bg-muted rounded-full flex items-center justify-center font-medium">
-                                                {info.initials}
+                                            <div className="h-9 w-9 bg-yellow-500 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-white">
+                                                {owner?.first_name?.[0]?.toUpperCase() || "O"}
                                             </div>
-                                            <div>
-                                                <p className="font-medium">
-                                                    {info.name}
-                                                    {isCurrentUser && (
-                                                        <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-foreground">
+                                                        {owner ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() : 'Propietario'}
+                                                    </span>
+                                                    {owner?.id === currentUserId && (
+                                                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
                                                             Tú
                                                         </span>
                                                     )}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">{info.email}</p>
+                                                </div>
+                                                <span className="text-xs text-muted-foreground">{owner?.email || 'Sin email'}</span>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`flex items-center gap-1.5 ${roleInfo.color}`}>
-                                                <RoleIcon className="h-4 w-4" />
-                                                <span className="text-sm font-medium">{roleInfo.label}</span>
-                                            </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200/50 dark:border-yellow-700/50">
+                                            <Crown className="h-3.5 w-3.5" />
+                                            Propietario
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        {/* No actions for owner usually */}
+                                    </td>
+                                </tr>
 
-                                            {isAdmin && !isCurrentUser && (
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                setMemberToEdit(member);
-                                                                setEditRole(member.role);
-                                                            }}
-                                                        >
-                                                            <Edit className="h-4 w-4 mr-2" />
-                                                            Cambiar rol
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            className="text-destructive focus:text-destructive"
-                                                            onClick={() => setMemberToDelete(member)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Eliminar del workspace
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                {/* Other Members */}
+                                {members.map((member) => {
+                                    const info = getMemberInfo(member);
+                                    const roleInfo = roleLabels[member.role as keyof typeof roleLabels] || roleLabels.viewer;
+                                    const RoleIcon = roleInfo.icon;
+                                    const isCurrentUser = info.id === currentUserId;
+
+                                    return (
+                                        <tr key={member.id} className="hover:bg-muted/30 transition-colors group">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-9 w-9 bg-muted rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-muted-foreground border">
+                                                        {info.initials}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-semibold text-foreground">{info.name}</span>
+                                                            {isCurrentUser && (
+                                                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                    Tú
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span className="text-xs text-muted-foreground">{info.email}</span>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className={cn(
+                                                    "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border",
+                                                    member.role === 'admin' ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
+                                                        member.role === 'editor' ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
+                                                            "bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800"
+                                                )}>
+                                                    <RoleIcon className="h-3.5 w-3.5" />
+                                                    {roleInfo.label}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                {isAdmin && !isCurrentUser && (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-48">
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    setMemberToEdit(member);
+                                                                    setEditRole(member.role);
+                                                                }}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                <Edit className="h-4 w-4 mr-2" />
+                                                                Cambiar rol
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive cursor-pointer"
+                                                                onClick={() => setMemberToDelete(member)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Eliminar del workspace
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </CardContent>
             </Card>
 

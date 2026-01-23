@@ -26,11 +26,11 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
     if (!workspace) return null;
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
                         <div
                             className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm text-white text-xl"
                             style={{ backgroundColor: workspace.color || "#6366F1" }}
@@ -38,7 +38,7 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
                             {workspace.icon === 'boxes' ? <Box className="h-5 w-5" /> : (workspace.name?.[0]?.toUpperCase() || "W")}
                         </div>
                         {workspace.name}
-                    </h2>
+                    </h1>
                     <p className="text-muted-foreground mt-1">
                         {workspace.description || "Vista general de tu espacio de trabajo."}
                     </p>

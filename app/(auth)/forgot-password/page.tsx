@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
                 <div className="flex flex-col items-center gap-2 text-center">
                     <h1 className="text-2xl font-bold">Recuperar Acceso</h1>
                     <p className="text-balance text-sm text-muted-foreground">
-                        Ingresa tu correo para recibir un enlace de recuperación
+                        Ingresa tu correo para recuperar tu acceso
                     </p>
                 </div>
 
