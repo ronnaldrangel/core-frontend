@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
 import { MobileSidebar } from "./mobile-sidebar";
-import { Button } from "@/components/ui/button";
-import { Bell } from "lucide-react";
+import { Logo } from "@/components/logo";
+import { NotificationBell } from "./notification-bell";
+import { type WorkspaceInvitation } from "@/lib/invitation-actions";
 
 interface DashboardHeaderProps {
     user: {
@@ -18,10 +18,16 @@ interface DashboardHeaderProps {
     workspaceLogo?: string | null;
     workspaceName?: string;
     workspaceColor?: string;
+    initialInvitations?: WorkspaceInvitation[];
 }
-import { Logo } from "@/components/logo";
 
-export function DashboardHeader({ user, workspaceLogo, workspaceName, workspaceColor }: DashboardHeaderProps) {
+export function DashboardHeader({
+    user,
+    workspaceLogo,
+    workspaceName,
+    workspaceColor,
+    initialInvitations = []
+}: DashboardHeaderProps) {
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
         : undefined;
@@ -41,10 +47,7 @@ export function DashboardHeader({ user, workspaceLogo, workspaceName, workspaceC
             </div>
 
             <div className="flex flex-1 items-center justify-end gap-4 md:gap-2 lg:gap-4">
-                <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-600 border-2 border-background"></span>
-                </Button>
+                <NotificationBell initialInvitations={initialInvitations} />
                 <div className="hidden md:flex">
                     <ModeToggle />
                 </div>

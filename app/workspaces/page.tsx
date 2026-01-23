@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { ModeToggle } from "@/components/mode-toggle";
 import { UserNav } from "@/components/user-nav";
 import { Logo } from "@/components/logo";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 
 export default async function WorkspacesPage() {
     const session = await auth();
@@ -53,6 +54,7 @@ export default async function WorkspacesPage() {
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                     <Logo height={32} />
                     <div className="flex items-center gap-3">
+                        <NotificationBell initialInvitations={safeInvitations} />
                         <ModeToggle />
                         <UserNav
                             user={{

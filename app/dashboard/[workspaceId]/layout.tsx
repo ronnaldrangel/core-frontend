@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug, getWorkspaces } from "@/lib/workspace-actions";
+import { getPendingInvitations } from "@/lib/invitation-actions";
 
 import { DashboardHeader } from "@/components/dashboard/header";
 import { Sidebar } from "@/components/dashboard/sidebar";
@@ -24,6 +25,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
     }
 
     const { data: allWorkspaces } = await getWorkspaces();
+    const { data: pendingInvitations } = await getPendingInvitations();
 
     return (
         <div className="min-h-screen bg-background text-foreground">
@@ -37,6 +39,7 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
                 workspaceLogo={workspace.logo}
                 workspaceName={workspace.name}
                 workspaceColor={workspace.color}
+                initialInvitations={pendingInvitations || []}
             />
             <div className="flex h-screen pt-16">
                 <Sidebar
