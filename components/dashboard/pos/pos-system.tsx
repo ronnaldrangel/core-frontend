@@ -169,6 +169,27 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     const totalWithAdjustments = subtotal + totalShipping + Number(adjustment);
     const balanceDue = Math.max(0, totalWithAdjustments - Number(advancePayment));
 
+    const resetPOS = () => {
+        setCart([]);
+        setClientDoc("");
+        setClientName("");
+        setClientPhone("");
+        setSelectedClientId(null);
+        setPaymentStatus("pendiente");
+        setOrderStatus("preparando");
+        setAdvancePayment(0);
+        setAdjustment(0);
+        setConfigureShipping(false);
+        setShippingType("adicional");
+        setShippingCost(0);
+        setCourier("SHALOM");
+        setProvince("");
+        setDestination("");
+        setCourierOrder("");
+        setCourierCode("");
+        setCourierPass("");
+    };
+
     const handleCheckout = async () => {
         if (cart.length === 0) {
             toast.error("El carrito está vacío");
@@ -209,16 +230,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
             if (error) throw new Error(error);
 
             toast.success("Venta realizada con éxito");
-            // Clear state
-            setCart([]);
-            setClientDoc("");
-            setClientName("");
-            setClientPhone("");
-            setSelectedClientId(null);
-            setAdvancePayment(0);
-            setAdjustment(0);
-            setConfigureShipping(false);
-            setShippingCost(0);
+            resetPOS();
         } catch (error: any) {
             toast.error(error.message || "Error al procesar la venta");
         } finally {
@@ -227,22 +239,22 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-4 h-full bg-muted/5 rounded-xl">
-            {/* --- LEFT: PRODUCT GRID --- */}
-            <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+        <div className="flex flex-col lg:flex-row h-full bg-background overflow-hidden">
+            {/* --- LEFT: PRODUCT GRID (2/3) --- */}
+            <div className="lg:flex-[2] flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
                 {/* Header Controls */}
                 <div className="flex flex-col sm:flex-row gap-3">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Buscar productos..."
-                            className="pl-10 h-10 bg-background border-none shadow-sm"
+                            className="pl-10 h-10 bg-muted/20 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-background px-3 py-2 rounded-md shadow-sm border border-transparent">
+                        <div className="flex items-center gap-2 bg-muted/20 px-3 py-2 rounded-md border border-transparent">
                             <Checkbox
                                 id="outOfStock"
                                 checked={!showOutOfStock}
@@ -251,7 +263,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                             <Label htmlFor="outOfStock" className="text-xs font-medium cursor-pointer">SIN STOCK</Label>
                         </div>
                         <Select value={sortBy} onValueChange={setSortBy}>
-                            <SelectTrigger className="w-[160px] h-10 bg-background border-none shadow-sm">
+                            <SelectTrigger className="w-[160px] h-10 bg-muted/20 border-none shadow-none">
                                 <SelectValue placeholder="Ordenar por" />
                             </SelectTrigger>
                             <SelectContent>
@@ -266,14 +278,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                 {/* Products Grid */}
                 <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-4">
                         {filteredProducts.map((product) => {
                             const isOutOfStock = product.stock <= 0;
                             return (
                                 <Card
                                     key={product.id}
                                     className={cn(
-                                        "overflow-hidden cursor-pointer hover:shadow-md transition-all border-none shadow-sm flex flex-col group",
+                                        "overflow-hidden cursor-pointer hover:shadow-md transition-all border-none bg-muted/5 flex flex-col group",
                                         isOutOfStock && "opacity-80"
                                     )}
                                     onClick={() => addToCart(product)}
@@ -331,18 +343,18 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                 </ScrollArea>
             </div>
 
-            {/* --- RIGHT: CHECKOUT SIDEBAR --- */}
-            <div className="w-full lg:w-[420px] flex flex-col bg-background rounded-xl border shadow-xl relative overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b bg-muted/5">
+            {/* --- RIGHT: CHECKOUT SIDEBAR (1/3) --- */}
+            <div className="w-full lg:flex-1 lg:max-w-md flex flex-col bg-background border-l relative overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b bg-muted/5 font-medium">
                     <div className="flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5 text-primary" />
-                        <h2 className="font-bold text-sm tracking-widest uppercase">Detalles de Venta</h2>
+                        <h2 className="font-bold text-sm tracking-widest uppercase text-foreground/80">Detalles de Venta</h2>
                     </div>
                     <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => setCart([])}
+                        onClick={resetPOS}
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -432,25 +444,26 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         </div>
 
                         {/* Pagos */}
-                        <Card className="bg-muted/30 border-none shadow-none">
-                            <CardContent className="p-4 grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Adelanto</Label>
+                        <div className="grid grid-cols-2 gap-6 py-4 border-y border-dashed border-border/50">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Adelanto</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">S/</span>
                                     <Input
                                         type="number"
-                                        className="h-11 font-bold text-lg bg-background"
+                                        className="h-11 pl-8 font-bold text-lg bg-muted/20 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary"
                                         value={advancePayment}
                                         onChange={(e) => setAdvancePayment(Number(e.target.value))}
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] font-black text-destructive uppercase tracking-widest">Faltante</Label>
-                                    <div className="h-11 flex items-center justify-center bg-background rounded-md font-bold text-lg border">
-                                        S/ {balanceDue.toFixed(2)}
-                                    </div>
+                            </div>
+                            <div className="space-y-2 text-right">
+                                <Label className="text-[10px] font-black text-destructive uppercase tracking-widest">Faltante</Label>
+                                <div className="h-11 flex items-center justify-end font-bold text-xl text-destructive tabular-nums bg-destructive/5 rounded-md px-3 border border-destructive/10">
+                                    S/ {balanceDue.toFixed(2)}
                                 </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
 
                         {/* Envio */}
                         <div className="space-y-4">
@@ -460,106 +473,102 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                     checked={configureShipping}
                                     onCheckedChange={(val) => setConfigureShipping(!!val)}
                                 />
-                                <Label htmlFor="shipping" className="text-xs font-bold uppercase tracking-widest cursor-pointer">Configurar Envío / Courier</Label>
+                                <Label htmlFor="shipping" className="text-xs font-bold uppercase tracking-widest cursor-pointer text-muted-foreground">Configurar Envío / Courier</Label>
                             </div>
 
                             {configureShipping && (
-                                <Card className="bg-accent/5 overflow-hidden">
-                                    <CardContent className="p-4 space-y-5">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-[10px] font-black uppercase">Tipo de Cobro</Label>
-                                            <div className="flex bg-muted p-1 rounded-md">
-                                                <Button
-                                                    variant={shippingType === "adicional" ? "default" : "ghost"}
-                                                    size="sm"
-                                                    className="h-7 text-[9px] font-black uppercase px-3"
-                                                    onClick={() => setShippingType("adicional")}
-                                                >Adicional</Button>
-                                                <Button
-                                                    variant={shippingType === "incluido" ? "secondary" : "ghost"}
-                                                    size="sm"
-                                                    className="h-7 text-[9px] font-black uppercase px-3 ml-1"
-                                                    onClick={() => setShippingType("incluido")}
-                                                >Incluido</Button>
-                                            </div>
+                                <div className="space-y-6 pt-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Cobro</Label>
+                                        <div className="flex bg-muted p-1 rounded-md">
+                                            <Button
+                                                variant={shippingType === "adicional" ? "default" : "ghost"}
+                                                size="sm"
+                                                className="h-7 text-[9px] font-black uppercase px-3 shadow-none"
+                                                onClick={() => setShippingType("adicional")}
+                                            >Adicional</Button>
+                                            <Button
+                                                variant={shippingType === "incluido" ? "secondary" : "ghost"}
+                                                size="sm"
+                                                className="h-7 text-[9px] font-black uppercase px-3 ml-1"
+                                                onClick={() => setShippingType("incluido")}
+                                            >Incluido</Button>
                                         </div>
+                                    </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Costo Envío</Label>
-                                                <Input
-                                                    type="number"
-                                                    className="h-9 font-bold"
-                                                    value={shippingCost}
-                                                    onChange={(e) => setShippingCost(Number(e.target.value))}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Courier</Label>
-                                                <Select value={courier} onValueChange={setCourier}>
-                                                    <SelectTrigger className="h-9 font-medium">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="SHALOM">SHALOM</SelectItem>
-                                                        <SelectItem value="OLVA">OLVA CURRIER</SelectItem>
-                                                        <SelectItem value="MOTORIZADO">MOTORIZADO</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Provincia / Dpto</Label>
-                                                <Input
-                                                    className="h-9 text-xs"
-                                                    value={province}
-                                                    onChange={(e) => setProvince(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Destino / Agencia</Label>
-                                                <Input
-                                                    className="h-9 text-xs"
-                                                    value={destination}
-                                                    onChange={(e) => setDestination(e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2">
-                                                <Truck className="h-4 w-4 text-primary" />
-                                                <Label className="text-[10px] font-black uppercase">Datos de Seguimiento ({courier})</Label>
-                                            </div>
-
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <Input
-                                                    placeholder="Nro. Orden"
-                                                    className="h-9 text-xs"
-                                                    value={courierOrder}
-                                                    onChange={(e) => setCourierOrder(e.target.value)}
-                                                />
-                                                <Input
-                                                    placeholder="Código"
-                                                    className="h-9 text-xs"
-                                                    value={courierCode}
-                                                    onChange={(e) => setCourierCode(e.target.value)}
-                                                />
-                                            </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Costo Envío</Label>
                                             <Input
-                                                placeholder="Clave"
-                                                type="password"
-                                                className="h-9 text-xs"
-                                                value={courierPass}
-                                                onChange={(e) => setCourierPass(e.target.value)}
+                                                type="number"
+                                                className="h-9 font-bold bg-muted/10 border-none shadow-none"
+                                                value={shippingCost}
+                                                onChange={(e) => setShippingCost(Number(e.target.value))}
                                             />
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Courier</Label>
+                                            <Select value={courier} onValueChange={setCourier}>
+                                                <SelectTrigger className="h-9 font-medium bg-muted/10 border-none shadow-none">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="SHALOM">SHALOM</SelectItem>
+                                                    <SelectItem value="OLVA">OLVA CURRIER</SelectItem>
+                                                    <SelectItem value="MOTORIZADO">MOTORIZADO</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Provincia / Dpto</Label>
+                                            <Input
+                                                className="h-9 text-xs bg-muted/10 border-none shadow-none"
+                                                value={province}
+                                                onChange={(e) => setProvince(e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Destino / Agencia</Label>
+                                            <Input
+                                                className="h-9 text-xs bg-muted/10 border-none shadow-none"
+                                                value={destination}
+                                                onChange={(e) => setDestination(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 pt-2 border-t border-dashed">
+                                        <div className="flex items-center gap-2">
+                                            <Truck className="h-3.5 w-3.5 text-primary" />
+                                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Seguimiento ({courier})</Label>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Input
+                                                placeholder="Nro. Orden"
+                                                className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                                value={courierOrder}
+                                                onChange={(e) => setCourierOrder(e.target.value)}
+                                            />
+                                            <Input
+                                                placeholder="Código"
+                                                className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                                value={courierCode}
+                                                onChange={(e) => setCourierCode(e.target.value)}
+                                            />
+                                        </div>
+                                        <Input
+                                            placeholder="Clave"
+                                            type="password"
+                                            className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                            value={courierPass}
+                                            onChange={(e) => setCourierPass(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
                             )}
                         </div>
 
@@ -571,18 +580,16 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Carrito ({cart.length})</Label>
                             </div>
                             {cart.length === 0 ? (
-                                <Card className="bg-muted/20 border-dashed border-2">
-                                    <CardContent className="h-24 flex flex-col items-center justify-center text-muted-foreground/40 space-y-1 p-0">
-                                        <ShoppingCart className="h-6 w-6" />
-                                        <p className="text-[10px] uppercase font-bold">Venta vacía</p>
-                                    </CardContent>
-                                </Card>
+                                <div className="h-24 flex flex-col items-center justify-center text-muted-foreground/30 border-2 border-dashed rounded-lg bg-muted/5">
+                                    <ShoppingCart className="h-6 w-6 mb-2 opacity-20" />
+                                    <p className="text-[10px] uppercase font-bold tracking-tighter">Sin productos en la venta</p>
+                                </div>
                             ) : (
-                                <div className="space-y-3">
+                                <div className="divide-y divide-border/50 -mx-4">
                                     {cart.map((item) => (
-                                        <Card key={item.id} className="bg-muted/10 border-none shadow-none group relative overflow-hidden">
-                                            <CardContent className="p-3 flex gap-3">
-                                                <div className="w-16 h-20 bg-muted/40 rounded flex-shrink-0 relative overflow-hidden">
+                                        <div key={item.id} className="p-4 group relative hover:bg-muted/30 transition-colors">
+                                            <div className="flex gap-4">
+                                                <div className="w-16 h-16 bg-muted rounded flex-shrink-0 relative overflow-hidden border border-border/50 shadow-sm">
                                                     {item.imagen ? (
                                                         <Image
                                                             src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${item.imagen}`}
@@ -590,46 +597,41 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                                             fill
                                                             className="object-cover"
                                                         />
-                                                    ) : <Package className="h-5 w-5 m-auto absolute inset-0 opacity-20" />}
+                                                    ) : <Package className="h-6 w-6 m-auto absolute inset-0 opacity-10" />}
                                                 </div>
                                                 <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
-                                                    <div className="space-y-1">
-                                                        <h4 className="text-[11px] font-black uppercase truncate leading-tight">{item.nombre}</h4>
-                                                        {item.variantes_producto && (
-                                                            <div className="flex flex-wrap gap-1">
-                                                                <Badge variant="outline" className="text-[8px] h-4 px-1 leading-none uppercase">Var: Seleccionada</Badge>
-                                                            </div>
-                                                        )}
+                                                    <div className="flex justify-between items-start gap-2">
+                                                        <h4 className="text-[11px] font-black uppercase truncate leading-tight flex-1 text-foreground/90">{item.nombre}</h4>
+                                                        <div className="font-black text-xs text-primary tabular-nums">S/ {Number(item.precio_venta).toFixed(2)}</div>
                                                     </div>
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center bg-background rounded border h-7">
+                                                    <div className="flex items-center justify-between mt-auto">
+                                                        <div className="flex items-center bg-background rounded-md border border-border/60 h-7 overflow-hidden">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-6 w-6 rounded-none p-0"
+                                                                className="h-full w-7 rounded-none hover:bg-muted"
                                                                 onClick={() => updateQuantity(item.id, -1)}
                                                             ><Minus className="h-3 w-3" /></Button>
-                                                            <span className="text-xs w-6 text-center font-bold px-1">{item.quantity}</span>
+                                                            <span className="text-[11px] w-8 text-center font-bold px-1 tabular-nums">{item.quantity}</span>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-6 w-6 rounded-none p-0"
+                                                                className="h-full w-7 rounded-none hover:bg-muted"
                                                                 onClick={() => updateQuantity(item.id, 1)}
                                                             ><Plus className="h-3 w-3" /></Button>
                                                         </div>
-                                                        <div className="font-black text-xs text-primary">S/ {Number(item.precio_venta).toFixed(2)}</div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                                            onClick={() => removeFromCart(item.id)}
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                        </Button>
                                                     </div>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border"
-                                                    onClick={() => removeFromCart(item.id)}
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            </CardContent>
-                                        </Card>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             )}
@@ -639,20 +641,18 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                 {/* Footer Totals */}
                 <div className="p-6 border-t bg-muted/5 space-y-6">
-                    <Card className="bg-background/80 border-dashed border-muted shadow-none">
-                        <CardContent className="p-3 flex items-center justify-between">
-                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ajuste Total</Label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-muted-foreground">S/</span>
-                                <Input
-                                    type="number"
-                                    className="h-8 w-20 font-bold text-center"
-                                    value={adjustment}
-                                    onChange={(e) => setAdjustment(Number(e.target.value))}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div className="flex items-center justify-between py-3 border-b border-dashed border-border/70">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Ajuste de Venta</Label>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-muted-foreground/50">S/</span>
+                            <Input
+                                type="number"
+                                className="h-8 w-24 font-bold text-right bg-transparent border-none ring-1 ring-border/50 focus-visible:ring-primary shadow-none"
+                                value={adjustment}
+                                onChange={(e) => setAdjustment(Number(e.target.value))}
+                            />
+                        </div>
+                    </div>
 
                     <div className="flex items-end justify-between px-1">
                         <div className="space-y-1">

@@ -29,7 +29,7 @@ export default async function POSPage({ params }: POSPageProps) {
     ]);
 
     return (
-        <div className="h-full p-2 md:p-4">
+        <div className="h-full">
             <POSSystem
                 products={productsResult.data || []}
                 clients={clientsResult.data || []}
