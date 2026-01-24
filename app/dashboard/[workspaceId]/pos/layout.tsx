@@ -25,7 +25,7 @@ export default async function POSLayout({ children, params }: POSLayoutProps) {
     return (
         <div className="min-h-screen bg-background flex flex-col overflow-hidden">
             {/* Minimal Header for Tablet POS */}
-            <header className="h-14 border-b bg-card px-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+            <header className="h-14 border-b bg-card px-4 flex items-center justify-between shrink-0 z-10">
                 <div className="flex items-center gap-4">
                     <Link href={`/dashboard/${workspace.slug}`}>
                         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
@@ -39,21 +39,16 @@ export default async function POSLayout({ children, params }: POSLayoutProps) {
                             className="w-2 h-2 rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]"
                             style={{ backgroundColor: workspace.color || "var(--primary)" }}
                         />
-                        <span className="font-black uppercase text-xs tracking-tighter">{workspace.name}</span>
+                        <span className="font-semibold uppercase text-xs">{workspace.name}</span>
                         <span className="text-[10px] font-bold text-muted-foreground/50 uppercase ml-2 tracking-widest hidden xs:inline">Punto de Venta</span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                     <div className="hidden md:flex flex-col items-end mr-4">
-                        <span className="text-[10px] font-black uppercase text-foreground leading-none">{session.user.first_name} {session.user.last_name}</span>
+                        <span className="text-[10px] font-bold uppercase text-foreground leading-none">{session.user.first_name} {session.user.last_name}</span>
                         <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none mt-1">{session.user.email}</span>
                     </div>
-                    <Link href={`/dashboard/${workspace.slug}`}>
-                        <Button variant="outline" size="icon" className="h-9 w-9 border-none bg-muted/20">
-                            <LayoutDashboard className="h-4 w-4" />
-                        </Button>
-                    </Link>
                 </div>
             </header>
 
