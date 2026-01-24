@@ -38,6 +38,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -246,7 +248,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 checked={!showOutOfStock}
                                 onCheckedChange={(val) => setShowOutOfStock(!val)}
                             />
-                            <label htmlFor="outOfStock" className="text-xs font-medium cursor-pointer">SIN STOCK</label>
+                            <Label htmlFor="outOfStock" className="text-xs font-medium cursor-pointer">SIN STOCK</Label>
                         </div>
                         <Select value={sortBy} onValueChange={setSortBy}>
                             <SelectTrigger className="w-[160px] h-10 bg-background border-none shadow-sm">
@@ -291,7 +293,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         )}
 
                                         {/* STOCK Badge */}
-                                        <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm">
+                                        <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded text-[10px] font-bold shadow-sm text-foreground">
                                             {product.stock}
                                         </div>
 
@@ -309,8 +311,8 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                                         {/* VARS Label if variants exist */}
                                         {product.variantes_producto && (product.variantes_producto as any[]).length > 0 && (
-                                            <div className="absolute top-2 right-2 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm shadow-sm ring-1 ring-white/20">
-                                                VARS
+                                            <div className="absolute top-2 right-2">
+                                                <Badge className="text-[9px] font-black h-4 px-1">VARS</Badge>
                                             </div>
                                         )}
                                     </div>
@@ -318,7 +320,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         <div>
                                             <h3 className="text-xs font-bold line-clamp-2 uppercase tracking-tight">{product.nombre}</h3>
                                             <p className="text-[10px] text-muted-foreground line-clamp-1 italic mt-1">
-                                                {product.descripcion_corta || "Efecto caída del cabello..."}
+                                                {product.descripcion_corta || "Sin descripción corta"}
                                             </p>
                                         </div>
                                     </CardContent>
@@ -330,8 +332,8 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
             </div>
 
             {/* --- RIGHT: CHECKOUT SIDEBAR --- */}
-            <div className="w-full lg:w-[420px] flex flex-col bg-background rounded-xl border shadow-2xl relative overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b bg-muted/5 group">
+            <div className="w-full lg:w-[420px] flex flex-col bg-background rounded-xl border shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b bg-muted/5">
                     <div className="flex items-center gap-2">
                         <ShoppingCart className="h-5 w-5 text-primary" />
                         <h2 className="font-bold text-sm tracking-widest uppercase">Detalles de Venta</h2>
@@ -339,7 +341,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
                         onClick={() => setCart([])}
                     >
                         <Trash2 className="h-4 w-4" />
@@ -349,51 +351,62 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                 <ScrollArea className="flex-1">
                     <div className="p-4 space-y-6">
                         {/* Fecha */}
-                        <div className="flex items-center justify-between text-xs border-b pb-4">
-                            <span className="text-muted-foreground font-medium uppercase tracking-tighter">Fecha de Venta</span>
-                            <div className="flex items-center gap-2 font-bold p-1 px-2 rounded bg-muted/30">
-                                <Calendar className="h-3.5 w-3.5" />
+                        <div className="flex items-center justify-between text-xs pb-4">
+                            <Label className="text-muted-foreground font-medium uppercase tracking-tighter">Fecha de Venta</Label>
+                            <Badge variant="secondary" className="flex items-center gap-1.5 font-bold py-1 px-2">
+                                <Calendar className="h-3 w-3" />
                                 {format(orderDate, "dd/MM/yyyy HH:mm", { locale: es })}
-                            </div>
+                            </Badge>
                         </div>
 
+                        <Separator />
+
                         {/* Informacion Cliente */}
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                                <User className="h-3 w-3" /> Información del Cliente
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Información del Cliente</Label>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Input
-                                    placeholder="DNI / RUC"
-                                    className="bg-muted/10 border-none h-11 text-sm font-medium"
-                                    value={clientDoc}
-                                    onChange={(e) => setClientDoc(e.target.value)}
-                                />
-                                <div className="relative">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">DNI / RUC</Label>
                                     <Input
-                                        placeholder="Nombre del Cliente"
-                                        className="bg-muted/10 border-none h-11 text-sm font-medium pl-10"
+                                        placeholder="00000000"
+                                        className="h-10 text-sm font-medium"
+                                        value={clientDoc}
+                                        onChange={(e) => setClientDoc(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre</Label>
+                                    <Input
+                                        placeholder="Nombre Completo"
+                                        className="h-10 text-sm font-medium"
                                         value={clientName}
                                         onChange={(e) => setClientName(e.target.value)}
                                     />
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
                                 </div>
                             </div>
-                            <PhoneInput
-                                placeholder="+51 987 654 321"
-                                defaultCountry="PE"
-                                className="bg-muted/10 border-none h-11 text-sm font-medium"
-                                value={clientPhone}
-                                onChange={(value) => setClientPhone(value || "")}
-                            />
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Teléfono</Label>
+                                <PhoneInput
+                                    placeholder="+51 987 654 321"
+                                    defaultCountry="PE"
+                                    className="h-10 text-sm font-medium"
+                                    value={clientPhone}
+                                    onChange={(value) => setClientPhone(value || "")}
+                                />
+                            </div>
                         </div>
+
+                        <Separator />
 
                         {/* Estados */}
                         <div className="grid grid-cols-2 gap-3 pb-2">
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-muted-foreground uppercase">Estado Pago</label>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pago</Label>
                                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                                    <SelectTrigger className="h-11 bg-muted/10 border-none text-xs font-bold">
+                                    <SelectTrigger className="h-10 font-medium">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -403,10 +416,10 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-muted-foreground uppercase">Estado Pedido</label>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pedido</Label>
                                 <Select value={orderStatus} onValueChange={setOrderStatus}>
-                                    <SelectTrigger className="h-11 bg-muted/10 border-none text-xs font-bold">
+                                    <SelectTrigger className="h-10 font-medium">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -419,199 +432,204 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         </div>
 
                         {/* Pagos */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-blue-600 uppercase">Adelanto</label>
-                                <Input
-                                    type="number"
-                                    className="h-12 bg-blue-50 text-blue-800 border-none font-bold text-lg"
-                                    value={advancePayment}
-                                    onChange={(e) => setAdvancePayment(Number(e.target.value))}
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-[9px] font-black text-red-600 uppercase">Faltante</label>
-                                <div className="h-12 flex items-center bg-red-50 text-red-800 rounded-md font-bold text-lg px-3">
-                                    {balanceDue.toFixed(2)}
+                        <Card className="bg-muted/30 border-none shadow-none">
+                            <CardContent className="p-4 grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Adelanto</Label>
+                                    <Input
+                                        type="number"
+                                        className="h-11 font-bold text-lg bg-background"
+                                        value={advancePayment}
+                                        onChange={(e) => setAdvancePayment(Number(e.target.value))}
+                                    />
                                 </div>
-                            </div>
-                        </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black text-destructive uppercase tracking-widest">Faltante</Label>
+                                    <div className="h-11 flex items-center justify-center bg-background rounded-md font-bold text-lg border">
+                                        S/ {balanceDue.toFixed(2)}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* Envio */}
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center gap-3 bg-muted/10 p-4 rounded-xl">
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/5 capitalize">
                                 <Checkbox
                                     id="shipping"
-                                    className="h-5 w-5 rounded-md border-2 border-primary"
                                     checked={configureShipping}
                                     onCheckedChange={(val) => setConfigureShipping(!!val)}
                                 />
-                                <label htmlFor="shipping" className="text-xs font-black uppercase tracking-widest cursor-pointer select-none">Configurar Envío / Currier</label>
+                                <Label htmlFor="shipping" className="text-xs font-bold uppercase tracking-widest cursor-pointer">Configurar Envío / Courier</Label>
                             </div>
 
                             {configureShipping && (
-                                <div className="space-y-6 p-5 rounded-2xl bg-blue-50/50 border border-blue-100 animate-in slide-in-from-top duration-300">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <span className="text-[10px] font-black text-blue-700 uppercase">Tipo de Cobro</span>
-                                        <div className="flex bg-white p-1 rounded-lg shadow-inner border border-blue-50">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={cn(
-                                                    "h-7 text-[9px] font-black uppercase rounded py-0 px-3",
-                                                    shippingType === "adicional" ? "bg-blue-600 text-white shadow-sm" : "text-blue-400"
-                                                )}
-                                                onClick={() => setShippingType("adicional")}
-                                            >Adicional</Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={cn(
-                                                    "h-7 text-[9px] font-black uppercase rounded py-0 px-3 ml-1",
-                                                    shippingType === "incluido" ? "bg-green-600 text-white shadow-sm" : "text-blue-400"
-                                                )}
-                                                onClick={() => setShippingType("incluido")}
-                                            >Incluido</Button>
+                                <Card className="bg-accent/5 overflow-hidden">
+                                    <CardContent className="p-4 space-y-5">
+                                        <div className="flex items-center justify-between">
+                                            <Label className="text-[10px] font-black uppercase">Tipo de Cobro</Label>
+                                            <div className="flex bg-muted p-1 rounded-md">
+                                                <Button
+                                                    variant={shippingType === "adicional" ? "default" : "ghost"}
+                                                    size="sm"
+                                                    className="h-7 text-[9px] font-black uppercase px-3"
+                                                    onClick={() => setShippingType("adicional")}
+                                                >Adicional</Button>
+                                                <Button
+                                                    variant={shippingType === "incluido" ? "secondary" : "ghost"}
+                                                    size="sm"
+                                                    className="h-7 text-[9px] font-black uppercase px-3 ml-1"
+                                                    onClick={() => setShippingType("incluido")}
+                                                >Incluido</Button>
+                                            </div>
                                         </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <Input
-                                            placeholder="Costo Envío"
-                                            className="bg-white border-blue-50 h-11 text-sm font-bold placeholder:font-normal placeholder:text-blue-300"
-                                            value={shippingCost}
-                                            onChange={(e) => setShippingCost(Number(e.target.value))}
-                                        />
-                                        <Select value={courier} onValueChange={setCourier}>
-                                            <SelectTrigger className="h-11 bg-white border-blue-50 text-sm font-bold">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="SHALOM">SHALOM</SelectItem>
-                                                <SelectItem value="OLVA">OLVA CURRIER</SelectItem>
-                                                <SelectItem value="MOTORIZADO">MOTORIZADO</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Costo Envío</Label>
+                                                <Input
+                                                    type="number"
+                                                    className="h-9 font-bold"
+                                                    value={shippingCost}
+                                                    onChange={(e) => setShippingCost(Number(e.target.value))}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Courier</Label>
+                                                <Select value={courier} onValueChange={setCourier}>
+                                                    <SelectTrigger className="h-9 font-medium">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="SHALOM">SHALOM</SelectItem>
+                                                        <SelectItem value="OLVA">OLVA CURRIER</SelectItem>
+                                                        <SelectItem value="MOTORIZADO">MOTORIZADO</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="relative">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Provincia / Dpto</Label>
+                                                <Input
+                                                    className="h-9 text-xs"
+                                                    value={province}
+                                                    onChange={(e) => setProvince(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[9px] uppercase font-bold text-muted-foreground">Destino / Agencia</Label>
+                                                <Input
+                                                    className="h-9 text-xs"
+                                                    value={destination}
+                                                    onChange={(e) => setDestination(e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <Truck className="h-4 w-4 text-primary" />
+                                                <Label className="text-[10px] font-black uppercase">Datos de Seguimiento ({courier})</Label>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <Input
+                                                    placeholder="Nro. Orden"
+                                                    className="h-9 text-xs"
+                                                    value={courierOrder}
+                                                    onChange={(e) => setCourierOrder(e.target.value)}
+                                                />
+                                                <Input
+                                                    placeholder="Código"
+                                                    className="h-9 text-xs"
+                                                    value={courierCode}
+                                                    onChange={(e) => setCourierCode(e.target.value)}
+                                                />
+                                            </div>
                                             <Input
-                                                placeholder="Provincia/Dpto..."
-                                                className="bg-white border-blue-50 h-11 text-xs font-bold"
-                                                value={province}
-                                                onChange={(e) => setProvince(e.target.value)}
+                                                placeholder="Clave"
+                                                type="password"
+                                                className="h-9 text-xs"
+                                                value={courierPass}
+                                                onChange={(e) => setCourierPass(e.target.value)}
                                             />
-                                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-200" />
                                         </div>
-                                        <Input
-                                            placeholder="Destino/Agencia"
-                                            className="bg-white border-blue-50 h-11 text-xs font-bold"
-                                            value={destination}
-                                            onChange={(e) => setDestination(e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div className="pt-4 border-t border-blue-100 flex items-center gap-2">
-                                        <Truck className="h-4 w-4 text-blue-600" />
-                                        <span className="text-[10px] font-black text-blue-600 uppercase">Datos {courier}</span>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <Input
-                                            placeholder="Nro. Orden"
-                                            className="bg-white border-blue-50 h-11 text-xs"
-                                            value={courierOrder}
-                                            onChange={(e) => setCourierOrder(e.target.value)}
-                                        />
-                                        <Input
-                                            placeholder="Código"
-                                            className="bg-white border-blue-50 h-11 text-xs"
-                                            value={courierCode}
-                                            onChange={(e) => setCourierCode(e.target.value)}
-                                        />
-                                    </div>
-                                    <Input
-                                        placeholder="Clave"
-                                        type="password"
-                                        className="bg-white border-blue-50 h-11 text-xs"
-                                        value={courierPass}
-                                        onChange={(e) => setCourierPass(e.target.value)}
-                                    />
-                                </div>
+                                    </CardContent>
+                                </Card>
                             )}
                         </div>
 
+                        <Separator />
+
                         {/* Carrito List */}
-                        <div className="pt-4 space-y-4">
-                            <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                                Carrito ({cart.length})
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Carrito ({cart.length})</Label>
                             </div>
                             {cart.length === 0 ? (
-                                <div className="h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground gap-3">
-                                    <ShoppingCart className="h-8 w-8 opacity-20" />
-                                    <p className="text-[10px] uppercase font-bold opacity-30">Venta vacía</p>
-                                </div>
+                                <Card className="bg-muted/20 border-dashed border-2">
+                                    <CardContent className="h-24 flex flex-col items-center justify-center text-muted-foreground/40 space-y-1 p-0">
+                                        <ShoppingCart className="h-6 w-6" />
+                                        <p className="text-[10px] uppercase font-bold">Venta vacía</p>
+                                    </CardContent>
+                                </Card>
                             ) : (
                                 <div className="space-y-3">
                                     {cart.map((item) => (
-                                        <div key={item.id} className="flex gap-4 p-4 rounded-2xl bg-muted/10 border border-transparent hover:border-muted-foreground/10 transition-all group relative">
-                                            <div className="w-20 h-24 bg-muted/20 rounded-lg relative overflow-hidden flex-shrink-0">
-                                                {item.imagen ? (
-                                                    <Image
-                                                        src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${item.imagen}`}
-                                                        alt={item.nombre}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                ) : <Package className="h-6 w-6 m-auto absolute inset-0 opacity-10" />}
-                                            </div>
-                                            <div className="flex-1 flex flex-col justify-between py-0.5">
-                                                <div>
-                                                    <h4 className="text-[11px] font-black uppercase tracking-tight line-clamp-2 leading-none">{item.nombre}</h4>
-                                                    {item.variantes_producto && (
-                                                        <div className="flex gap-1 mt-2">
-                                                            {["AUTO", "REG", "X1", "X2", "X3"].map(v => (
-                                                                <Button
-                                                                    key={v}
-                                                                    variant="outline"
-                                                                    className={cn(
-                                                                        "h-5 text-[8px] font-black px-1.5 py-0 border-none",
-                                                                        v === "AUTO" ? "bg-slate-700 text-white" : "bg-muted/40 text-muted-foreground"
-                                                                    )}
-                                                                >{v}</Button>
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                        <Card key={item.id} className="bg-muted/10 border-none shadow-none group relative overflow-hidden">
+                                            <CardContent className="p-3 flex gap-3">
+                                                <div className="w-16 h-20 bg-muted/40 rounded flex-shrink-0 relative overflow-hidden">
+                                                    {item.imagen ? (
+                                                        <Image
+                                                            src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${item.imagen}`}
+                                                            alt={item.nombre}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    ) : <Package className="h-5 w-5 m-auto absolute inset-0 opacity-20" />}
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center bg-background rounded-lg shadow-sm ring-1 ring-muted">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 rounded-none"
-                                                            onClick={() => updateQuantity(item.id, -1)}
-                                                        ><Minus className="h-3 w-3" /></Button>
-                                                        <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-7 w-7 rounded-none"
-                                                            onClick={() => updateQuantity(item.id, 1)}
-                                                        ><Plus className="h-3 w-3" /></Button>
+                                                <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
+                                                    <div className="space-y-1">
+                                                        <h4 className="text-[11px] font-black uppercase truncate leading-tight">{item.nombre}</h4>
+                                                        {item.variantes_producto && (
+                                                            <div className="flex flex-wrap gap-1">
+                                                                <Badge variant="outline" className="text-[8px] h-4 px-1 leading-none uppercase">Var: Seleccionada</Badge>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="font-black text-xs text-primary">S/ {Number(item.precio_venta).toFixed(2)}</div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center bg-background rounded border h-7">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 rounded-none p-0"
+                                                                onClick={() => updateQuantity(item.id, -1)}
+                                                            ><Minus className="h-3 w-3" /></Button>
+                                                            <span className="text-xs w-6 text-center font-bold px-1">{item.quantity}</span>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 rounded-none p-0"
+                                                                onClick={() => updateQuantity(item.id, 1)}
+                                                            ><Plus className="h-3 w-3" /></Button>
+                                                        </div>
+                                                        <div className="font-black text-xs text-primary">S/ {Number(item.precio_venta).toFixed(2)}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-white shadow-sm border border-muted opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => removeFromCart(item.id)}
-                                            >
-                                                <X className="h-3 w-3" />
-                                            </Button>
-                                        </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="absolute top-1 right-1 h-5 w-5 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background border"
+                                                    onClick={() => removeFromCart(item.id)}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
                                     ))}
                                 </div>
                             )}
@@ -620,57 +638,50 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                 </ScrollArea>
 
                 {/* Footer Totals */}
-                <div className="p-6 border-t bg-amber-50/10 space-y-6">
-                    <div className="flex items-center justify-between p-4 bg-amber-50/50 rounded-xl border border-amber-100/50 group">
-                        <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest">Ajuste Total</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-amber-700 p-1 px-2 rounded bg-amber-100">S/ Auto</span>
-                            <Input
-                                type="number"
-                                className="h-9 w-24 bg-white border-amber-100 font-bold text-center"
-                                value={adjustment}
-                                onChange={(e) => setAdjustment(Number(e.target.value))}
-                            />
-                        </div>
-                    </div>
+                <div className="p-6 border-t bg-muted/5 space-y-6">
+                    <Card className="bg-background/80 border-dashed border-muted shadow-none">
+                        <CardContent className="p-3 flex items-center justify-between">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Ajuste Total</Label>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-muted-foreground">S/</span>
+                                <Input
+                                    type="number"
+                                    className="h-8 w-20 font-bold text-center"
+                                    value={adjustment}
+                                    onChange={(e) => setAdjustment(Number(e.target.value))}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="flex items-end justify-between px-2">
+                    <div className="flex items-end justify-between px-1">
                         <div className="space-y-1">
-                            <div className="text-[11px] font-black text-muted-foreground uppercase opacity-40">Monto Total</div>
-                            <div className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter">Incluye Impuestos</div>
+                            <Label className="text-[11px] font-black text-muted-foreground uppercase opacity-50">Monto Total</Label>
+                            <p className="text-[9px] font-medium text-muted-foreground italic leading-none">IGV Incluido</p>
                         </div>
-                        <div className="text-4xl font-black text-primary tracking-tighter">
+                        <div className="text-4xl font-black text-primary tracking-tighter tabular-nums">
                             S/ {totalWithAdjustments.toFixed(2)}
                         </div>
                     </div>
 
                     <Button
-                        className="w-full h-16 text-lg font-black tracking-widest uppercase shadow-xl shadow-primary/20 hover:scale-[1.01] transition-transform active:scale-95 flex items-center justify-center gap-3"
+                        className="w-full h-14 text-sm font-black tracking-widest uppercase shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all flex items-center justify-center gap-3"
                         disabled={cart.length === 0 || isProcessing}
                         onClick={handleCheckout}
                     >
                         {isProcessing ? (
-                            <Loader2 className="h-6 w-6 animate-spin" />
+                            <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
                             <>
                                 FINALIZAR VENTA
-                                <CreditCard className="h-6 w-6" />
+                                <CreditCard className="h-5 w-5" />
                             </>
                         )}
                     </Button>
                 </div>
             </div>
 
-            {/* Helper Floating Label for variants or other info */}
-            <div className="fixed bottom-10 left-10 p-4 bg-background border shadow-2xl rounded-2xl flex items-center gap-3 z-50 animate-bounce duration-[2000ms] hidden lg:flex">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    <Info className="h-5 w-5" />
-                </div>
-                <div className="max-w-[200px]">
-                    <h5 className="text-[10px] font-bold uppercase tracking-widest">Configuración Rápida</h5>
-                    <p className="text-[9px] text-muted-foreground leading-tight mt-1">Sincronización Sunat lista para implementación futura.</p>
-                </div>
-            </div>
+
         </div>
     );
 }

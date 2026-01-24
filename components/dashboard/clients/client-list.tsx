@@ -41,6 +41,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { DEPARTAMENTOS } from "@/lib/peru-locations";
 
 interface ClientListProps {
     initialClients: Client[];
@@ -94,6 +95,13 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
             default:
                 return "bg-slate-500 hover:bg-slate-600";
         }
+    };
+
+    // Obtener el nombre del departamento por ID
+    const getDepartamentoNombre = (depId: string | null) => {
+        if (!depId) return null;
+        const dep = DEPARTAMENTOS.find(d => d.id === depId);
+        return dep?.nombre || depId;
     };
 
     return (
@@ -173,14 +181,8 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                                             {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground uppercase">
-                                        {client.distrito || client.departamento ? (
-                                            <>
-                                                {client.distrito && <span>{client.distrito}</span>}
-                                                {client.distrito && client.departamento && <span>, </span>}
-                                                {client.departamento && <span>{client.departamento}</span>}
-                                            </>
-                                        ) : "-"}
+                                    <TableCell className="text-xs text-muted-foreground">
+                                        {getDepartamentoNombre(client.departamento) || "-"}
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>

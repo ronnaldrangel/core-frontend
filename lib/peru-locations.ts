@@ -12748,21 +12748,21 @@ export function getNombreCompletoUbicacion(
     distritoId?: string
 ): string {
     const partes: string[] = [];
-    
+
     if (distritoId) {
         const distrito = getDistritoById(distritoId);
         if (distrito) partes.push(distrito.nombre);
     }
-    
+
     if (provinciaId) {
         const provincia = getProvinciaById(provinciaId);
         if (provincia) partes.push(provincia.nombre);
     }
-    
+
     if (departamentoId) {
         const departamento = getDepartamentoById(departamentoId);
         if (departamento) partes.push(departamento.nombre);
     }
-    
+
     return partes.join(', ');
 }

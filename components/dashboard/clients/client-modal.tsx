@@ -29,9 +29,22 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { createClient, updateClient, Client, checkDniExists } from "@/lib/client-actions";
+import { createClient, updateClient, Client, checkDniExists, lookupDni } from "@/lib/client-actions";
 import {
     DEPARTAMENTOS,
     getProvinciasByDepartamento,
@@ -39,9 +52,10 @@ import {
     Provincia,
     Distrito
 } from "@/lib/peru-locations";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInput } from "@/components/ui/phone-input";
 import type { E164Number } from "libphonenumber-js/core";
+import { cn } from "@/lib/utils";
 
 const clientSchema = z.object({
     nombre_completo: z.string().min(2, "El nombre es obligatorio"),
@@ -73,8 +87,10 @@ export function ClientModal({
     onSuccess,
 }: ClientModalProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [isLookingUpDni, setIsLookingUpDni] = useState(false);
     const [provincias, setProvincias] = useState<Provincia[]>([]);
     const [distritos, setDistritos] = useState<Distrito[]>([]);
+    const [openDepartamento, setOpenDepartamento] = useState(false);
 
     const form = useForm<ClientFormValues>({
         resolver: zodResolver(clientSchema),
@@ -155,6 +171,41 @@ export function ClientModal({
         setDistritos(dists);
     };
 
+    // Manejar búsqueda automática de DNI
+    const handleDniLookup = async (dni: string) => {
+        // Solo buscar si tiene exactamente 8 dígitos y es tipo persona
+        if (dni.length !== 8 || !/^\d{8}$/.test(dni)) {
+            return;
+        }
+
+        // Solo autocompletar para personas, no para empresas (RUC tiene 11 dígitos)
+        const tipoCliente = form.getValues("tipo_cliente");
+        if (tipoCliente !== "persona") {
+            return;
+        }
+
+        try {
+            setIsLookingUpDni(true);
+            const data = await lookupDni(dni);
+
+            if (data && data.full_name) {
+                // Formatear el nombre: convertir de "APELLIDO1 APELLIDO2 NOMBRES" a formato legible
+                const nombreFormateado = data.full_name
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+
+                form.setValue("nombre_completo", nombreFormateado);
+                toast.success("Datos encontrados y completados automáticamente");
+            }
+        } catch (error) {
+            // Si hay error, simplemente no hacemos nada (silencioso)
+            console.error("Error en búsqueda de DNI:", error);
+        } finally {
+            setIsLookingUpDni(false);
+        }
+    };
+
     const onSubmit = async (values: ClientFormValues) => {
         try {
             setIsLoading(true);
@@ -222,7 +273,21 @@ export function ClientModal({
                                 <FormItem>
                                     <FormLabel>DNI / RUC</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="12345678" {...field} />
+                                        <div className="relative">
+                                            <Input
+                                                placeholder="12345678"
+                                                {...field}
+                                                onChange={(e) => {
+                                                    field.onChange(e);
+                                                    handleDniLookup(e.target.value);
+                                                }}
+                                            />
+                                            {isLookingUpDni && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                                </div>
+                                            )}
+                                        </div>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -306,35 +371,68 @@ export function ClientModal({
                             />
                         </div>
 
-                        {/* 4. Departamento - Ancho completo */}
+                        {/* 4. Departamento - Ancho completo con buscador */}
                         <FormField
                             control={form.control}
                             name="departamento"
                             render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="flex flex-col">
                                     <FormLabel>Departamento</FormLabel>
-                                    <Select
-                                        onValueChange={(value) => {
-                                            field.onChange(value);
-                                            handleDepartamentoChange(value);
-                                            form.setValue("provincia", "");
-                                            form.setValue("distrito", "");
-                                        }}
-                                        value={field.value}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Selecciona departamento" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {DEPARTAMENTOS.map((dep) => (
-                                                <SelectItem key={dep.id} value={dep.id}>
-                                                    {dep.nombre}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <Popover open={openDepartamento} onOpenChange={setOpenDepartamento}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    aria-expanded={openDepartamento}
+                                                    className={cn(
+                                                        "w-full justify-between",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value
+                                                        ? DEPARTAMENTOS.find(
+                                                            (dep) => dep.id === field.value
+                                                        )?.nombre
+                                                        : "Selecciona departamento"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0" align="start">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar departamento..." />
+                                                <CommandList>
+                                                    <CommandEmpty>No se encontró departamento.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {DEPARTAMENTOS.map((dep) => (
+                                                            <CommandItem
+                                                                value={dep.nombre}
+                                                                key={dep.id}
+                                                                onSelect={() => {
+                                                                    field.onChange(dep.id);
+                                                                    handleDepartamentoChange(dep.id);
+                                                                    form.setValue("provincia", "");
+                                                                    form.setValue("distrito", "");
+                                                                    setOpenDepartamento(false);
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        dep.id === field.value
+                                                                            ? "opacity-100"
+                                                                            : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {dep.nombre}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <FormMessage />
                                 </FormItem>
                             )}

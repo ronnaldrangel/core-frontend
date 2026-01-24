@@ -123,3 +123,61 @@ export async function checkDniExists(
         return false;
     }
 }
+
+export interface ReniecResponse {
+    first_name: string;
+    first_last_name: string;
+    second_last_name: string;
+    full_name: string;
+    document_number: string;
+}
+
+/**
+ * Consultar datos de una persona por DNI usando la API de RENIEC (Decolecta)
+ * @param dni - Número de DNI (8 dígitos)
+ * @returns Datos de la persona o null si no se encuentra
+ */
+export async function lookupDni(dni: string): Promise<ReniecResponse | null> {
+    try {
+        // Validar que el DNI tenga 8 dígitos
+        if (!dni || dni.length !== 8 || !/^\d{8}$/.test(dni)) {
+            return null;
+        }
+
+        const token = process.env.DECOLECTA_API_TOKEN;
+
+        if (!token) {
+            console.error("DECOLECTA_API_TOKEN no está configurado");
+            return null;
+        }
+
+        const response = await fetch(
+            `https://api.decolecta.com/v1/reniec/dni?numero=${dni}`,
+            {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            console.error("Error en la consulta de DNI:", response.status);
+            return null;
+        }
+
+        const data = await response.json();
+
+        // Verificar si hay error en la respuesta
+        if (data.error) {
+            console.error("Error de API:", data.error);
+            return null;
+        }
+
+        return data as ReniecResponse;
+    } catch (error) {
+        console.error("Error consultando DNI:", error);
+        return null;
+    }
+}
