@@ -520,8 +520,8 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                 <ScrollArea className="flex-1">
                     <div className="p-4 space-y-6">
                         {/* Fecha */}
-                        <div className="flex items-center justify-between text-xs pb-4">
-                            <Label className="text-muted-foreground font-medium uppercase tracking-tighter">Fecha de Venta</Label>
+                        <div className="flex items-center justify-between pb-4">
+                            <Label className="text-sm font-medium">Fecha de Venta</Label>
                             <Badge variant="secondary" className="flex items-center gap-1.5 font-bold py-1 px-2">
                                 <Calendar className="h-3 w-3" />
                                 {format(orderDate, "dd/MM/yyyy HH:mm", { locale: es })}
@@ -533,13 +533,13 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         {/* Informacion Cliente */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-2">
-                                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Información del Cliente</Label>
+                                <User className="h-4 w-4" />
+                                <Label className="text-sm font-semibold">Información del Cliente</Label>
                             </div>
 
                             {/* DNI (Row 1) */}
                             <div className="space-y-1.5 relative">
-                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">DNI / RUC</Label>
+                                <Label className="text-sm font-medium">DNI / RUC</Label>
                                 <div className="relative">
                                     <Input
                                         placeholder="00000000"
@@ -560,7 +560,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                             {/* Tipo & Nombre (Row 2) */}
                             <div className="grid grid-cols-[1fr_3fr] gap-3">
                                 <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Tipo</Label>
+                                    <Label className="text-sm font-medium">Tipo</Label>
                                     <Select value={clientType} onValueChange={setClientType}>
                                         <SelectTrigger className="h-10 text-xs font-medium bg-muted/20 border-border/60">
                                             <SelectValue />
@@ -573,7 +573,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre Completo</Label>
+                                    <Label className="text-sm font-medium">Nombre Completo</Label>
                                     <Input
                                         placeholder="Nombre del Cliente"
                                         className="h-10 text-sm font-medium"
@@ -585,7 +585,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                             {/* Telefono (Row 3) */}
                             <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Teléfono</Label>
+                                <Label className="text-sm font-medium">Teléfono</Label>
                                 <PhoneInput
                                     placeholder="+51 987 654 321"
                                     defaultCountry="PE"
@@ -601,7 +601,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         {/* Estados */}
                         <div className="grid grid-cols-2 gap-3 pb-2">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pago</Label>
+                                <Label className="text-sm font-medium">Estado Pago</Label>
                                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
                                     <SelectTrigger className="h-10 font-medium w-full">
                                         <SelectValue />
@@ -614,7 +614,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pedido</Label>
+                                <Label className="text-sm font-medium">Estado Pedido</Label>
                                 <Select value={orderStatus} onValueChange={setOrderStatus}>
                                     <SelectTrigger className="h-10 font-medium w-full">
                                         <SelectValue />
@@ -631,21 +631,27 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         {/* Pagos */}
                         <div className="grid grid-cols-2 gap-6 py-4 border-y border-dashed border-border/50">
                             <div className="space-y-2">
-                                <Label className="text-[10px] font-black text-primary uppercase tracking-widest">Adelanto</Label>
+                                <Label className="text-sm font-medium">Adelanto</Label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">S/</span>
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">S/</span>
                                     <Input
                                         type="number"
-                                        className="h-11 pl-8 font-bold text-lg bg-muted/20 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary"
-                                        value={advancePayment}
+                                        className="h-10 pl-8 text-sm font-medium"
+                                        placeholder="0.00"
+                                        value={advancePayment === 0 ? "" : advancePayment}
                                         onChange={(e) => setAdvancePayment(Number(e.target.value))}
                                     />
                                 </div>
                             </div>
-                            <div className="space-y-2 text-right">
-                                <Label className="text-[10px] font-black text-destructive uppercase tracking-widest">Faltante</Label>
-                                <div className="h-11 flex items-center justify-end font-bold text-xl text-destructive tabular-nums bg-destructive/5 rounded-md px-3 border border-destructive/10">
-                                    S/ {balanceDue.toFixed(2)}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium text-destructive">Faltante</Label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-destructive">S/</span>
+                                    <Input
+                                        readOnly
+                                        className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5"
+                                        value={balanceDue.toFixed(2)}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -658,13 +664,13 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                     checked={configureShipping}
                                     onCheckedChange={(val) => setConfigureShipping(!!val)}
                                 />
-                                <Label htmlFor="shipping" className="text-xs font-bold uppercase tracking-widest cursor-pointer text-muted-foreground">Configurar Envío / Courier</Label>
+                                <Label htmlFor="shipping" className="text-sm font-medium cursor-pointer">Configurar Envío / Courier</Label>
                             </div>
 
                             {configureShipping && (
                                 <div className="space-y-6 pt-2">
                                     <div className="flex items-center justify-between">
-                                        <Label className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Cobro</Label>
+                                        <Label className="text-sm font-medium">Tipo de Cobro</Label>
                                         <div className="flex bg-muted p-1 rounded-md">
                                             <Button
                                                 variant={shippingType === "adicional" ? "default" : "ghost"}
@@ -683,18 +689,19 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Costo Envío</Label>
+                                            <Label className="text-sm font-medium">Costo Envío</Label>
                                             <Input
                                                 type="number"
-                                                className="h-9 font-bold bg-muted/10 border-none shadow-none"
-                                                value={shippingCost}
+                                                className="h-10 text-sm w-full"
+                                                placeholder="0.00"
+                                                value={shippingCost === 0 ? "" : shippingCost}
                                                 onChange={(e) => setShippingCost(Number(e.target.value))}
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Courier</Label>
+                                            <Label className="text-sm font-medium">Courier</Label>
                                             <Select value={courier} onValueChange={setCourier}>
-                                                <SelectTrigger className="h-9 font-medium bg-muted/10 border-none shadow-none">
+                                                <SelectTrigger className="h-10 font-medium w-full">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -708,17 +715,17 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Provincia / Dpto</Label>
+                                            <Label className="text-sm font-medium">Provincia / Dpto</Label>
                                             <Input
-                                                className="h-9 text-xs bg-muted/10 border-none shadow-none"
+                                                className="h-10 text-sm"
                                                 value={province}
                                                 onChange={(e) => setProvince(e.target.value)}
                                             />
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label className="text-[9px] uppercase font-bold text-muted-foreground">Destino / Agencia</Label>
+                                            <Label className="text-sm font-medium">Destino / Agencia</Label>
                                             <Input
-                                                className="h-9 text-xs bg-muted/10 border-none shadow-none"
+                                                className="h-10 text-sm"
                                                 value={destination}
                                                 onChange={(e) => setDestination(e.target.value)}
                                             />
@@ -727,20 +734,20 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                                     <div className="space-y-4 pt-2 border-t border-dashed">
                                         <div className="flex items-center gap-2">
-                                            <Truck className="h-3.5 w-3.5 text-primary" />
-                                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Seguimiento ({courier})</Label>
+                                            <Truck className="h-3.5 w-3.5" />
+                                            <Label className="text-sm font-medium">Seguimiento ({courier})</Label>
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <Input
                                                 placeholder="Nro. Orden"
-                                                className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                                className="h-10 text-sm"
                                                 value={courierOrder}
                                                 onChange={(e) => setCourierOrder(e.target.value)}
                                             />
                                             <Input
                                                 placeholder="Código"
-                                                className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                                className="h-10 text-sm"
                                                 value={courierCode}
                                                 onChange={(e) => setCourierCode(e.target.value)}
                                             />
@@ -748,7 +755,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         <Input
                                             placeholder="Clave"
                                             type="password"
-                                            className="h-9 text-xs bg-accent/5 border-none shadow-none"
+                                            className="h-10 text-sm"
                                             value={courierPass}
                                             onChange={(e) => setCourierPass(e.target.value)}
                                         />
@@ -762,7 +769,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                         {/* Carrito List */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Carrito ({cart.length})</Label>
+                                <Label className="text-sm font-semibold">Carrito ({cart.length})</Label>
                             </div>
                             {cart.length === 0 ? (
                                 <div className="h-24 flex flex-col items-center justify-center text-muted-foreground/30 border-2 border-dashed rounded-lg bg-muted/5">
@@ -827,13 +834,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                 {/* Footer Totals */}
                 <div className="p-6 border-t bg-muted/5 space-y-6">
                     <div className="flex items-center justify-between py-3 border-b border-dashed border-border/70">
-                        <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">Ajuste de Venta</Label>
+                        <Label className="text-sm font-medium">Ajuste de Venta</Label>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-muted-foreground/50">S/</span>
+                            <span className="text-sm font-medium text-muted-foreground">S/</span>
                             <Input
                                 type="number"
-                                className="h-8 w-24 font-bold text-right bg-transparent border-none ring-1 ring-border/50 focus-visible:ring-primary shadow-none"
-                                value={adjustment}
+                                className="h-10 w-24 text-sm font-medium text-right"
+                                placeholder="0.00"
+                                value={adjustment === 0 ? "" : adjustment}
                                 onChange={(e) => setAdjustment(Number(e.target.value))}
                             />
                         </div>
@@ -841,8 +849,8 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
                     <div className="flex items-end justify-between px-1">
                         <div className="space-y-1">
-                            <Label className="text-[11px] font-black text-muted-foreground uppercase opacity-50">Monto Total</Label>
-                            <p className="text-[9px] font-medium text-muted-foreground italic leading-none">IGV Incluido</p>
+                            <Label className="text-sm font-semibold text-muted-foreground">Monto Total</Label>
+                            <p className="text-[10px] text-muted-foreground italic leading-none">IGV Incluido</p>
                         </div>
                         <div className="text-4xl font-black text-primary tracking-tighter tabular-nums">
                             S/ {totalWithAdjustments.toFixed(2)}

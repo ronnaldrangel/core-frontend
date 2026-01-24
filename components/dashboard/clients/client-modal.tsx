@@ -47,6 +47,8 @@ import { toast } from "sonner";
 import { createClient, updateClient, Client, checkDniExists, lookupDni } from "@/lib/client-actions";
 import {
     DEPARTAMENTOS,
+    PROVINCIAS,
+    DISTRITOS,
     getProvinciasByDepartamento,
     getDistritosByProvincia,
     Provincia,
@@ -110,6 +112,31 @@ export function ClientModal({
     useEffect(() => {
         if (isOpen) {
             if (client) {
+                // Lógica de carga inversa: Nombres (DB) -> IDs (Formulario)
+                const depObj = DEPARTAMENTOS.find(d => d.nombre === client.departamento);
+                const depId = depObj?.id || "";
+
+                let provId = "";
+                let distId = "";
+
+                if (depId) {
+                    setProvincias(getProvinciasByDepartamento(depId));
+
+                    if (client.provincia) {
+                        const provObj = PROVINCIAS.find(p => p.nombre === client.provincia && p.departamento_id === depId);
+                        provId = provObj?.id || "";
+
+                        if (provId) {
+                            setDistritos(getDistritosByProvincia(provId));
+
+                            if (client.distrito) {
+                                const distObj = DISTRITOS.find(d => d.nombre === client.distrito && d.provincia_id === provId);
+                                distId = distObj?.id || "";
+                            }
+                        }
+                    }
+                }
+
                 form.reset({
                     nombre_completo: client.nombre_completo || "",
                     email: client.email || "",
@@ -117,18 +144,10 @@ export function ClientModal({
                     direccion: client.direccion || "",
                     documento_identificacion: client.documento_identificacion || "",
                     tipo_cliente: (client.tipo_cliente as "persona" | "empresa") || "persona",
-                    departamento: client.departamento || "",
-                    provincia: client.provincia || "",
-                    distrito: client.distrito || "",
+                    departamento: depId,
+                    provincia: provId,
+                    distrito: distId,
                 });
-
-                // Cargar provincias y distritos si el cliente ya tiene esos datos
-                if (client.departamento) {
-                    setProvincias(getProvinciasByDepartamento(client.departamento));
-                }
-                if (client.provincia) {
-                    setDistritos(getDistritosByProvincia(client.provincia));
-                }
             } else {
                 form.reset({
                     nombre_completo: "",
@@ -223,8 +242,16 @@ export function ClientModal({
                 return;
             }
 
+            // Transformar IDs a Nombres para guardar en BD
+            const nombreDepartamento = DEPARTAMENTOS.find(d => d.id === values.departamento)?.nombre || "";
+            const nombreProvincia = PROVINCIAS.find(p => p.id === values.provincia)?.nombre || "";
+            const nombreDistrito = DISTRITOS.find(d => d.id === values.distrito)?.nombre || "";
+
             const data = {
                 ...values,
+                departamento: nombreDepartamento,
+                provincia: nombreProvincia,
+                distrito: nombreDistrito,
                 workspace_id: workspaceId,
             };
 
