@@ -537,26 +537,28 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Información del Cliente</Label>
                             </div>
 
-                            {/* DNI & Tipo (Row 1) */}
-                            <div className="grid grid-cols-[1.5fr_1fr] gap-3">
-                                <div className="space-y-1.5 relative">
-                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">DNI / RUC</Label>
-                                    <div className="relative">
-                                        <Input
-                                            placeholder="00000000"
-                                            className="h-10 text-sm font-medium pr-8"
-                                            value={clientDoc}
-                                            onChange={(e) => setClientDoc(e.target.value)}
-                                            onBlur={handleClientDniBlur}
-                                            maxLength={11}
-                                        />
-                                        {isLookingUpClient && (
-                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                            </div>
-                                        )}
-                                    </div>
+                            {/* DNI (Row 1) */}
+                            <div className="space-y-1.5 relative">
+                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">DNI / RUC</Label>
+                                <div className="relative">
+                                    <Input
+                                        placeholder="00000000"
+                                        className="h-10 text-sm font-medium pr-8"
+                                        value={clientDoc}
+                                        onChange={(e) => setClientDoc(e.target.value)}
+                                        onBlur={handleClientDniBlur}
+                                        maxLength={11}
+                                    />
+                                    {isLookingUpClient && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                        </div>
+                                    )}
                                 </div>
+                            </div>
+
+                            {/* Tipo & Nombre (Row 2) */}
+                            <div className="grid grid-cols-[1fr_3fr] gap-3">
                                 <div className="space-y-1.5">
                                     <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Tipo</Label>
                                     <Select value={clientType} onValueChange={setClientType}>
@@ -569,17 +571,16 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            </div>
 
-                            {/* Nombre (Row 2) */}
-                            <div className="space-y-1.5">
-                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre Completo</Label>
-                                <Input
-                                    placeholder="Nombre del Cliente"
-                                    className="h-10 text-sm font-medium"
-                                    value={clientName}
-                                    onChange={(e) => setClientName(e.target.value)}
-                                />
+                                <div className="space-y-1.5">
+                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre Completo</Label>
+                                    <Input
+                                        placeholder="Nombre del Cliente"
+                                        className="h-10 text-sm font-medium"
+                                        value={clientName}
+                                        onChange={(e) => setClientName(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
                             {/* Telefono (Row 3) */}
@@ -602,7 +603,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pago</Label>
                                 <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                                    <SelectTrigger className="h-10 font-medium">
+                                    <SelectTrigger className="h-10 font-medium w-full">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -615,7 +616,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                             <div className="space-y-2">
                                 <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Estado Pedido</Label>
                                 <Select value={orderStatus} onValueChange={setOrderStatus}>
-                                    <SelectTrigger className="h-10 font-medium">
+                                    <SelectTrigger className="h-10 font-medium w-full">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
