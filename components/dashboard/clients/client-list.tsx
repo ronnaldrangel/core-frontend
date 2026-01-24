@@ -1,31 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-    MoreHorizontal,
+    Edit,
+    Trash2,
     Plus,
     Search,
     User,
     Mail,
-    Phone,
-    CreditCard,
-    Star
+    Phone
 } from "lucide-react";
 import { Client, deleteClient } from "@/lib/client-actions";
 import { ClientModal } from "./client-modal";
@@ -42,6 +27,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DEPARTAMENTOS } from "@/lib/peru-locations";
+import { cn } from "@/lib/utils";
 
 interface ClientListProps {
     initialClients: Client[];
@@ -106,9 +92,9 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="relative flex-1 w-full max-w-sm">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Buscar cliente..."
                         className="pl-8"
@@ -116,104 +102,118 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button onClick={() => {
-                    setEditingClient(null);
-                    setIsModalOpen(true);
-                }}>
-                    <Plus className="mr-2 h-4 w-4" /> Nuevo Cliente
+                <Button
+                    onClick={() => {
+                        setEditingClient(null);
+                        setIsModalOpen(true);
+                    }}
+                    className="w-full md:w-auto"
+                >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nuevo Cliente
                 </Button>
             </div>
 
-            <div className="rounded-md border bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Cliente</TableHead>
-                            <TableHead className="hidden md:table-cell">Contacto</TableHead>
-                            <TableHead className="hidden lg:table-cell">Identificación</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Ubicación</TableHead>
-                            <TableHead className="w-[70px]"></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredClients.length === 0 ? (
-                            <TableRow>
-                                <TableCell
-                                    colSpan={6}
-                                    className="h-24 text-center text-muted-foreground"
-                                >
-                                    No se encontraron clientes.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredClients.map((client) => (
-                                <TableRow key={client.id}>
-                                    <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                                <User className="h-4 w-4" />
-                                            </div>
-                                            <div className="font-medium">
-                                                {client.nombre_completo}
-                                            </div>
+            <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left border-collapse">
+                        <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                            <tr>
+                                <th className="px-4 py-3 min-w-[250px]">Cliente</th>
+                                <th className="px-4 py-3 hidden md:table-cell">Contacto</th>
+                                <th className="px-4 py-3 hidden lg:table-cell">Identificación</th>
+                                <th className="px-4 py-3">Tipo</th>
+                                <th className="px-4 py-3">Ubicación</th>
+                                <th className="px-4 py-3 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                            {filteredClients.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <User className="h-8 w-8 opacity-20" />
+                                            <p>{searchTerm ? "No se encontraron resultados" : "No hay clientes registrados"}</p>
                                         </div>
-                                    </TableCell>
-                                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                                        <div className="flex flex-col gap-1 text-xs">
-                                            {client.email && (
-                                                <div className="flex items-center gap-1">
-                                                    <Mail className="h-3 w-3" /> {client.email}
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredClients.map((client) => (
+                                    <tr key={client.id} className="hover:bg-muted/30 transition-colors group">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                                    <User className="h-5 w-5" />
                                                 </div>
-                                            )}
-                                            {client.telefono && (
-                                                <div className="flex items-center gap-1">
-                                                    <Phone className="h-3 w-3" /> {client.telefono}
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold text-foreground line-clamp-1">
+                                                        {client.nombre_completo}
+                                                    </span>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="hidden lg:table-cell font-mono text-xs">
-                                        {client.documento_identificacion || "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge className={getBadgeColor(client.tipo_cliente)}>
-                                            {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground">
-                                        {getDepartamentoNombre(client.departamento) || "-"}
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
+                                            <div className="flex flex-col gap-1 text-xs">
+                                                {client.email && (
+                                                    <div className="flex items-center gap-1.5 line-clamp-1">
+                                                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                                                        {client.email}
+                                                    </div>
+                                                )}
+                                                {client.telefono && (
+                                                    <div className="flex items-center gap-1.5 line-clamp-1">
+                                                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                                                        {client.telefono}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 hidden lg:table-cell">
+                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono border text-muted-foreground whitespace-nowrap">
+                                                {client.documento_identificacion || "-"}
+                                            </code>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge className={getBadgeColor(client.tipo_cliente)}>
+                                                {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                                            <span className="line-clamp-1">
+                                                {getDepartamentoNombre(client.departamento) || "-"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => {
                                                         setEditingClient(client);
                                                         setIsModalOpen(true);
                                                     }}
+                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
+                                                    title="Editar"
                                                 >
-                                                    Editar
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    className="text-destructive focus:text-destructive"
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => setClientToDelete(client)}
+                                                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                    title="Eliminar"
                                                 >
-                                                    Eliminar
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <ClientModal
@@ -236,7 +236,7 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                         <AlertDialogTitle>¿Estás completamente seguro?</AlertDialogTitle>
                         <AlertDialogDescription>
                             Esta acción no se puede deshacer. Se eliminará permanentemente al cliente{" "}
-                            <span className="font-bold">{clientToDelete?.nombre_completo}</span> de tu base de datos.
+                            <span className="font-bold text-foreground">"{clientToDelete?.nombre_completo}"</span> de tu base de datos.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -245,7 +245,7 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                             onClick={handleDelete}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            Eliminar
+                            Eliminar Cliente
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
