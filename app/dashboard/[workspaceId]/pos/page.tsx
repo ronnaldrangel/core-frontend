@@ -29,16 +29,7 @@ export default async function POSPage({ params }: POSPageProps) {
     ]);
 
     return (
-        <div className="flex flex-col gap-6 h-full">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Punto de Venta</h1>
-                    <p className="text-muted-foreground">
-                        Registra ventas rápidamente para {workspace.name}
-                    </p>
-                </div>
-            </div>
-
+        <div className="h-full p-2 md:p-4">
             <POSSystem
                 products={productsResult.data || []}
                 clients={clientsResult.data || []}

@@ -227,7 +227,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] bg-muted/5 p-4 rounded-xl">
+        <div className="flex flex-col lg:flex-row gap-4 h-full bg-muted/5 rounded-xl">
             {/* --- LEFT: PRODUCT GRID --- */}
             <div className="flex-1 flex flex-col gap-4 overflow-hidden">
                 {/* Header Controls */}
