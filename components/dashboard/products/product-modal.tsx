@@ -24,6 +24,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
     const [sku, setSku] = useState("");
     const [precioVenta, setPrecioVenta] = useState("");
     const [precioCompra, setPrecioCompra] = useState("");
+    const [pack2, setPack2] = useState("");
+    const [pack3, setPack3] = useState("");
     const [descripcionCorta, setDescripcionCorta] = useState("");
     const [descripcionNormal, setDescripcionNormal] = useState("");
     const [stock, setStock] = useState(0);
@@ -40,6 +42,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
             setSku(product.sku);
             setPrecioVenta(product.precio_venta ? Number(product.precio_venta).toFixed(2) : "");
             setPrecioCompra(product.precio_compra ? Number(product.precio_compra).toFixed(2) : "");
+            setPack2(product.pack2 ? Number(product.pack2).toFixed(2) : "");
+            setPack3(product.pack3 ? Number(product.pack3).toFixed(2) : "");
             setDescripcionCorta(product.descripcion_corta || "");
             setDescripcionNormal(product.descripcion_normal || "");
             setStock(product.stock);
@@ -69,6 +73,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
         setSku("");
         setPrecioVenta("");
         setPrecioCompra("");
+        setPack2("");
+        setPack3("");
         setDescripcionCorta("");
         setDescripcionNormal("");
         setStock(0);
@@ -129,6 +135,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                 sku,
                 precio_venta: parseFloat(Number(precioVenta).toFixed(2)) || 0,
                 precio_compra: parseFloat(Number(precioCompra).toFixed(2)) || 0,
+                pack2: parseFloat(Number(pack2).toFixed(2)) || 0,
+                pack3: parseFloat(Number(pack3).toFixed(2)) || 0,
                 descripcion_corta: descripcionCorta,
                 descripcion_normal: descripcionNormal,
                 stock: stock,
@@ -253,8 +261,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 </div>
                                 <div className="space-y-2 font-bold">
                                     <Label htmlFor="precio_venta">Precio Venta</Label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
+                                    <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
                                         <Input
                                             id="precio_venta"
                                             type="number"
@@ -272,8 +280,8 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="precio_compra">Precio Compra</Label>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-muted-foreground">$</span>
+                                    <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
                                         <Input
                                             id="precio_compra"
                                             type="number"
@@ -282,6 +290,42 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                             onChange={(e) => setPrecioCompra(e.target.value)}
                                             onBlur={() => {
                                                 if (precioCompra) setPrecioCompra(Number(precioCompra).toFixed(2));
+                                            }}
+                                            className="pl-7"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="pack2">Precio Pack 2</Label>
+                                    <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <Input
+                                            id="pack2"
+                                            type="number"
+                                            step="0.01"
+                                            value={pack2}
+                                            onChange={(e) => setPack2(e.target.value)}
+                                            onBlur={() => {
+                                                if (pack2) setPack2(Number(pack2).toFixed(2));
+                                            }}
+                                            className="pl-7"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="pack3">Precio Pack 3</Label>
+                                    <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <Input
+                                            id="pack3"
+                                            type="number"
+                                            step="0.01"
+                                            value={pack3}
+                                            onChange={(e) => setPack3(e.target.value)}
+                                            onBlur={() => {
+                                                if (pack3) setPack3(Number(pack3).toFixed(2));
                                             }}
                                             className="pl-7"
                                             placeholder="0.00"
@@ -349,17 +393,20 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                         </div>
                                         <div className="w-24 space-y-1">
                                             <Label className="text-[10px] uppercase font-bold">Precio</Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={v.precio}
-                                                onChange={(e) => updateVariante(i, "precio", e.target.value)}
-                                                onBlur={() => {
-                                                    if (v.precio) updateVariante(i, "precio", Number(v.precio).toFixed(2));
-                                                }}
-                                                placeholder="0.00"
-                                                className="h-9 bg-background"
-                                            />
+                                            <div className="relative flex items-center">
+                                                <span className="absolute left-3 text-muted-foreground select-none text-xs">$</span>
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={v.precio}
+                                                    onChange={(e) => updateVariante(i, "precio", e.target.value)}
+                                                    onBlur={() => {
+                                                        if (v.precio) updateVariante(i, "precio", Number(v.precio).toFixed(2));
+                                                    }}
+                                                    placeholder="0.00"
+                                                    className="h-9 bg-background pl-6"
+                                                />
+                                            </div>
                                         </div>
                                         <div className="w-20 space-y-1">
                                             <Label className="text-[10px] uppercase font-bold">Stock</Label>

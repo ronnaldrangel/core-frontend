@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogFooter,
+    DialogDescription,
 } from "@/components/ui/dialog";
 import {
     Form,
@@ -18,7 +19,6 @@ import {
     FormItem,
     FormLabel,
     FormMessage,
-    FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -31,19 +31,26 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { createClient, updateClient, Client } from "@/lib/client-actions";
+import { createClient, updateClient, Client, checkDniExists } from "@/lib/client-actions";
+import {
+    DEPARTAMENTOS,
+    getProvinciasByDepartamento,
+    getDistritosByProvincia,
+    Provincia,
+    Distrito
+} from "@/lib/peru-locations";
 import { Loader2 } from "lucide-react";
 
 const clientSchema = z.object({
     nombre_completo: z.string().min(2, "El nombre es obligatorio"),
     email: z.string().email("Email inválido").optional().or(z.literal("")),
-    telefono: z.string().optional(),
-    direccion: z.string().optional(),
-    documento_identificacion: z.string().optional(),
-    tipo_cliente: z.enum(["standard", "vip", "wholesale"]).default("standard"),
-    puntos_lealtad: z.coerce.number().default(0),
-    fecha_nacimiento: z.string().optional().nullable(),
-    notas_preferencias: z.string().optional(),
+    telefono: z.string().optional().or(z.literal("")),
+    direccion: z.string().optional().or(z.literal("")),
+    documento_identificacion: z.string().min(1, "El DNI/RUC es obligatorio"),
+    tipo_cliente: z.enum(["persona", "empresa"]),
+    departamento: z.string().optional().or(z.literal("")),
+    provincia: z.string().optional().or(z.literal("")),
+    distrito: z.string().optional().or(z.literal("")),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -64,6 +71,8 @@ export function ClientModal({
     onSuccess,
 }: ClientModalProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [provincias, setProvincias] = useState<Provincia[]>([]);
+    const [distritos, setDistritos] = useState<Distrito[]>([]);
 
     const form = useForm<ClientFormValues>({
         resolver: zodResolver(clientSchema),
@@ -73,44 +82,94 @@ export function ClientModal({
             telefono: "",
             direccion: "",
             documento_identificacion: "",
-            tipo_cliente: "standard",
-            puntos_lealtad: 0,
-            fecha_nacimiento: "",
-            notas_preferencias: "",
+            tipo_cliente: "persona",
+            departamento: "",
+            provincia: "",
+            distrito: "",
         },
     });
 
     useEffect(() => {
-        if (client) {
-            form.reset({
-                nombre_completo: client.nombre_completo || "",
-                email: client.email || "",
-                telefono: client.telefono || "",
-                direccion: client.direccion || "",
-                documento_identificacion: client.documento_identificacion || "",
-                tipo_cliente: (client.tipo_cliente as any) || "standard",
-                puntos_lealtad: client.puntos_lealtad || 0,
-                fecha_nacimiento: client.fecha_nacimiento || "",
-                notas_preferencias: client.notas_preferencias || "",
-            });
-        } else {
-            form.reset({
-                nombre_completo: "",
-                email: "",
-                telefono: "",
-                direccion: "",
-                documento_identificacion: "",
-                tipo_cliente: "standard",
-                puntos_lealtad: 0,
-                fecha_nacimiento: "",
-                notas_preferencias: "",
-            });
+        if (isOpen) {
+            if (client) {
+                form.reset({
+                    nombre_completo: client.nombre_completo || "",
+                    email: client.email || "",
+                    telefono: client.telefono || "",
+                    direccion: client.direccion || "",
+                    documento_identificacion: client.documento_identificacion || "",
+                    tipo_cliente: (client.tipo_cliente as "persona" | "empresa") || "persona",
+                    departamento: client.departamento || "",
+                    provincia: client.provincia || "",
+                    distrito: client.distrito || "",
+                });
+
+                // Cargar provincias y distritos si el cliente ya tiene esos datos
+                if (client.departamento) {
+                    setProvincias(getProvinciasByDepartamento(client.departamento));
+                }
+                if (client.provincia) {
+                    setDistritos(getDistritosByProvincia(client.provincia));
+                }
+            } else {
+                form.reset({
+                    nombre_completo: "",
+                    email: "",
+                    telefono: "",
+                    direccion: "",
+                    documento_identificacion: "",
+                    tipo_cliente: "persona",
+                    departamento: "",
+                    provincia: "",
+                    distrito: "",
+                });
+                setProvincias([]);
+                setDistritos([]);
+            }
         }
     }, [client, form, isOpen]);
+
+    // Manejar cambio de departamento
+    const handleDepartamentoChange = (departamentoId: string) => {
+        if (!departamentoId) {
+            setProvincias([]);
+            setDistritos([]);
+            return;
+        }
+
+        const provs = getProvinciasByDepartamento(departamentoId);
+        setProvincias(provs);
+        setDistritos([]);
+    };
+
+    // Manejar cambio de provincia
+    const handleProvinciaChange = (provinciaId: string) => {
+        if (!provinciaId) {
+            setDistritos([]);
+            return;
+        }
+
+        const dists = getDistritosByProvincia(provinciaId);
+        setDistritos(dists);
+    };
 
     const onSubmit = async (values: ClientFormValues) => {
         try {
             setIsLoading(true);
+
+            // Verificar si el DNI ya existe en este workspace
+            const dniExists = await checkDniExists(
+                workspaceId,
+                values.documento_identificacion,
+                client?.id // Excluir el cliente actual si estamos editando
+            );
+
+            if (dniExists) {
+                toast.error("Ya existe un cliente con este DNI/RUC en este workspace");
+                setIsLoading(false);
+                return;
+            }
+
             const data = {
                 ...values,
                 workspace_id: workspaceId,
@@ -118,12 +177,16 @@ export function ClientModal({
 
             if (client) {
                 const { data: updated, error } = await updateClient(client.id, data);
-                if (error) throw new Error(error);
+                if (error) {
+                    throw new Error(error);
+                }
                 toast.success("Cliente actualizado con éxito");
                 onSuccess(updated!);
             } else {
                 const { data: created, error } = await createClient(data);
-                if (error) throw new Error(error);
+                if (error) {
+                    throw new Error(error);
+                }
                 toast.success("Cliente creado con éxito");
                 onSuccess(created!);
             }
@@ -142,11 +205,55 @@ export function ClientModal({
                     <DialogTitle>
                         {client ? "Editar Cliente" : "Nuevo Cliente"}
                     </DialogTitle>
+                    <DialogDescription>
+                        Ingresa los datos básicos para gestionar la información de tu cliente.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        {/* 1. DNI/RUC - Ancho completo */}
+                        <FormField
+                            control={form.control}
+                            name="documento_identificacion"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>DNI / RUC</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="12345678" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* 2. Tipo de Cliente (izquierda) + Nombre Completo (derecha) */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                                control={form.control}
+                                name="tipo_cliente"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tipo de Cliente</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecciona tipo" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="persona">Persona</SelectItem>
+                                                <SelectItem value="empresa">Empresa</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
                             <FormField
                                 control={form.control}
                                 name="nombre_completo"
@@ -160,21 +267,10 @@ export function ClientModal({
                                     </FormItem>
                                 )}
                             />
+                        </div>
 
-                            <FormField
-                                control={form.control}
-                                name="documento_identificacion"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>RFC / DNI / ID</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="ABC123456" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
+                        {/* 3. Email (izquierda) + Teléfono (derecha) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
                                 name="email"
@@ -196,32 +292,82 @@ export function ClientModal({
                                     <FormItem>
                                         <FormLabel>Teléfono</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="+52 123 456 7890" {...field} />
+                                            <Input placeholder="987654321" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
+                        </div>
 
+                        {/* 4. Departamento - Ancho completo */}
+                        <FormField
+                            control={form.control}
+                            name="departamento"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Departamento</FormLabel>
+                                    <Select
+                                        onValueChange={(value) => {
+                                            field.onChange(value);
+                                            handleDepartamentoChange(value);
+                                            form.setValue("provincia", "");
+                                            form.setValue("distrito", "");
+                                        }}
+                                        value={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecciona departamento" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {DEPARTAMENTOS.map((dep) => (
+                                                <SelectItem key={dep.id} value={dep.id}>
+                                                    {dep.nombre}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* 5. Provincia (izquierda) + Distrito (derecha) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
-                                name="tipo_cliente"
+                                name="provincia"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Tipo de Cliente</FormLabel>
+                                        <FormLabel>Provincia</FormLabel>
                                         <Select
-                                            onValueChange={field.onChange}
-                                            defaultValue={field.value}
+                                            onValueChange={(value) => {
+                                                field.onChange(value);
+                                                handleProvinciaChange(value);
+                                                form.setValue("distrito", "");
+                                            }}
+                                            value={field.value}
+                                            disabled={!form.watch("departamento")}
                                         >
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Selecciona tipo" />
+                                                    <SelectValue
+                                                        placeholder={
+                                                            !form.watch("departamento")
+                                                                ? "Selecciona departamento primero"
+                                                                : "Selecciona provincia"
+                                                        }
+                                                    />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                                <SelectItem value="standard">Estándar</SelectItem>
-                                                <SelectItem value="vip">VIP</SelectItem>
-                                                <SelectItem value="wholesale">Mayorista</SelectItem>
+                                                {provincias.map((prov) => (
+                                                    <SelectItem key={prov.id} value={prov.id}>
+                                                        {prov.nombre}
+                                                    </SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -231,34 +377,41 @@ export function ClientModal({
 
                             <FormField
                                 control={form.control}
-                                name="fecha_nacimiento"
+                                name="distrito"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Fecha de Nacimiento</FormLabel>
-                                        <FormControl>
-                                            <Input type="date" {...field} value={field.value || ""} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="puntos_lealtad"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Puntos de Lealtad</FormLabel>
-                                        <FormControl>
-                                            <Input type="number" {...field} />
-                                        </FormControl>
-                                        <FormDescription>Puntos acumulados</FormDescription>
+                                        <FormLabel>Distrito</FormLabel>
+                                        <Select
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            disabled={!form.watch("provincia")}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue
+                                                        placeholder={
+                                                            !form.watch("provincia")
+                                                                ? "Selecciona provincia primero"
+                                                                : "Selecciona distrito"
+                                                        }
+                                                    />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {distritos.map((dist) => (
+                                                    <SelectItem key={dist.id} value={dist.id}>
+                                                        {dist.nombre}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                         </div>
 
+                        {/* 6. Dirección - Al final */}
                         <FormField
                             control={form.control}
                             name="direccion"
@@ -266,24 +419,7 @@ export function ClientModal({
                                 <FormItem>
                                     <FormLabel>Dirección</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Calle, Número, Ciudad..." {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={form.control}
-                            name="notas_preferencias"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Notas y Preferencias</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="Detalles sobre gustos o atención especial..."
-                                            {...field}
-                                        />
+                                        <Textarea placeholder="Calle, Número, Referencia..." {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

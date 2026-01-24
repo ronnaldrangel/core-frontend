@@ -17,6 +17,8 @@ export interface Product {
     descripcion_normal: string | null;
     stock: number;
     variantes_producto: any[] | null;
+    pack2: string | number | null;
+    pack3: string | number | null;
     date_created?: string;
 }
 

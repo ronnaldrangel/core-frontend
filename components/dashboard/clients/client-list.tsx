@@ -87,10 +87,10 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
 
     const getBadgeColor = (tipo: string) => {
         switch (tipo) {
-            case "vip":
-                return "bg-amber-500 hover:bg-amber-600";
-            case "wholesale":
-                return "bg-blue-500 hover:bg-blue-600";
+            case "persona":
+                return "bg-slate-500 hover:bg-slate-600";
+            case "empresa":
+                return "bg-blue-600 hover:bg-blue-700 font-bold";
             default:
                 return "bg-slate-500 hover:bg-slate-600";
         }
@@ -124,7 +124,7 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                             <TableHead className="hidden md:table-cell">Contacto</TableHead>
                             <TableHead className="hidden lg:table-cell">Identificación</TableHead>
                             <TableHead>Tipo</TableHead>
-                            <TableHead className="text-right">Puntos</TableHead>
+                            <TableHead>Ubicación</TableHead>
                             <TableHead className="w-[70px]"></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -170,15 +170,17 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                                     </TableCell>
                                     <TableCell>
                                         <Badge className={getBadgeColor(client.tipo_cliente)}>
-                                            {client.tipo_cliente === "standard" ? "Estándar" :
-                                                client.tipo_cliente === "vip" ? "VIP" : "Mayorista"}
+                                            {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1 font-medium">
-                                            <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
-                                            {client.puntos_lealtad}
-                                        </div>
+                                    <TableCell className="text-xs text-muted-foreground uppercase">
+                                        {client.distrito || client.departamento ? (
+                                            <>
+                                                {client.distrito && <span>{client.distrito}</span>}
+                                                {client.distrito && client.departamento && <span>, </span>}
+                                                {client.departamento && <span>{client.departamento}</span>}
+                                            </>
+                                        ) : "-"}
                                     </TableCell>
                                     <TableCell>
                                         <DropdownMenu>
