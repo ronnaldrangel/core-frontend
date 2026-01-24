@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { es } from "date-fns/locale";
 
 interface CartesianItem extends Product {
@@ -378,16 +379,13 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
                                 </div>
                             </div>
-                            <div className="relative">
-                                <Input
-                                    placeholder="Celular"
-                                    className="bg-muted/10 border-none h-11 text-sm font-medium pl-10"
-                                    value={clientPhone}
-                                    onChange={(e) => setClientPhone(e.target.value)}
-                                />
-                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
-                            </div>
+                            <PhoneInput
+                                placeholder="+51 987 654 321"
+                                defaultCountry="PE"
+                                className="bg-muted/10 border-none h-11 text-sm font-medium"
+                                value={clientPhone}
+                                onChange={(value) => setClientPhone(value || "")}
+                            />
                         </div>
 
                         {/* Estados */}

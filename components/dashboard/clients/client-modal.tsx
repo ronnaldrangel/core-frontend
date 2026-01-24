@@ -40,6 +40,8 @@ import {
     Distrito
 } from "@/lib/peru-locations";
 import { Loader2 } from "lucide-react";
+import { PhoneInput } from "@/components/ui/phone-input";
+import type { E164Number } from "libphonenumber-js/core";
 
 const clientSchema = z.object({
     nombre_completo: z.string().min(2, "El nombre es obligatorio"),
@@ -227,8 +229,8 @@ export function ClientModal({
                             )}
                         />
 
-                        {/* 2. Tipo de Cliente (izquierda) + Nombre Completo (derecha) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 2. Tipo de Cliente (25%) + Nombre Completo (75%) */}
+                        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 3fr' }}>
                             <FormField
                                 control={form.control}
                                 name="tipo_cliente"
@@ -240,7 +242,7 @@ export function ClientModal({
                                             value={field.value}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue placeholder="Selecciona tipo" />
                                                 </SelectTrigger>
                                             </FormControl>
@@ -292,7 +294,11 @@ export function ClientModal({
                                     <FormItem>
                                         <FormLabel>Teléfono</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="987654321" {...field} />
+                                            <PhoneInput
+                                                placeholder="+51 987 654 321"
+                                                defaultCountry="PE"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -317,7 +323,7 @@ export function ClientModal({
                                         value={field.value}
                                     >
                                         <FormControl>
-                                            <SelectTrigger>
+                                            <SelectTrigger className="w-full">
                                                 <SelectValue placeholder="Selecciona departamento" />
                                             </SelectTrigger>
                                         </FormControl>
@@ -352,7 +358,7 @@ export function ClientModal({
                                             disabled={!form.watch("departamento")}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue
                                                         placeholder={
                                                             !form.watch("departamento")
@@ -387,7 +393,7 @@ export function ClientModal({
                                             disabled={!form.watch("provincia")}
                                         >
                                             <FormControl>
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full">
                                                     <SelectValue
                                                         placeholder={
                                                             !form.watch("provincia")
