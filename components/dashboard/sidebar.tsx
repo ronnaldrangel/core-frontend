@@ -8,6 +8,9 @@ import {
     Users,
     Settings,
     Package,
+    UserCircle,
+    ShoppingCart,
+    Receipt,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -41,9 +44,24 @@ export function Sidebar({ workspaces = [], currentWorkspaceId }: SidebarProps) {
             icon: Users,
         },
         {
+            title: "Clientes",
+            href: `/dashboard/${currentWorkspaceId}/clients`,
+            icon: UserCircle,
+        },
+        {
             title: "Productos",
             href: `/dashboard/${currentWorkspaceId}/products`,
             icon: Package,
+        },
+        {
+            title: "Punto de Venta",
+            href: `/dashboard/${currentWorkspaceId}/pos`,
+            icon: ShoppingCart,
+        },
+        {
+            title: "Historial de Ventas",
+            href: `/dashboard/${currentWorkspaceId}/orders`,
+            icon: Receipt,
         },
         {
             title: "Configuración",

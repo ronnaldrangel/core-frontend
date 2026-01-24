@@ -16,7 +16,6 @@ export const directus = createDirectus(url, {
 
             if (!existingAuth) {
                 try {
-                    // Dynamic import to avoid circular dependency
                     const { auth } = await import("@/auth");
                     const session = await auth();
                     const accessToken = (session as any)?.access_token;
@@ -25,11 +24,17 @@ export const directus = createDirectus(url, {
                         headers["Authorization"] = `Bearer ${accessToken}`;
                     }
                 } catch (error) {
-                    // Ignore error if auth is not available (e.g. during build or initial load)
+                    // Auth not available
                 }
             }
 
-            return fetch(url, { ...options, headers });
+            // Ensure no caching for authenticated requests to avoid stale data issues
+            return fetch(url, {
+                ...options,
+                headers,
+                cache: 'no-store', // Crucial to prevent empty/incorrect cached results
+                next: { revalidate: 0 }
+            });
         },
     },
 })
