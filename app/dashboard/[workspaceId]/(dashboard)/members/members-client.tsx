@@ -221,8 +221,7 @@ export function MembersClient({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-                        <Users className="h-6 w-6" />
-                        Miembros del Equipo
+                        Miembros del equipo
                     </h1>
                     <p className="text-muted-foreground mt-1">
                         Gestiona quién tiene acceso a <span className="font-medium">{workspace.name}</span>
