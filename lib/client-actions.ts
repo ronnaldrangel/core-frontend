@@ -181,3 +181,28 @@ export async function lookupDni(dni: string): Promise<ReniecResponse | null> {
         return null;
     }
 }
+
+/**
+ * Obtener un cliente por su DNI/RUC en un workspace
+ */
+export async function getClientByDni(workspaceId: string, dni: string) {
+    try {
+        if (!dni) return null;
+
+        const clients = await directus.request(
+            readItems("clients", {
+                filter: {
+                    workspace_id: { _eq: workspaceId },
+                    documento_identificacion: { _eq: dni }
+                },
+                fields: ["*"],
+                limit: 1
+            })
+        );
+
+        return clients.length > 0 ? (clients[0] as Client) : null;
+    } catch (error) {
+        console.error("Error fetching client by DNI:", error);
+        return null;
+    }
+}

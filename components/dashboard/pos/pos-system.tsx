@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Product } from "@/lib/product-actions";
-import { Client } from "@/lib/client-actions";
+import { Client, lookupDni, createClient, getClientByDni } from "@/lib/client-actions";
 import { createOrder, OrderItem } from "@/lib/order-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,14 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { es } from "date-fns/locale";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface CartesianItem extends Product {
     quantity: number;
@@ -65,11 +73,16 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     const [showOutOfStock, setShowOutOfStock] = useState(true);
     const [sortBy, setSortBy] = useState("nombre-asc");
 
+    // Success Dialog State
+    const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+
     // Client Info
     const [clientDoc, setClientDoc] = useState("");
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
+    const [clientType, setClientType] = useState("persona"); // Added client type
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+    const [isLookingUpClient, setIsLookingUpClient] = useState(false); // New loading state for lookup
 
     // Order Info
     const [orderDate] = useState(new Date());
@@ -93,17 +106,67 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
     // --- Logical Handling ---
 
-    // Handle Client Auto-fill when Doc or Name matches
+    // Handle Client Auto-fill from Local Data
     useEffect(() => {
-        if (clientDoc.length >= 8) {
+        // Only run local lookup if we are NOT currently running an external lookup
+        if (clientDoc.length >= 8 && !isLookingUpClient) {
             const client = clients.find(c => c.documento_identificacion === clientDoc);
             if (client) {
                 setClientName(client.nombre_completo);
                 setClientPhone(client.telefono || "");
+                setClientType(client.tipo_cliente || "persona");
                 setSelectedClientId(client.id);
+            } else {
+                // Reset ID if doc changes and not found locally (will be handled by API check on blur)
+                setSelectedClientId(null);
+            }
+        } else if (clientDoc.length < 8) {
+            setSelectedClientId(null);
+        }
+    }, [clientDoc, clients, isLookingUpClient]);
+
+    // External DNI Lookup & Auto-create
+    const handleClientDniBlur = async () => {
+        // Check if already found locally
+        if (selectedClientId) return;
+
+        // Basic Validation
+        if (!clientDoc || clientDoc.length < 8) return;
+
+        // Skip if enterprise/RUC for now unless requested, but user said "DNI"
+        if (clientDoc.length === 8 && clientType === "persona") {
+            try {
+                setIsLookingUpClient(true);
+
+                // 1. Lookup DNI via API
+
+                // Static import used
+                const dniData = await lookupDni(clientDoc);
+
+
+
+                if (dniData && dniData.full_name) {
+                    // Format Name
+                    const formattedName = dniData.full_name
+                        .split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                        .join(' ');
+
+                    setClientName(formattedName);
+                    // Just notify user, don't create yet
+                    toast.success("Nombre encontrado en RENIEC");
+                } else {
+                    toast.info("DNI no encontrado en RENIEC, ingrese nombre manualmente.");
+                }
+
+            } catch (err) {
+                console.error(err);
+                toast.error("Error al consultar DNI");
+            } finally {
+                setIsLookingUpClient(false);
             }
         }
-    }, [clientDoc, clients]);
+    };
 
     const filteredProducts = useMemo(() => {
         let result = products.filter(p =>
@@ -198,6 +261,68 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
         try {
             setIsProcessing(true);
+
+            // --- RESOLVE CLIENT ID (Find or Create) ---
+            let finalClientId = selectedClientId;
+
+            // If no ID selected but we have a Doc number, try to resolve it
+            if (!finalClientId && clientDoc.length >= 8) {
+                // 1. Check if exists in DB (even if not in local list state)
+                const existingClient = await getClientByDni(workspaceId, clientDoc);
+
+                if (existingClient) {
+                    finalClientId = existingClient.id;
+                    // Update UI state for consistency
+                    setClientName(existingClient.nombre_completo);
+                    setSelectedClientId(existingClient.id);
+                } else {
+                    // 2. Not found in DB, try to Create from RENIEC/Input
+                    // We try RENIEC lookup first for better data, or fall back to manual input if available
+                    let nameToUse = clientName;
+
+                    if (!nameToUse) {
+                        const dniData = await lookupDni(clientDoc);
+                        if (dniData && dniData.full_name) {
+                            nameToUse = dniData.full_name
+                                .split(' ')
+                                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                .join(' ');
+                        }
+                    }
+
+                    if (nameToUse) {
+                        const newClientData = {
+                            workspace_id: workspaceId,
+                            nombre_completo: nameToUse,
+                            documento_identificacion: clientDoc,
+                            tipo_cliente: clientType,
+                            telefono: clientPhone,
+                            status: "active"
+                        };
+
+                        const { data: newClient, error } = await createClient(newClientData);
+
+                        if (newClient) {
+                            finalClientId = newClient.id;
+                            setClientName(newClient.nombre_completo);
+                            setSelectedClientId(newClient.id);
+                            toast.success("Cliente creado automáticamente para la orden");
+                        } else {
+                            console.error("Auto-create failed:", error);
+                            // We don't block order if create fails, we just don't attach client? 
+                            // Or better, we throw error to warn user.
+                            // User asked to create, if fails, better warn.
+                            toast.error("No se pudo crear el cliente automáticamente. Verifique los datos: " + error);
+                            // Continue without client? Or return? 
+                            // Let's return to be safe, so they can fix it.
+                            setIsProcessing(false);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // --- CREATE ORDER ---
             const orderItems: OrderItem[] = cart.map(item => ({
                 product_id: item.id,
                 cantidad: item.quantity,
@@ -208,9 +333,9 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
             const { error } = await createOrder({
                 workspace_id: workspaceId,
-                cliente_id: selectedClientId,
+                cliente_id: finalClientId, // Use resolved ID
                 total: totalWithAdjustments,
-                metodo_pago: "pos", // Specialized POS payment workflow
+                metodo_pago: "pos",
                 estado_pago: paymentStatus,
                 estado_pedido: orderStatus,
                 monto_adelanto: Number(advancePayment),
@@ -229,8 +354,12 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
             if (error) throw new Error(error);
 
-            toast.success("Venta realizada con éxito");
+            // Show Success Dialog instead of basic toast
+            // We reset the POS data BEHIND the dialog or when dialog closes. 
+            // Usually simpler to reset immediately so the form is clean for next use, 
+            // but keep the 'success' state visible.
             resetPOS();
+            setShowSuccessDialog(true);
         } catch (error: any) {
             toast.error(error.message || "Error al procesar la venta");
         } finally {
@@ -239,7 +368,35 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row h-full bg-background overflow-hidden">
+        <div className="flex flex-col lg:flex-row h-full bg-background overflow-hidden relative">
+            {/* Success Dialog */}
+            <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-green-600">
+                            <CheckCircle2 className="h-6 w-6" />
+                            Operación Exitosa
+                        </DialogTitle>
+                        <DialogDescription>
+                            La venta se ha registrado correctamente en el sistema.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-center py-6">
+                        <div className="h-24 w-24 bg-green-100 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
+                            <CheckCircle2 className="h-12 w-12 text-green-600" />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-center">
+                        <Button
+                            className="w-full sm:w-auto"
+                            onClick={() => setShowSuccessDialog(false)}
+                        >
+                            Nueva Venta
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* --- LEFT: PRODUCT GRID (2/3) --- */}
             <div className="lg:flex-[2] flex flex-col gap-4 p-4 md:p-6 overflow-hidden">
                 {/* Header Controls */}
@@ -379,26 +536,53 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                 <User className="h-3.5 w-3.5 text-muted-foreground" />
                                 <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Información del Cliente</Label>
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
+
+                            {/* DNI & Tipo (Row 1) */}
+                            <div className="grid grid-cols-[1.5fr_1fr] gap-3">
+                                <div className="space-y-1.5 relative">
                                     <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">DNI / RUC</Label>
-                                    <Input
-                                        placeholder="00000000"
-                                        className="h-10 text-sm font-medium"
-                                        value={clientDoc}
-                                        onChange={(e) => setClientDoc(e.target.value)}
-                                    />
+                                    <div className="relative">
+                                        <Input
+                                            placeholder="00000000"
+                                            className="h-10 text-sm font-medium pr-8"
+                                            value={clientDoc}
+                                            onChange={(e) => setClientDoc(e.target.value)}
+                                            onBlur={handleClientDniBlur}
+                                            maxLength={11}
+                                        />
+                                        {isLookingUpClient && (
+                                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre</Label>
-                                    <Input
-                                        placeholder="Nombre Completo"
-                                        className="h-10 text-sm font-medium"
-                                        value={clientName}
-                                        onChange={(e) => setClientName(e.target.value)}
-                                    />
+                                    <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Tipo</Label>
+                                    <Select value={clientType} onValueChange={setClientType}>
+                                        <SelectTrigger className="h-10 text-xs font-medium bg-muted/20 border-border/60">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="persona">Persona</SelectItem>
+                                            <SelectItem value="empresa">Empresa</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
+
+                            {/* Nombre (Row 2) */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Nombre Completo</Label>
+                                <Input
+                                    placeholder="Nombre del Cliente"
+                                    className="h-10 text-sm font-medium"
+                                    value={clientName}
+                                    onChange={(e) => setClientName(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Telefono (Row 3) */}
                             <div className="space-y-1.5">
                                 <Label className="text-[9px] font-bold uppercase text-muted-foreground/60">Teléfono</Label>
                                 <PhoneInput
