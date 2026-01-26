@@ -27,9 +27,20 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         redirect("/workspaces");
     }
 
-    const { getOrderStatuses } = await import("@/lib/order-actions");
-    const { data: orderStatuses } = await getOrderStatuses(workspace.id);
+    const { getOrderStatuses, getPaymentStatuses } = await import("@/lib/order-actions");
+    const [orderStatusesRes, paymentStatusesRes] = await Promise.all([
+        getOrderStatuses(workspace.id),
+        getPaymentStatuses(workspace.id)
+    ]);
 
-    return <WorkspaceSettingsClient workspace={workspace} role={role} initialOrderStatuses={orderStatuses || []} />;
+    return (
+        <WorkspaceSettingsClient
+            workspace={workspace}
+            role={role}
+            initialOrderStatuses={orderStatusesRes.data || []}
+            initialPaymentStatuses={paymentStatusesRes.data || []}
+        />
+    );
 }
+
 

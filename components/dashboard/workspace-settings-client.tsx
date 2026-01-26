@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
-import { OrderStatus, createOrderStatus, deleteOrderStatus } from "@/lib/order-actions";
+import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus } from "@/lib/order-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn, generateSlug } from "@/lib/utils";
 import Image from "next/image";
-import { Plus, ClipboardList } from "lucide-react";
+import { Plus, ClipboardList, CreditCard } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -46,18 +46,21 @@ interface WorkspaceSettingsClientProps {
     workspace: Workspace;
     role: "owner" | "admin" | "editor" | "viewer";
     initialOrderStatuses: OrderStatus[];
+    initialPaymentStatuses: PaymentStatus[];
 }
 
 const PRESET_COLORS = [
     "#6366F1", "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#EC4899", "#8B5CF6", "#14B8A6"
 ];
 
-export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses }: WorkspaceSettingsClientProps) {
+export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses, initialPaymentStatuses }: WorkspaceSettingsClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [deleteConfirmName, setDeleteConfirmName] = useState("");
+
+    // Order Status State
     const [isAddingStatus, setIsAddingStatus] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>(initialOrderStatuses);
@@ -67,6 +70,18 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses 
         value: "",
         color: PRESET_COLORS[0]
     });
+
+    // Payment Status State
+    const [isAddingPaymentStatus, setIsAddingPaymentStatus] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [paymentStatuses, setPaymentStatuses] = useState<PaymentStatus[]>(initialPaymentStatuses);
+
+    const [newPaymentStatus, setNewPaymentStatus] = useState({
+        name: "",
+        value: "",
+        color: PRESET_COLORS[0]
+    });
+
 
     const canEdit = role === "owner" || role === "admin" || role === "editor";
     const canDelete = role === "owner" || role === "admin";
@@ -129,6 +144,56 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses 
             toast.error("Error al eliminar el estado");
         }
     };
+
+    const handleAddPaymentStatus = async () => {
+        if (!newPaymentStatus.name || !newPaymentStatus.value) {
+            toast.error("Nombre y valor son obligatorios");
+            return;
+        }
+
+        const exists = paymentStatuses.some(status => status.value === newPaymentStatus.value);
+        if (exists) {
+            toast.error("Este estado de pago ya existe");
+            return;
+        }
+
+        setIsAddingPaymentStatus(true);
+        try {
+            const result = await createPaymentStatus({
+                ...newPaymentStatus,
+                workspace_id: workspace.id,
+                sort: paymentStatuses.length + 1
+            });
+
+            if (result.error) {
+                toast.error(result.error);
+            } else if (result.data) {
+                setPaymentStatuses(prev => [...prev, result.data as PaymentStatus]);
+                setNewPaymentStatus({ name: "", value: "", color: PRESET_COLORS[0] });
+                toast.success("Estado de pago creado");
+                setIsPaymentModalOpen(false);
+            }
+        } catch (error) {
+            toast.error("Error al crear el estado de pago");
+        } finally {
+            setIsAddingPaymentStatus(false);
+        }
+    };
+
+    const handleDeletePaymentStatus = async (id: string) => {
+        try {
+            const result = await deletePaymentStatus(id);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setPaymentStatuses(prev => prev.filter(s => s.id !== id));
+                toast.success("Estado de pago eliminado");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el estado de pago");
+        }
+    };
+
 
     const handleDelete = async () => {
 
@@ -365,139 +430,272 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses 
                 </CardContent>
             </Card>
 
-            {/* Order Statuses Settings */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <ClipboardList className="h-5 w-5 text-muted-foreground" /> Estados de Pedido
-                        </CardTitle>
-                        <CardDescription>
-                            Crea estados personalizados para seguir el progreso de tus ventas.
-                        </CardDescription>
-                    </div>
-                    {canEdit && (
-                        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Nuevo Estado
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Agregar Nuevo Estado</DialogTitle>
-                                    <DialogDescription>
-                                        Define un nombre y un color para el nuevo estado de pedido.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label>Nombre del Estado</Label>
-                                        <Input
-                                            placeholder="Ej: En camino"
-                                            value={newStatus.name}
-                                            onChange={(e) => {
-                                                const name = e.target.value;
-                                                setNewStatus(prev => ({
-                                                    ...prev,
-                                                    name,
-                                                    value: generateSlug(name)
-                                                }));
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Color del Indicador</Label>
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="h-10 w-10 rounded-md border shadow-sm"
-                                                style={{ backgroundColor: newStatus.color }}
+            {/* Status Management Section */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Order Statuses Settings */}
+                <Card className="flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <ClipboardList className="h-5 w-5 text-muted-foreground" /> Estados de Pedido
+                            </CardTitle>
+                            <CardDescription>
+                                Seguimiento del progreso de tus ventas.
+                            </CardDescription>
+                        </div>
+                        {canEdit && (
+                            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Nuevo
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar Nuevo Estado</DialogTitle>
+                                        <DialogDescription>
+                                            Define un nombre y un color para el nuevo estado de pedido.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label>Nombre del Estado</Label>
+                                            <Input
+                                                placeholder="Ej: En camino"
+                                                value={newStatus.name}
+                                                onChange={(e) => {
+                                                    const name = e.target.value;
+                                                    setNewStatus(prev => ({
+                                                        ...prev,
+                                                        name,
+                                                        value: generateSlug(name)
+                                                    }));
+                                                }}
                                             />
-                                            <div className="flex flex-wrap gap-2">
-                                                {PRESET_COLORS.map(c => (
-                                                    <button
-                                                        key={c}
-                                                        type="button"
-                                                        className={cn(
-                                                            "h-7 w-7 rounded-full border transition-transform hover:scale-110",
-                                                            newStatus.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
-                                                        )}
-                                                        style={{ backgroundColor: c }}
-                                                        onClick={() => setNewStatus(prev => ({ ...prev, color: c }))}
-                                                    />
-                                                ))}
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Color del Indicador</Label>
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="h-10 w-10 rounded-md border shadow-sm"
+                                                    style={{ backgroundColor: newStatus.color }}
+                                                />
+                                                <div className="flex flex-wrap gap-2">
+                                                    {PRESET_COLORS.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className={cn(
+                                                                "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                                newStatus.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                            )}
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => setNewStatus(prev => ({ ...prev, color: c }))}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                                    <Button onClick={handleAddStatus} disabled={isAddingStatus}>
-                                        {isAddingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                                        Crear Estado
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                    <TableHead>Nombre del Estado</TableHead>
-                                    <TableHead>Valor Identificador</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {orderStatuses.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                                            No hay estados personalizados configurados.
-                                        </TableCell>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+                                        <Button onClick={handleAddStatus} disabled={isAddingStatus}>
+                                            {isAddingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                            Crear Estado
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                        <div className="rounded-md border overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Nombre</TableHead>
+                                        <TableHead className="text-right">Acción</TableHead>
                                     </TableRow>
-                                ) : (
-                                    orderStatuses.map((status) => (
-                                        <TableRow key={status.id} className="group">
-                                            <TableCell className="font-medium p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div
-                                                        className="h-3 w-3 rounded-full shadow-sm flex-shrink-0"
-                                                        style={{ backgroundColor: status.color }}
-                                                    />
-                                                    {status.name}
-                                                </div>
+                                </TableHeader>
+                                <TableBody>
+                                    {orderStatuses.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
+                                                Sin estados configurados.
                                             </TableCell>
-                                            <TableCell>
-
-                                                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono uppercase tracking-wider text-muted-foreground">
-                                                    {status.value}
-                                                </code>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {canEdit && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                                                        onClick={() => handleDeleteStatus(status.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </TableCell>
-
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                    ) : (
+                                        orderStatuses.map((status) => (
+                                            <TableRow key={status.id} className="group transition-colors">
+                                                <TableCell className="font-medium p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="h-3 w-3 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: status.color }}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{status.name}</span>
+                                                            <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
+                                                                {status.value}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {canEdit && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDeleteStatus(status.id)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Payment Statuses Settings */}
+                <Card className="flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <CreditCard className="h-5 w-5 text-muted-foreground" /> Estados de Pago
+                            </CardTitle>
+                            <CardDescription>
+                                Define cobros (Acuenta, Cancelado, etc.)
+                            </CardDescription>
+                        </div>
+                        {canEdit && (
+                            <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Nuevo
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar Nuevo Estado de Pago</DialogTitle>
+                                        <DialogDescription>
+                                            Define un nombre y un color para el nuevo estado de pago.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label>Nombre del Estado</Label>
+                                            <Input
+                                                placeholder="Ej: Acuenta"
+                                                value={newPaymentStatus.name}
+                                                onChange={(e) => {
+                                                    const name = e.target.value;
+                                                    setNewPaymentStatus(prev => ({
+                                                        ...prev,
+                                                        name,
+                                                        value: generateSlug(name)
+                                                    }));
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Color de Referencia</Label>
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="h-10 w-10 rounded-md border shadow-sm"
+                                                    style={{ backgroundColor: newPaymentStatus.color }}
+                                                />
+                                                <div className="flex flex-wrap gap-2">
+                                                    {PRESET_COLORS.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className={cn(
+                                                                "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                                newPaymentStatus.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                            )}
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => setNewPaymentStatus(prev => ({ ...prev, color: c }))}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsPaymentModalOpen(false)}>Cancelar</Button>
+                                        <Button onClick={handleAddPaymentStatus} disabled={isAddingPaymentStatus}>
+                                            {isAddingPaymentStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                            Crear Pago
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                        <div className="rounded-md border overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Nombre</TableHead>
+                                        <TableHead className="text-right">Acción</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paymentStatuses.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
+                                                Sin estados configurados.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        paymentStatuses.map((status) => (
+                                            <TableRow key={status.id} className="group transition-colors">
+                                                <TableCell className="font-medium p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="h-3 w-3 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: status.color }}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{status.name}</span>
+                                                            <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
+                                                                {status.value}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {canEdit && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDeletePaymentStatus(status.id)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+
 
 
 

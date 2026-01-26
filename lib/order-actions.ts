@@ -134,3 +134,56 @@ export async function deleteOrderStatus(id: string) {
     }
 }
 
+// Payment Status Actions
+export interface PaymentStatus {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+    sort?: number;
+}
+
+export async function getPaymentStatuses(workspaceId: string) {
+    try {
+        const { readItems } = await import("@directus/sdk");
+        const statuses = await directus.request(
+            readItems("payment_statuses", {
+                filter: { workspace_id: { _eq: workspaceId } },
+                sort: ["sort"]
+            })
+        );
+        return { data: statuses as PaymentStatus[], error: null };
+    } catch (error: any) {
+        console.error("Error fetching payment statuses:", error);
+        return { data: [], error: "Error al obtener los estados de pago" };
+    }
+}
+
+export async function createPaymentStatus(data: Partial<PaymentStatus>) {
+    try {
+        const { createItem } = await import("@directus/sdk");
+        const status = await directus.request(
+            createItem("payment_statuses", data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: status, error: null };
+    } catch (error: any) {
+        console.error("Error creating payment status:", error);
+        return { data: null, error: "Error al crear el estado de pago" };
+    }
+}
+
+export async function deletePaymentStatus(id: string) {
+    try {
+        const { deleteItem } = await import("@directus/sdk");
+        await directus.request(deleteItem("payment_statuses", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error("Error deleting payment status:", error);
+        return { success: false, error: "Error al eliminar el estado de pago" };
+    }
+}
+
+
