@@ -186,4 +186,57 @@ export async function deletePaymentStatus(id: string) {
     }
 }
 
+// Courier Type Actions
+export interface CourierType {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+    sort?: number;
+}
+
+export async function getCourierTypes(workspaceId: string) {
+    try {
+        const { readItems } = await import("@directus/sdk");
+        const types = await directus.request(
+            readItems("courier_types", {
+                filter: { workspace_id: { _eq: workspaceId } },
+                sort: ["sort"]
+            })
+        );
+        return { data: types as CourierType[], error: null };
+    } catch (error: any) {
+        console.error("Error fetching courier types:", error);
+        return { data: [], error: "Error al obtener los tipos de courier" };
+    }
+}
+
+export async function createCourierType(data: Partial<CourierType>) {
+    try {
+        const { createItem } = await import("@directus/sdk");
+        const type = await directus.request(
+            createItem("courier_types", data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: type, error: null };
+    } catch (error: any) {
+        console.error("Error creating courier type:", error);
+        return { data: null, error: "Error al crear el tipo de courier" };
+    }
+}
+
+export async function deleteCourierType(id: string) {
+    try {
+        const { deleteItem } = await import("@directus/sdk");
+        await directus.request(deleteItem("courier_types", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error("Error deleting courier type:", error);
+        return { success: false, error: "Error al eliminar el tipo de courier" };
+    }
+}
+
+
 

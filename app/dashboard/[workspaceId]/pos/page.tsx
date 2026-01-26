@@ -22,10 +22,15 @@ export default async function POSPage({ params }: POSPageProps) {
         notFound();
     }
 
-    // Obtener productos y clientes en paralelo
-    const [productsResult, clientsResult] = await Promise.all([
+    const { getOrderStatuses, getPaymentStatuses, getCourierTypes } = await import("@/lib/order-actions");
+
+    // Obtener productos, clientes y estados en paralelo
+    const [productsResult, clientsResult, orderStatusesRes, paymentStatusesRes, courierTypesRes] = await Promise.all([
         getProductsByWorkspace(workspace.id),
-        getClientsByWorkspace(workspace.id)
+        getClientsByWorkspace(workspace.id),
+        getOrderStatuses(workspace.id),
+        getPaymentStatuses(workspace.id),
+        getCourierTypes(workspace.id)
     ]);
 
     return (
@@ -34,7 +39,11 @@ export default async function POSPage({ params }: POSPageProps) {
                 products={productsResult.data || []}
                 clients={clientsResult.data || []}
                 workspaceId={workspace.id}
+                orderStatuses={orderStatusesRes.data || []}
+                paymentStatuses={paymentStatusesRes.data || []}
+                courierTypes={courierTypesRes.data || []}
             />
         </div>
     );
 }
+

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Product } from "@/lib/product-actions";
 import { Client, lookupDni, createClient, getClientByDni } from "@/lib/client-actions";
-import { createOrder, OrderItem } from "@/lib/order-actions";
+import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType } from "@/lib/order-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,9 +64,19 @@ interface POSSystemProps {
     products: Product[];
     clients: Client[];
     workspaceId: string;
+    orderStatuses: OrderStatus[];
+    paymentStatuses: PaymentStatus[];
+    courierTypes: CourierType[];
 }
 
-export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
+export function POSSystem({
+    products,
+    clients,
+    workspaceId,
+    orderStatuses,
+    paymentStatuses,
+    courierTypes
+}: POSSystemProps) {
     // --- State ---
     const [cart, setCart] = useState<CartesianItem[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -86,8 +96,8 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
 
     // Order Info
     const [orderDate] = useState(new Date());
-    const [paymentStatus, setPaymentStatus] = useState("pendiente");
-    const [orderStatus, setOrderStatus] = useState("preparando");
+    const [paymentStatus, setPaymentStatus] = useState(paymentStatuses[0]?.value || "pendiente");
+    const [orderStatus, setOrderStatus] = useState(orderStatuses[0]?.value || "preparando");
     const [advancePayment, setAdvancePayment] = useState(0);
     const [adjustment, setAdjustment] = useState(0);
 
@@ -95,7 +105,7 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
     const [configureShipping, setConfigureShipping] = useState(false);
     const [shippingType, setShippingType] = useState("adicional"); // adicional | incluido
     const [shippingCost, setShippingCost] = useState(0);
-    const [courier, setCourier] = useState("SHALOM");
+    const [courier, setCourier] = useState(courierTypes[0]?.value || "SHALOM");
     const [province, setProvince] = useState("");
     const [destination, setDestination] = useState("");
     const [courierOrder, setCourierOrder] = useState("");
@@ -238,14 +248,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
         setClientName("");
         setClientPhone("");
         setSelectedClientId(null);
-        setPaymentStatus("pendiente");
-        setOrderStatus("preparando");
+        setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
+        setOrderStatus(orderStatuses[0]?.value || "preparando");
         setAdvancePayment(0);
         setAdjustment(0);
         setConfigureShipping(false);
         setShippingType("adicional");
         setShippingCost(0);
-        setCourier("SHALOM");
+        setCourier(courierTypes[0]?.value || "SHALOM");
         setProvince("");
         setDestination("");
         setCourierOrder("");
@@ -607,9 +617,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="pendiente">Pendiente</SelectItem>
-                                        <SelectItem value="parcial">P. Parcial</SelectItem>
-                                        <SelectItem value="pagado">P. Total</SelectItem>
+                                        {paymentStatuses.map((status) => (
+                                            <SelectItem key={status.id} value={status.value}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
+                                                    {status.name}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -620,9 +635,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="preparando">Preparando</SelectItem>
-                                        <SelectItem value="enviado">Enviado</SelectItem>
-                                        <SelectItem value="entregado">Entregado</SelectItem>
+                                        {orderStatuses.map((status) => (
+                                            <SelectItem key={status.id} value={status.value}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
+                                                    {status.name}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -705,9 +725,14 @@ export function POSSystem({ products, clients, workspaceId }: POSSystemProps) {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="SHALOM">SHALOM</SelectItem>
-                                                    <SelectItem value="OLVA">OLVA CURRIER</SelectItem>
-                                                    <SelectItem value="MOTORIZADO">MOTORIZADO</SelectItem>
+                                                    {courierTypes.map((type) => (
+                                                        <SelectItem key={type.id} value={type.value}>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
+                                                                {type.name}
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>

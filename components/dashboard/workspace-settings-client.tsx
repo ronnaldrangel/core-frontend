@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
-import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus } from "@/lib/order-actions";
+import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType } from "@/lib/order-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn, generateSlug } from "@/lib/utils";
 import Image from "next/image";
-import { Plus, ClipboardList, CreditCard } from "lucide-react";
+import { Plus, ClipboardList, CreditCard, Truck } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -47,13 +47,15 @@ interface WorkspaceSettingsClientProps {
     role: "owner" | "admin" | "editor" | "viewer";
     initialOrderStatuses: OrderStatus[];
     initialPaymentStatuses: PaymentStatus[];
+    initialCourierTypes: CourierType[];
 }
+
 
 const PRESET_COLORS = [
     "#6366F1", "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#EC4899", "#8B5CF6", "#14B8A6"
 ];
 
-export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses, initialPaymentStatuses }: WorkspaceSettingsClientProps) {
+export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses, initialPaymentStatuses, initialCourierTypes }: WorkspaceSettingsClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
@@ -81,6 +83,18 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
         value: "",
         color: PRESET_COLORS[0]
     });
+
+    // Courier Type State
+    const [isAddingCourierType, setIsAddingCourierType] = useState(false);
+    const [isCourierModalOpen, setIsCourierModalOpen] = useState(false);
+    const [courierTypes, setCourierTypes] = useState<CourierType[]>(initialCourierTypes);
+
+    const [newCourierType, setNewCourierType] = useState({
+        name: "",
+        value: "",
+        color: PRESET_COLORS[0]
+    });
+
 
 
     const canEdit = role === "owner" || role === "admin" || role === "editor";
@@ -193,6 +207,56 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
             toast.error("Error al eliminar el estado de pago");
         }
     };
+
+    const handleAddCourierType = async () => {
+        if (!newCourierType.name || !newCourierType.value) {
+            toast.error("Nombre y valor son obligatorios");
+            return;
+        }
+
+        const exists = courierTypes.some(type => type.value === newCourierType.value);
+        if (exists) {
+            toast.error("Este tipo de courier ya existe");
+            return;
+        }
+
+        setIsAddingCourierType(true);
+        try {
+            const result = await createCourierType({
+                ...newCourierType,
+                workspace_id: workspace.id,
+                sort: courierTypes.length + 1
+            });
+
+            if (result.error) {
+                toast.error(result.error);
+            } else if (result.data) {
+                setCourierTypes(prev => [...prev, result.data as CourierType]);
+                setNewCourierType({ name: "", value: "", color: PRESET_COLORS[0] });
+                toast.success("Tipo de courier creado");
+                setIsCourierModalOpen(false);
+            }
+        } catch (error) {
+            toast.error("Error al crear el tipo de courier");
+        } finally {
+            setIsAddingCourierType(false);
+        }
+    };
+
+    const handleDeleteCourierType = async (id: string) => {
+        try {
+            const result = await deleteCourierType(id);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setCourierTypes(prev => prev.filter(t => t.id !== id));
+                toast.success("Tipo de courier eliminado");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el tipo de courier");
+        }
+    };
+
 
 
     const handleDelete = async () => {
@@ -695,6 +759,138 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 </Card>
             </div>
 
+            {/* Courier Types Settings */}
+            <Card className="mt-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Truck className="h-5 w-5 text-muted-foreground" /> Tipos de Courier
+                        </CardTitle>
+                        <CardDescription>
+                            Define las agencias de transporte que utilizas.
+                        </CardDescription>
+                    </div>
+                    {canEdit && (
+                        <Dialog open={isCourierModalOpen} onOpenChange={setIsCourierModalOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Nuevo Courier
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Agregar Nuevo Tipo de Courier</DialogTitle>
+                                    <DialogDescription>
+                                        Define un nombre para la agencia de transporte.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label>Nombre del Courier / Agencia</Label>
+                                        <Input
+                                            placeholder="Ej: Olva Courier"
+                                            value={newCourierType.name}
+                                            onChange={(e) => {
+                                                const name = e.target.value;
+                                                setNewCourierType(prev => ({
+                                                    ...prev,
+                                                    name,
+                                                    value: generateSlug(name)
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Color de Referencia</Label>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="h-10 w-10 rounded-md border shadow-sm"
+                                                style={{ backgroundColor: newCourierType.color }}
+                                            />
+                                            <div className="flex flex-wrap gap-2">
+                                                {PRESET_COLORS.map(c => (
+                                                    <button
+                                                        key={c}
+                                                        type="button"
+                                                        className={cn(
+                                                            "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                            newCourierType.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                        )}
+                                                        style={{ backgroundColor: c }}
+                                                        onClick={() => setNewCourierType(prev => ({ ...prev, color: c }))}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsCourierModalOpen(false)}>Cancelar</Button>
+                                    <Button onClick={handleAddCourierType} disabled={isAddingCourierType}>
+                                        {isAddingCourierType ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                        Crear Courier
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border overflow-hidden">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead>Agencia / Courier</TableHead>
+                                    <TableHead className="text-right">Acción</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {courierTypes.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
+                                            No hay tipos de courier configurados.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    courierTypes.map((type) => (
+                                        <TableRow key={type.id} className="group transition-colors">
+                                            <TableCell className="font-medium p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="h-3 w-3 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: type.color }}
+                                                    />
+                                                    <div className="flex flex-col">
+                                                        <span>{type.name}</span>
+                                                        <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
+                                                            {type.value}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {canEdit && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleDeleteCourierType(type.id)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+
+
 
 
 
@@ -722,84 +918,58 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 </div>
             )}
 
-            {/* Danger Zone - Only show if can delete */}
+            {/* Danger Zone - Red Box */}
             {canDelete && (
-                <Card className="border-red-500/20 bg-red-500/[0.02]">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-red-600">
-                            <Trash2 className="h-5 w-5" /> Zona de Peligro
-                        </CardTitle>
-                        <CardDescription className="text-red-500/70">
-                            Acciones irreversibles que afectan a todo el equipo.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-red-500/20 rounded-xl bg-background/50 gap-4">
-                            <div>
-                                <p className="font-semibold text-foreground">Eliminar este Workspace</p>
-                                <p className="text-sm text-muted-foreground max-w-md mt-1">
-                                    Borrarás permanentemente todos los proyectos, miembros y datos asociados. No se puede deshacer.
-                                </p>
-                            </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" className="font-semibold">
-                                        Eliminar definitivamente
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Esta acción no se puede deshacer. Esto eliminará permanentemente el workspace{" "}
-                                            <span className="font-bold text-foreground">"{workspace.name}"</span> y todos sus datos asociados (miembros, proyectos y archivos).
-                                            <br /><br />
-                                            Para confirmar, escribe el nombre del workspace a continuación:
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <div className="space-y-2 py-4">
-                                        <Label htmlFor="confirm-name">
-                                            Escribe <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-red-500 font-bold">{workspace.name}</span>
-                                        </Label>
-                                        <Input
-                                            id="confirm-name"
-                                            value={deleteConfirmName}
-                                            onChange={(e) => setDeleteConfirmName(e.target.value)}
-                                            placeholder={workspace.name}
-                                            className="border-red-500/50 focus-visible:ring-red-500"
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' && deleteConfirmName === workspace.name && !isDeleting) {
-                                                    handleDelete();
-                                                }
-                                            }}
-                                        />
-                                    </div>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel onClick={() => setDeleteConfirmName("")}>
-                                            Cancelar
-                                        </AlertDialogCancel>
-                                        <Button
-                                            variant="destructive"
-                                            onClick={handleDelete}
-                                            disabled={deleteConfirmName !== workspace.name || isDeleting}
-                                            className="font-semibold"
-                                        >
-                                            {isDeleting ? (
-                                                <>
-                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                    Eliminando...
-                                                </>
-                                            ) : (
-                                                "Entiendo las consecuencias, eliminar este workspace"
-                                            )}
-                                        </Button>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                <div className="mt-12 p-6 border border-destructive/30 rounded-xl bg-destructive/[0.03]">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div>
+                            <h3 className="text-lg font-semibold text-destructive flex items-center gap-2">
+                                <Trash2 className="h-5 w-5" /> Zona de Peligro
+                            </h3>
+                            <p className="text-sm text-destructive/80 mt-1">
+                                Aquí puedes borrar tu workspace definitivamente
+                            </p>
                         </div>
-                    </CardContent>
-                </Card>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" className="font-semibold px-8 shadow-lg shadow-destructive/20">
+                                    Eliminar Workspace
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Borrar este workspace?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción borrará permanentemente <span className="font-bold text-foreground">"{workspace.name}"</span> y todos sus datos.
+                                        Para confirmar, escribe el nombre del workspace:
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <div className="py-4">
+                                    <Input
+                                        value={deleteConfirmName}
+                                        onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                        placeholder={workspace.name}
+                                        className="border-red-500/50"
+                                    />
+                                </div>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={() => setDeleteConfirmName("")}>Cancelar</AlertDialogCancel>
+                                    <Button
+                                        variant="destructive"
+                                        onClick={handleDelete}
+                                        disabled={deleteConfirmName !== workspace.id && deleteConfirmName !== workspace.name || isDeleting}
+                                    >
+                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                        Confirmar Eliminación
+                                    </Button>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </div>
             )}
+
+
         </div>
     );
 }
