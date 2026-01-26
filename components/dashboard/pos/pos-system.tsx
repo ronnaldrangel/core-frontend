@@ -691,19 +691,35 @@ export function POSSystem({
                                 <div className="space-y-6 pt-2">
                                     <div className="flex items-center justify-between">
                                         <Label className="text-sm font-medium">Tipo de Cobro</Label>
-                                        <div className="flex bg-muted p-1 rounded-md">
+                                        <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 w-fit">
                                             <Button
-                                                variant={shippingType === "adicional" ? "default" : "ghost"}
+                                                type="button"
+                                                variant="ghost"
                                                 size="sm"
-                                                className="h-7 text-[9px] font-black uppercase px-3 shadow-none"
+                                                className={cn(
+                                                    "h-8 text-[10px] font-black uppercase px-4 transition-all duration-200 rounded-md",
+                                                    shippingType === "adicional"
+                                                        ? "bg-background text-primary shadow-sm hover:bg-background"
+                                                        : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                                                )}
                                                 onClick={() => setShippingType("adicional")}
-                                            >Adicional</Button>
+                                            >
+                                                Adicional
+                                            </Button>
                                             <Button
-                                                variant={shippingType === "incluido" ? "secondary" : "ghost"}
+                                                type="button"
+                                                variant="ghost"
                                                 size="sm"
-                                                className="h-7 text-[9px] font-black uppercase px-3 ml-1"
+                                                className={cn(
+                                                    "h-8 text-[10px] font-black uppercase px-4 transition-all duration-200 rounded-md ml-1",
+                                                    shippingType === "incluido"
+                                                        ? "bg-background text-primary shadow-sm hover:bg-background"
+                                                        : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                                                )}
                                                 onClick={() => setShippingType("incluido")}
-                                            >Incluido</Button>
+                                            >
+                                                Incluido
+                                            </Button>
                                         </div>
                                     </div>
 
@@ -771,7 +787,7 @@ export function POSSystem({
                                                 onChange={(e) => setCourierOrder(e.target.value)}
                                             />
                                             <Input
-                                                placeholder="Código"
+                                                placeholder="Código de Envío"
                                                 className="h-10 text-sm"
                                                 value={courierCode}
                                                 onChange={(e) => setCourierCode(e.target.value)}
@@ -779,7 +795,7 @@ export function POSSystem({
                                         </div>
                                         <Input
                                             placeholder="Clave"
-                                            type="password"
+                                            type="text"
                                             className="h-10 text-sm"
                                             value={courierPass}
                                             onChange={(e) => setCourierPass(e.target.value)}
