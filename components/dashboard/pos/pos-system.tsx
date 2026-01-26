@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Product } from "@/lib/product-actions";
 import { Client, lookupDni, createClient, getClientByDni } from "@/lib/client-actions";
-import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType } from "@/lib/order-actions";
+import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType, Order } from "@/lib/order-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,10 @@ import {
     Truck,
     Info,
     ChevronDown,
-    X
+    X,
+    Printer,
+    FileText,
+    Receipt
 } from "lucide-react";
 import {
     Select,
@@ -113,6 +116,7 @@ export function POSSystem({
     const [courierPass, setCourierPass] = useState("");
 
     const [isProcessing, setIsProcessing] = useState(false);
+    const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
     // --- Logical Handling ---
 
@@ -263,6 +267,16 @@ export function POSSystem({
         setCourierPass("");
     };
 
+    const handlePrintTicket = (order: Order) => {
+        const url = `/dashboard/${workspaceId}/pos/ticket/${order.id}`;
+        window.open(url, "_blank", "width=400,height=600");
+    };
+
+    const handlePrintGuide = (order: Order) => {
+        const url = `/dashboard/${workspaceId}/pos/guide/${order.id}`;
+        window.open(url, "_blank", "width=400,height=600");
+    };
+
     const handleCheckout = async () => {
         if (cart.length === 0) {
             toast.error("El carrito está vacío");
@@ -341,7 +355,7 @@ export function POSSystem({
                 variante_seleccionada: item.selectedVariant
             }));
 
-            const { error } = await createOrder({
+            const { data: order, error } = await createOrder({
                 workspace_id: workspaceId,
                 cliente_id: finalClientId, // Use resolved ID
                 total: totalWithAdjustments,
@@ -365,9 +379,7 @@ export function POSSystem({
             if (error) throw new Error(error);
 
             // Show Success Dialog instead of basic toast
-            // We reset the POS data BEHIND the dialog or when dialog closes. 
-            // Usually simpler to reset immediately so the form is clean for next use, 
-            // but keep the 'success' state visible.
+            setLastOrder(order as Order);
             resetPOS();
             setShowSuccessDialog(true);
         } catch (error: any) {
@@ -381,29 +393,50 @@ export function POSSystem({
         <div className="flex flex-col lg:flex-row h-full bg-background overflow-hidden relative">
             {/* Success Dialog */}
             <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2 text-green-600">
-                            <CheckCircle2 className="h-6 w-6" />
-                            Operación Exitosa
-                        </DialogTitle>
-                        <DialogDescription>
-                            La venta se ha registrado correctamente en el sistema.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex justify-center py-6">
-                        <div className="h-24 w-24 bg-green-100 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                            <CheckCircle2 className="h-12 w-12 text-green-600" />
+                <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-none shadow-2xl bg-[#0a0a0a]">
+                    <div className="py-10 flex flex-col items-center justify-center">
+                        <div className="h-20 w-20 bg-green-500/10 rounded-full flex items-center justify-center mb-4 animate-in zoom-in duration-500 ring-1 ring-green-500/20">
+                            <div className="h-14 w-14 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/20">
+                                <CheckCircle2 className="h-8 w-8 text-white" />
+                            </div>
                         </div>
+                        <h2 className="text-2xl font-black tracking-tight text-white uppercase pt-2">¡Venta Realizada!</h2>
+                        <p className="text-green-500 text-sm font-bold tracking-tight opacity-90">Orden registrada y enviada al sistema</p>
                     </div>
-                    <DialogFooter className="sm:justify-center">
+
+                    <div className="p-6 space-y-4">
+                        <div className="grid grid-cols-1 gap-3">
+                            <Button
+                                className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-black tracking-widest gap-3 shadow-md transition-all active:scale-[0.98]"
+                                onClick={() => lastOrder && handlePrintTicket(lastOrder)}
+                            >
+                                <Receipt className="h-5 w-5" />
+                                GENERAR BOLETA TÉRMICA
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full h-14 font-black tracking-widest gap-3 border-2 hover:bg-muted/50 transition-all active:scale-[0.98]"
+                                onClick={() => lastOrder && handlePrintGuide(lastOrder)}
+                            >
+                                <Truck className="h-5 w-5" />
+                                GENERAR GUÍA TÉRMICA
+                            </Button>
+                        </div>
+
+                        <Separator className="my-2" />
+
                         <Button
-                            className="w-full sm:w-auto"
-                            onClick={() => setShowSuccessDialog(false)}
+                            variant="ghost"
+                            className="w-full h-12 text-muted-foreground font-bold hover:text-foreground"
+                            onClick={() => {
+                                setShowSuccessDialog(false);
+                                setLastOrder(null);
+                            }}
                         >
-                            Nueva Venta
+                            SALIR Y NUEVA VENTA
                         </Button>
-                    </DialogFooter>
+                    </div>
                 </DialogContent>
             </Dialog>
 

@@ -238,5 +238,17 @@ export async function deleteCourierType(id: string) {
     }
 }
 
-
-
+export async function getOrderById(id: string) {
+    try {
+        const { readItem } = await import("@directus/sdk");
+        const order = await directus.request(
+            readItem("orders", id, {
+                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*"],
+            })
+        );
+        return { data: order as any, error: null };
+    } catch (error: any) {
+        console.error("Error fetching order by id:", error);
+        return { data: null, error: "Error al obtener los detalles de la orden" };
+    }
+}
