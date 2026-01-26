@@ -4,6 +4,7 @@ import { directus } from "./directus";
 import { createItem, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
+import { generateSlug } from "./utils";
 
 export interface Workspace {
     id: string;
@@ -20,17 +21,6 @@ export interface Workspace {
     date_updated: string | null;
 }
 
-// Helper function to generate slug from name
-function generateSlug(name: string): string {
-    return name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Remove accents
-        .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-') // Replace multiple hyphens with single
-        .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
-}
 
 export interface WorkspaceMember {
     id: string;

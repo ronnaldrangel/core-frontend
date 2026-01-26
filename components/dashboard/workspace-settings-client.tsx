@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
+import { OrderStatus, createOrderStatus, deleteOrderStatus } from "@/lib/order-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, generateSlug } from "@/lib/utils";
 import Image from "next/image";
+import { Plus, ClipboardList } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -21,22 +23,50 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+
 
 interface WorkspaceSettingsClientProps {
     workspace: Workspace;
     role: "owner" | "admin" | "editor" | "viewer";
+    initialOrderStatuses: OrderStatus[];
 }
 
 const PRESET_COLORS = [
     "#6366F1", "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#EC4899", "#8B5CF6", "#14B8A6"
 ];
 
-export function WorkspaceSettingsClient({ workspace, role }: WorkspaceSettingsClientProps) {
+export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses }: WorkspaceSettingsClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [deleteConfirmName, setDeleteConfirmName] = useState("");
+    const [isAddingStatus, setIsAddingStatus] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [orderStatuses, setOrderStatuses] = useState<OrderStatus[]>(initialOrderStatuses);
+
+    const [newStatus, setNewStatus] = useState({
+        name: "",
+        value: "",
+        color: PRESET_COLORS[0]
+    });
 
     const canEdit = role === "owner" || role === "admin" || role === "editor";
     const canDelete = role === "owner" || role === "admin";
@@ -48,7 +78,60 @@ export function WorkspaceSettingsClient({ workspace, role }: WorkspaceSettingsCl
         logo: workspace.logo,
     });
 
+    const handleAddStatus = async () => {
+        if (!newStatus.name || !newStatus.value) {
+            toast.error("Nombre y valor son obligatorios");
+            return;
+        }
+
+        // Check if status value already exists in this workspace
+        const exists = orderStatuses.some(status => status.value === newStatus.value);
+        if (exists) {
+            toast.error("Este estado ya existe en este workspace");
+            return;
+        }
+
+        setIsAddingStatus(true);
+        try {
+            const result = await createOrderStatus({
+                ...newStatus,
+                workspace_id: workspace.id,
+                sort: orderStatuses.length + 1
+            });
+
+            if (result.error) {
+                toast.error(result.error);
+            } else if (result.data) {
+                setOrderStatuses(prev => [...prev, result.data as OrderStatus]);
+                setNewStatus({ name: "", value: "", color: PRESET_COLORS[0] });
+                toast.success("Estado de pedido creado");
+                setIsModalOpen(false);
+            }
+
+        } catch (error) {
+            toast.error("Error al crear el estado");
+        } finally {
+            setIsAddingStatus(false);
+        }
+    };
+
+
+    const handleDeleteStatus = async (id: string) => {
+        try {
+            const result = await deleteOrderStatus(id);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setOrderStatuses(prev => prev.filter(s => s.id !== id));
+                toast.success("Estado de pedido eliminado");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el estado");
+        }
+    };
+
     const handleDelete = async () => {
+
         if (deleteConfirmName !== workspace.name) {
             toast.error("El nombre del workspace no coincide");
             return;
@@ -281,6 +364,142 @@ export function WorkspaceSettingsClient({ workspace, role }: WorkspaceSettingsCl
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Order Statuses Settings */}
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <ClipboardList className="h-5 w-5 text-muted-foreground" /> Estados de Pedido
+                        </CardTitle>
+                        <CardDescription>
+                            Crea estados personalizados para seguir el progreso de tus ventas.
+                        </CardDescription>
+                    </div>
+                    {canEdit && (
+                        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="gap-2">
+                                    <Plus className="h-4 w-4" />
+                                    Nuevo Estado
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Agregar Nuevo Estado</DialogTitle>
+                                    <DialogDescription>
+                                        Define un nombre y un color para el nuevo estado de pedido.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label>Nombre del Estado</Label>
+                                        <Input
+                                            placeholder="Ej: En camino"
+                                            value={newStatus.name}
+                                            onChange={(e) => {
+                                                const name = e.target.value;
+                                                setNewStatus(prev => ({
+                                                    ...prev,
+                                                    name,
+                                                    value: generateSlug(name)
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label>Color del Indicador</Label>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="h-10 w-10 rounded-md border shadow-sm"
+                                                style={{ backgroundColor: newStatus.color }}
+                                            />
+                                            <div className="flex flex-wrap gap-2">
+                                                {PRESET_COLORS.map(c => (
+                                                    <button
+                                                        key={c}
+                                                        type="button"
+                                                        className={cn(
+                                                            "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                            newStatus.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                        )}
+                                                        style={{ backgroundColor: c }}
+                                                        onClick={() => setNewStatus(prev => ({ ...prev, color: c }))}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
+                                    <Button onClick={handleAddStatus} disabled={isAddingStatus}>
+                                        {isAddingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                        Crear Estado
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead>Nombre del Estado</TableHead>
+                                    <TableHead>Valor Identificador</TableHead>
+                                    <TableHead className="text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {orderStatuses.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                                            No hay estados personalizados configurados.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    orderStatuses.map((status) => (
+                                        <TableRow key={status.id} className="group">
+                                            <TableCell className="font-medium p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div
+                                                        className="h-3 w-3 rounded-full shadow-sm flex-shrink-0"
+                                                        style={{ backgroundColor: status.color }}
+                                                    />
+                                                    {status.name}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+
+                                                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono uppercase tracking-wider text-muted-foreground">
+                                                    {status.value}
+                                                </code>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {canEdit && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleDeleteStatus(status.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+
+
 
             {/* Bottom Actions - Only show if can edit */}
             {canEdit && (

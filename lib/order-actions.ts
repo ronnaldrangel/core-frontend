@@ -82,3 +82,55 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
         return { data: null, error: "Error al procesar la venta" };
     }
 }
+
+export interface OrderStatus {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+    sort?: number;
+}
+
+export async function getOrderStatuses(workspaceId: string) {
+    try {
+        const { readItems } = await import("@directus/sdk");
+        const statuses = await directus.request(
+            readItems("order_statuses", {
+                filter: { workspace_id: { _eq: workspaceId } },
+                sort: ["sort"]
+            })
+        );
+        return { data: statuses as OrderStatus[], error: null };
+    } catch (error: any) {
+        console.error("Error fetching order statuses:", error);
+        return { data: [], error: "Error al obtener los estados de pedido" };
+    }
+}
+
+export async function createOrderStatus(data: Partial<OrderStatus>) {
+    try {
+        const { createItem } = await import("@directus/sdk");
+        const status = await directus.request(
+            createItem("order_statuses", data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: status, error: null };
+    } catch (error: any) {
+        console.error("Error creating order status:", error);
+        return { data: null, error: "Error al crear el estado de pedido" };
+    }
+}
+
+export async function deleteOrderStatus(id: string) {
+    try {
+        const { deleteItem } = await import("@directus/sdk");
+        await directus.request(deleteItem("order_statuses", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error("Error deleting order status:", error);
+        return { success: false, error: "Error al eliminar el estado de pedido" };
+    }
+}
+

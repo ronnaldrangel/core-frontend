@@ -27,5 +27,9 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         redirect("/workspaces");
     }
 
-    return <WorkspaceSettingsClient workspace={workspace} role={role} />;
+    const { getOrderStatuses } = await import("@/lib/order-actions");
+    const { data: orderStatuses } = await getOrderStatuses(workspace.id);
+
+    return <WorkspaceSettingsClient workspace={workspace} role={role} initialOrderStatuses={orderStatuses || []} />;
 }
+
