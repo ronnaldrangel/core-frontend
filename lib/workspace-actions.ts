@@ -19,6 +19,9 @@ export interface Workspace {
     members?: WorkspaceMember[];
     date_created: string;
     date_updated: string | null;
+    email_contacto?: string;
+    telefono_contacto?: string;
+    direccion_contacto?: string;
 }
 
 
@@ -68,6 +71,9 @@ export interface CreateWorkspaceData {
     color?: string;
     icon?: string;
     logo?: string;
+    email_contacto?: string;
+    telefono_contacto?: string;
+    direccion_contacto?: string;
 }
 
 export interface UpdateWorkspaceData {
@@ -77,6 +83,9 @@ export interface UpdateWorkspaceData {
     icon?: string;
     logo?: string | null;
     status?: string;
+    email_contacto?: string;
+    telefono_contacto?: string;
+    direccion_contacto?: string;
 }
 
 // Get all workspaces for the current user (owned or member of)
@@ -114,6 +123,9 @@ export async function getWorkspaces() {
                     "members.user_id.last_name",
                     "members.user_id.email",
                     "members.role",
+                    "email_contacto",
+                    "telefono_contacto",
+                    "direccion_contacto",
                 ],
                 filter: {
                     _or: [
@@ -163,6 +175,9 @@ export async function getWorkspace(id: string) {
                     "members.user_id.last_name",
                     "members.user_id.email",
                     "members.role",
+                    "email_contacto",
+                    "telefono_contacto",
+                    "direccion_contacto",
                 ],
             })
         );
@@ -205,6 +220,9 @@ export async function getWorkspaceBySlug(slug: string) {
                     "members.user_id.last_name",
                     "members.user_id.email",
                     "members.role",
+                    "email_contacto",
+                    "telefono_contacto",
+                    "direccion_contacto",
                 ],
                 filter: {
                     slug: { _eq: slug }
@@ -286,6 +304,9 @@ export async function createWorkspace(data: CreateWorkspaceData) {
                 logo: data.logo || null,
                 owner: session.user.id,
                 status: "published",
+                email_contacto: data.email_contacto || null,
+                telefono_contacto: data.telefono_contacto || null,
+                direccion_contacto: data.direccion_contacto || null,
             })
         );
 

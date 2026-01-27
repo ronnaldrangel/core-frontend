@@ -31,6 +31,7 @@ import {
     CreditCard,
     ClipboardList,
     Receipt,
+    FileText,
     ChevronDown,
     Calendar as CalendarIcon
 } from "lucide-react";
@@ -349,6 +350,26 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                             </TableCell>
                                             <TableCell className="px-4 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                        onClick={() => window.open(`/ticket/${order.id}`, '_blank')}
+                                                        title="Boleta Térmica"
+                                                    >
+                                                        <Receipt className="h-4 w-4" />
+                                                    </Button>
+
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                        onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}
+                                                        title="Guía de Envío (A4)"
+                                                    >
+                                                        <FileText className="h-4 w-4" />
+                                                    </Button>
+                                                    <Separator orientation="vertical" className="h-4 mx-1" />
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"

@@ -267,13 +267,15 @@ export function POSSystem({
     };
 
     const handlePrintTicket = (order: Order) => {
-        const url = `/dashboard/${workspaceId}/pos/ticket/${order.id}`;
+        const url = `/ticket/${order.id}`;
         window.open(url, "_blank", "width=400,height=600");
     };
 
-    const handlePrintGuide = (order: Order) => {
-        const url = `/dashboard/${workspaceId}/pos/guide/${order.id}`;
-        window.open(url, "_blank", "width=400,height=600");
+
+
+    const handlePrintShippingGuide = (order: Order) => {
+        const url = `/shipping-guide/${order.id}`;
+        window.open(url, "_blank", "width=800,height=900");
     };
 
     const handleCheckout = async () => {
@@ -413,14 +415,16 @@ export function POSSystem({
                             Generar Boleta Térmica
                         </Button>
 
+
+
                         <Button
                             size="lg"
                             variant="outline"
                             className="w-full flex items-center gap-2 h-12 font-medium"
-                            onClick={() => lastOrder && handlePrintGuide(lastOrder)}
+                            onClick={() => lastOrder && handlePrintShippingGuide(lastOrder)}
                         >
-                            <Truck className="h-4 w-4" />
-                            Generar Guía Térmica
+                            <FileText className="h-4 w-4" />
+                            Generar Guía de Envío (A4)
                         </Button>
                     </div>
 

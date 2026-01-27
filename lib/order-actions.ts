@@ -37,6 +37,8 @@ export interface Order {
     courier_clave?: string;
     ajuste_total?: number;
     items?: OrderItem[];
+    user_created?: any;
+    date_created?: string;
 }
 
 export async function createOrder(orderData: Partial<Order>, items: OrderItem[]) {
@@ -78,8 +80,10 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
         revalidatePath(`/dashboard`);
         return { data: order, error: null };
     } catch (error: any) {
-        console.error("Error creating order:", error);
-        return { data: null, error: "Error al procesar la venta" };
+        console.error("Detailed Error creating order:", error);
+        // Intentar obtener el mensaje de error de Directus
+        const errorMessage = error.errors?.[0]?.message || error.message || "Error al procesar la venta";
+        return { data: null, error: errorMessage };
     }
 }
 
@@ -243,7 +247,7 @@ export async function getOrderById(id: string) {
         const { readItem } = await import("@directus/sdk");
         const order = await directus.request(
             readItem("orders", id, {
-                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*"],
+                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*"],
             })
         );
         return { data: order as any, error: null };

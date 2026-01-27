@@ -43,6 +43,9 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
         description: "",
         color: "#6366F1",
         icon: "folder",
+        email_contacto: "",
+        telefono_contacto: "",
+        direccion_contacto: "",
     });
 
     const isEditing = !!workspace;
@@ -54,6 +57,9 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
                 description: workspace.description || "",
                 color: workspace.color,
                 icon: workspace.icon,
+                email_contacto: workspace.email_contacto || "",
+                telefono_contacto: workspace.telefono_contacto || "",
+                direccion_contacto: workspace.direccion_contacto || "",
             });
         } else {
             setFormData({
@@ -61,6 +67,9 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
                 description: "",
                 color: "#6366F1",
                 icon: "folder",
+                email_contacto: "",
+                telefono_contacto: "",
+                direccion_contacto: "",
             });
         }
         setError(null);
@@ -148,6 +157,46 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
                         />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Correo de Contacto
+                            </label>
+                            <input
+                                type="email"
+                                value={formData.email_contacto}
+                                onChange={(e) => setFormData({ ...formData, email_contacto: e.target.value })}
+                                placeholder="contacto@empresa.com"
+                                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                Teléfono de Contacto
+                            </label>
+                            <input
+                                type="text"
+                                value={formData.telefono_contacto}
+                                onChange={(e) => setFormData({ ...formData, telefono_contacto: e.target.value })}
+                                placeholder="+51 999 999 999"
+                                className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                            Dirección de Contacto (Aparecerá en Boletas/Guías)
+                        </label>
+                        <textarea
+                            value={formData.direccion_contacto}
+                            onChange={(e) => setFormData({ ...formData, direccion_contacto: e.target.value })}
+                            placeholder="Av. Principal 123, Lima..."
+                            rows={2}
+                            className="w-full px-4 py-3 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all resize-none"
+                        />
+                    </div>
+
                     {/* Color */}
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -160,8 +209,8 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
                                     type="button"
                                     onClick={() => setFormData({ ...formData, color })}
                                     className={`w-10 h-10 rounded-xl transition-all duration-200 ${formData.color === color
-                                            ? "ring-2 ring-white ring-offset-2 ring-offset-[#0a0a0a] scale-110"
-                                            : "hover:scale-105"
+                                        ? "ring-2 ring-white ring-offset-2 ring-offset-[#0a0a0a] scale-110"
+                                        : "hover:scale-105"
                                         }`}
                                     style={{ backgroundColor: color }}
                                 />
@@ -181,8 +230,8 @@ export default function WorkspaceModal({ isOpen, onClose, workspace }: Workspace
                                     type="button"
                                     onClick={() => setFormData({ ...formData, icon: icon.name })}
                                     className={`px-4 py-2 rounded-xl text-sm transition-all duration-200 ${formData.icon === icon.name
-                                            ? "bg-white/[0.15] text-white"
-                                            : "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] hover:text-white"
+                                        ? "bg-white/[0.15] text-white"
+                                        : "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] hover:text-white"
                                         }`}
                                 >
                                     {icon.label}

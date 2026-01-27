@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe } from "lucide-react";
+import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe, Mail, Phone, MapPin } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
 import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType } from "@/lib/order-actions";
 import { toast } from "sonner";
@@ -105,6 +105,9 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
         description: workspace.description || "",
         color: workspace.color,
         logo: workspace.logo,
+        email_contacto: workspace.email_contacto || "",
+        telefono_contacto: workspace.telefono_contacto || "",
+        direccion_contacto: workspace.direccion_contacto || "",
     });
 
     const handleAddStatus = async () => {
@@ -316,6 +319,9 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 description: formData.description,
                 color: formData.color,
                 logo: formData.logo,
+                email_contacto: formData.email_contacto,
+                telefono_contacto: formData.telefono_contacto,
+                direccion_contacto: formData.direccion_contacto,
             });
 
             if (result.error) {
@@ -388,6 +394,52 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                         <p className="text-xs text-muted-foreground">
                             El slug se genera automáticamente y no se puede cambiar para evitar romper enlaces.
                         </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-border/50">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Mail className="h-5 w-5 text-primary" />
+                            <h3 className="font-semibold">Información de Contacto</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Estos datos aparecerán en el encabezado de tus boletas y guías de envío.
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="email_contacto">Correo de Contacto</Label>
+                                <Input
+                                    id="email_contacto"
+                                    type="email"
+                                    value={formData.email_contacto}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, email_contacto: e.target.value }))}
+                                    placeholder="contacto@empresa.com"
+                                    disabled={!canEdit}
+                                />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="telefono_contacto">Teléfono de Contacto</Label>
+                                <Input
+                                    id="telefono_contacto"
+                                    type="text"
+                                    value={formData.telefono_contacto}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, telefono_contacto: e.target.value }))}
+                                    placeholder="+51 999 999 999"
+                                    disabled={!canEdit}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="direccion_contacto">Dirección de Contacto / Local</Label>
+                            <Input
+                                id="direccion_contacto"
+                                value={formData.direccion_contacto}
+                                onChange={(e) => setFormData(prev => ({ ...prev, direccion_contacto: e.target.value }))}
+                                placeholder="Av. Principal 123, Miraflores, Lima"
+                                disabled={!canEdit}
+                            />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
