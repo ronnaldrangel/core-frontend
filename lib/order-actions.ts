@@ -252,3 +252,15 @@ export async function getOrderById(id: string) {
         return { data: null, error: "Error al obtener los detalles de la orden" };
     }
 }
+
+export async function deleteOrder(id: string) {
+    try {
+        const { deleteItem } = await import("@directus/sdk");
+        await directus.request(deleteItem("orders", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error("Error deleting order:", error);
+        return { success: false, error: "Error al eliminar la orden" };
+    }
+}
