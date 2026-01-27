@@ -53,7 +53,6 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -393,50 +392,39 @@ export function POSSystem({
         <div className="flex flex-col lg:flex-row h-full bg-background overflow-hidden relative">
             {/* Success Dialog */}
             <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-                <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden border-none shadow-2xl bg-[#0a0a0a]">
-                    <div className="py-10 flex flex-col items-center justify-center">
-                        <div className="h-20 w-20 bg-green-500/10 rounded-full flex items-center justify-center mb-4 animate-in zoom-in duration-500 ring-1 ring-green-500/20">
-                            <div className="h-14 w-14 bg-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/20">
-                                <CheckCircle2 className="h-8 w-8 text-white" />
-                            </div>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader className="flex flex-col items-center justify-center text-center pt-4">
+                        <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mb-4">
+                            <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-white uppercase pt-2">¡Venta Realizada!</h2>
-                        <p className="text-green-500 text-sm font-bold tracking-tight opacity-90">Orden registrada y enviada al sistema</p>
-                    </div>
+                        <DialogTitle className="text-2xl font-bold">¡Venta Realizada!</DialogTitle>
+                        <DialogDescription className="text-center">
+                            La orden ha sido registrada y enviada al sistema correctamente.
+                        </DialogDescription>
+                    </DialogHeader>
 
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-1 gap-3">
-                            <Button
-                                className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-black tracking-widest gap-3 shadow-md transition-all active:scale-[0.98]"
-                                onClick={() => lastOrder && handlePrintTicket(lastOrder)}
-                            >
-                                <Receipt className="h-5 w-5" />
-                                GENERAR BOLETA TÉRMICA
-                            </Button>
-
-                            <Button
-                                variant="outline"
-                                className="w-full h-14 font-black tracking-widest gap-3 border-2 hover:bg-muted/50 transition-all active:scale-[0.98]"
-                                onClick={() => lastOrder && handlePrintGuide(lastOrder)}
-                            >
-                                <Truck className="h-5 w-5" />
-                                GENERAR GUÍA TÉRMICA
-                            </Button>
-                        </div>
-
-                        <Separator className="my-2" />
+                    <div className="grid gap-3 py-6">
+                        <Button
+                            size="lg"
+                            className="w-full flex items-center gap-2 h-12 font-medium"
+                            onClick={() => lastOrder && handlePrintTicket(lastOrder)}
+                        >
+                            <Receipt className="h-4 w-4" />
+                            Generar Boleta Térmica
+                        </Button>
 
                         <Button
-                            variant="ghost"
-                            className="w-full h-12 text-muted-foreground font-bold hover:text-foreground"
-                            onClick={() => {
-                                setShowSuccessDialog(false);
-                                setLastOrder(null);
-                            }}
+                            size="lg"
+                            variant="outline"
+                            className="w-full flex items-center gap-2 h-12 font-medium"
+                            onClick={() => lastOrder && handlePrintGuide(lastOrder)}
                         >
-                            SALIR Y NUEVA VENTA
+                            <Truck className="h-4 w-4" />
+                            Generar Guía Térmica
                         </Button>
                     </div>
+
+
                 </DialogContent>
             </Dialog>
 
@@ -932,7 +920,7 @@ export function POSSystem({
                     </div>
 
                     <Button
-                        className="w-full h-14 text-sm font-black tracking-widest uppercase shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all flex items-center justify-center gap-3"
+                        className="w-full h-14 text-sm uppercase font-bold shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all flex items-center justify-center gap-3"
                         disabled={cart.length === 0 || isProcessing}
                         onClick={handleCheckout}
                     >
@@ -940,7 +928,7 @@ export function POSSystem({
                             <Loader2 className="h-5 w-5 animate-spin" />
                         ) : (
                             <>
-                                FINALIZAR VENTA
+                                Finalizar Venta
                                 <CreditCard className="h-5 w-5" />
                             </>
                         )}
