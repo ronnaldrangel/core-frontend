@@ -219,9 +219,9 @@ export function WorkspaceSelector({
                             return (
                                 <div
                                     key={invitation.id}
-                                    className="flex items-center p-4 rounded-xl border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20"
+                                    className="flex flex-col sm:flex-row items-center p-4 gap-6 rounded-xl border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20"
                                 >
-                                    <div className="flex-shrink-0 mr-4">
+                                    <div className="flex-shrink-0">
                                         <div
                                             className="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden relative"
                                             style={{ backgroundColor: wsInfo.color || "#6366F1" }}
@@ -239,29 +239,29 @@ export function WorkspaceSelector({
                                         </div>
                                     </div>
 
-                                    <div className="flex-grow min-w-0">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-base font-semibold text-foreground">
+                                    <div className="flex-grow min-w-0 text-center sm:text-left">
+                                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                                            <h3 className="text-base font-semibold text-foreground truncate">
                                                 {wsInfo.name || "Workspace"}
                                             </h3>
-                                            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                            <span className="inline-block self-center sm:self-auto text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">
                                                 {roleLabels[invitation.role] || invitation.role}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-muted-foreground mt-0.5">
+                                        <p className="text-sm text-muted-foreground mt-0.5 truncate">
                                             Invitado por <span className="font-medium">{inviterInfo.first_name} {inviterInfo.last_name}</span>
                                         </p>
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                        <p className="text-xs text-muted-foreground flex items-center justify-center sm:justify-start gap-1 mt-1">
                                             <Clock className="h-3 w-3" />
                                             {formatDate(invitation.date_created)}
                                         </p>
                                     </div>
 
-                                    <div className="flex-shrink-0 ml-4 flex items-center gap-2">
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex items-center justify-center gap-2">
                                         <Button
                                             size="sm"
                                             variant="outline"
-                                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950"
+                                            className="flex-1 sm:flex-none border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950"
                                             onClick={() => handleRejectInvitation(invitation.id)}
                                             disabled={isPending && processingId === invitation.id}
                                         >
@@ -270,7 +270,7 @@ export function WorkspaceSelector({
                                         </Button>
                                         <Button
                                             size="sm"
-                                            className="bg-green-600 hover:bg-green-700 text-white"
+                                            className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
                                             onClick={() => handleAcceptInvitation(invitation.id)}
                                             disabled={isPending && processingId === invitation.id}
                                         >
@@ -294,18 +294,18 @@ export function WorkspaceSelector({
                     </h2>
                 )}
 
-                <div className="grid gap-4">
+                <div className="grid gap-3">
                     {filteredWorkspaces.length > 0 ? (
                         filteredWorkspaces.map((workspace) => (
                             <div
                                 key={workspace.id}
                                 onClick={() => handleWorkspaceSelect(workspace.slug)}
-                                className="group relative flex items-center p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-all duration-200 cursor-pointer"
+                                className="group relative flex items-center p-3 sm:p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-all duration-200 cursor-pointer overflow-hidden"
                             >
-                                <div className="flex-shrink-0 mr-4">
+                                <div className="flex-shrink-0 mr-6 sm:mr-10">
                                     <div
                                         className={cn(
-                                            "h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden relative",
+                                            "h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg overflow-hidden relative",
                                             !workspace.color && !workspace.logo && "bg-gradient-to-br from-blue-600 to-purple-600"
                                         )}
                                         style={workspace.color && !workspace.logo ? { backgroundColor: workspace.color } : {}}
@@ -324,22 +324,22 @@ export function WorkspaceSelector({
                                 </div>
 
                                 <div className="flex-grow min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-base font-semibold text-foreground truncate group-hover:text-blue-500 transition-colors">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-0.5">
+                                        <h3 className="text-sm sm:text-base font-semibold text-foreground truncate group-hover:text-blue-500 transition-colors">
                                             {workspace.name}
                                         </h3>
-                                        <span className="text-xs text-muted-foreground font-mono">
+                                        <span className="text-[10px] sm:text-xs text-muted-foreground font-mono opacity-60">
                                             /{workspace.slug}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
-                                        <span>{workspace.plan || "Free Plan"}</span>
-                                        <span className="w-1 h-1 rounded-full bg-foreground/20" />
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+                                        <span className="hidden sm:inline">{workspace.plan || "Free Plan"}</span>
+                                        <span className="hidden sm:inline w-1 h-1 rounded-full bg-foreground/20" />
                                         <span>{workspace.projectCount || 0} proyectos</span>
                                         {workspace.description && (
                                             <>
                                                 <span className="w-1 h-1 rounded-full bg-foreground/20" />
-                                                <span className="truncate max-w-[200px]">{workspace.description}</span>
+                                                <span className="truncate max-w-[150px] sm:max-w-[300px]">{workspace.description}</span>
                                             </>
                                         )}
                                     </div>
