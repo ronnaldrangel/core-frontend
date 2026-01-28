@@ -13,7 +13,8 @@ export async function getOrdersByWorkspace(workspaceId: string) {
                 fields: [
                     "*",
                     { cliente_id: ["nombre_completo", "documento_identificacion", "email", "telefono", "departamento", "provincia", "distrito"] },
-                    { items: ["*", { product_id: ["nombre"] }] }
+                    { items: ["*", { product_id: ["nombre"] }] },
+                    "voucher.*"
                 ],
                 sort: ["-fecha_venta"]
             })

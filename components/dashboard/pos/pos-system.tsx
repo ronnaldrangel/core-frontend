@@ -119,7 +119,7 @@ export function POSSystem({
     const [courierOrder, setCourierOrder] = useState("");
     const [courierCode, setCourierCode] = useState("");
     const [courierPass, setCourierPass] = useState("");
-    const [voucherId, setVoucherId] = useState<string | null>(null);
+    const [voucherIds, setVoucherIds] = useState<string[]>([]);
     const [isUploadingVoucher, setIsUploadingVoucher] = useState(false);
 
     const [isProcessing, setIsProcessing] = useState(false);
@@ -272,28 +272,45 @@ export function POSSystem({
         setCourierOrder("");
         setCourierCode("");
         setCourierPass("");
-        setVoucherId(null);
+        setVoucherIds([]);
     };
 
     const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
         try {
             setIsUploadingVoucher(true);
-            const formData = new FormData();
-            formData.append("file", file);
+            const uploadedIds: string[] = [];
 
-            const result = await uploadFile(formData);
-            if (result.error || !result.data) throw new Error(result.error || "Error al subir el comprobante");
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
 
-            setVoucherId((result.data as any).id);
-            toast.success("Comprobante subido correctamente");
+                const result = await uploadFile(formData);
+                if (result.error || !result.data) {
+                    toast.error(`Error al subir ${file.name}: ${result.error}`);
+                    continue;
+                }
+
+                uploadedIds.push((result.data as any).id);
+            }
+
+            setVoucherIds(prev => [...prev, ...uploadedIds]);
+            if (uploadedIds.length > 0) {
+                toast.success(`${uploadedIds.length} comprobante(s) subido(s) correctamente`);
+            }
         } catch (error: any) {
-            toast.error(error.message || "Error al subir el comprobante");
+            toast.error(error.message || "Error al subir los comprobantes");
         } finally {
             setIsUploadingVoucher(false);
+            // Reset input so same files can be selected again
+            if (e.target) e.target.value = "";
         }
+    };
+
+    const removeVoucher = (idToRemove: string) => {
+        setVoucherIds(prev => prev.filter(id => id !== idToRemove));
     };
 
     const handlePrintTicket = (order: Order) => {
@@ -405,7 +422,7 @@ export function POSSystem({
                 courier_codigo: courierCode,
                 courier_clave: courierPass,
                 ajuste_total: Number(adjustment),
-                voucher: voucherId || undefined,
+                voucher: voucherIds.length > 0 ? voucherIds.map(id => ({ directus_files_id: id })) : undefined,
             }, orderItems);
 
             if (error) throw new Error(error);
@@ -709,14 +726,37 @@ export function POSSystem({
                             <div className="flex items-center justify-between">
                                 <Label className="text-sm font-semibold flex items-center gap-2">
                                     <ImageIcon className="h-4 w-4 text-primary" />
-                                    Voucher de Adelanto
+                                    Vouchers de Adelanto
                                 </Label>
-                                {voucherId && (
+                                {voucherIds.length > 0 && (
                                     <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20 py-0 h-5">
-                                        SUBIDO
+                                        {voucherIds.length} SUBIDO(S)
                                     </Badge>
                                 )}
                             </div>
+
+                            {/* Thumbnails Grid */}
+                            {voucherIds.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mb-2">
+                                    {voucherIds.map((id) => (
+                                        <div key={id} className="relative group aspect-square rounded-lg overflow-hidden border bg-muted">
+                                            <Image
+                                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${id}?width=100&height=100&fit=cover`}
+                                                alt="Voucher"
+                                                fill
+                                                className="object-cover"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removeVoucher(id)}
+                                                className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
                             <div className="relative group">
                                 <Input
@@ -724,14 +764,15 @@ export function POSSystem({
                                     id="voucher-upload"
                                     className="hidden"
                                     accept="image/*"
+                                    multiple
                                     onChange={handleVoucherUpload}
                                     disabled={isUploadingVoucher}
                                 />
                                 <Label
                                     htmlFor="voucher-upload"
                                     className={cn(
-                                        "flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer transition-all",
-                                        voucherId
+                                        "flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                                        voucherIds.length > 0
                                             ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10"
                                             : "border-muted-foreground/20 bg-muted/5 hover:bg-muted/10 hover:border-primary/30",
                                         isUploadingVoucher && "opacity-50 cursor-not-allowed"
@@ -739,28 +780,15 @@ export function POSSystem({
                                 >
                                     {isUploadingVoucher ? (
                                         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                    ) : voucherId ? (
-                                        <div className="flex flex-col items-center">
-                                            <FileImage className="h-6 w-6 text-green-600 mb-1" />
-                                            <span className="text-[10px] font-bold text-green-600 uppercase">Cambiar Imagen</span>
-                                        </div>
                                     ) : (
                                         <div className="flex flex-col items-center">
-                                            <Camera className="h-6 w-6 text-muted-foreground/40 mb-1 group-hover:text-primary transition-colors" />
-                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase group-hover:text-primary transition-colors">Subir Comprobante</span>
+                                            <Upload className="h-5 w-5 text-muted-foreground/40 mb-1 group-hover:text-primary transition-colors" />
+                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase group-hover:text-primary transition-colors">
+                                                {voucherIds.length > 0 ? "Agregar más imágenes" : "Subir Comprobante(s)"}
+                                            </span>
                                         </div>
                                     )}
                                 </Label>
-                                {voucherId && (
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border shadow-sm text-muted-foreground hover:text-destructive"
-                                        onClick={() => setVoucherId(null)}
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </Button>
-                                )}
                             </div>
                         </div>
 
