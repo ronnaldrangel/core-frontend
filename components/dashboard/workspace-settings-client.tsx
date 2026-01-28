@@ -450,7 +450,7 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                     {/* Logo Section */}
                     <div className="space-y-4">
                         <Label>Logo del Workspace</Label>
-                        <div className="flex items-start gap-6">
+                        <div className="flex flex-col md:flex-row items-start gap-6">
                             <div className="relative group">
                                 <div
                                     className={cn(
