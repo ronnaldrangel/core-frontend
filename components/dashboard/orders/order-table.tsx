@@ -551,7 +551,8 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                             <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Destino</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Productos</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Estados</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pago</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pedido</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm text-right">Total</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm text-right">Acciones</TableHead>
                         </TableRow>
@@ -559,7 +560,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     <TableBody className="divide-y divide-border/50">
                         {filteredOrders.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2 opacity-50">
                                         <Filter className="h-8 w-8" />
                                         <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
@@ -626,25 +627,25 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                 </div>
                                             </TableCell>
                                             <TableCell className="px-4 py-4">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="h-2 w-2 rounded-full flex-shrink-0"
-                                                            style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
-                                                        />
-                                                        <span className="text-xs font-semibold tracking-tight opacity-90">
-                                                            {getStatusName(order.estado_pago, 'payment')}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="h-2 w-2 rounded-full flex-shrink-0"
-                                                            style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
-                                                        />
-                                                        <span className="text-xs font-semibold tracking-tight text-muted-foreground opacity-70">
-                                                            {getStatusName(order.estado_pedido, 'order')}
-                                                        </span>
-                                                    </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-2 w-2 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
+                                                    />
+                                                    <span className="text-xs font-semibold tracking-tight opacity-90">
+                                                        {getStatusName(order.estado_pago, 'payment')}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="px-4 py-4">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-2 w-2 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
+                                                    />
+                                                    <span className="text-xs font-semibold tracking-tight text-muted-foreground opacity-70">
+                                                        {getStatusName(order.estado_pedido, 'order')}
+                                                    </span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="px-4 py-4 text-right">
@@ -707,7 +708,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                         </TableRow>
                                         {isExpanded && (
                                             <TableRow className="bg-muted/20">
-                                                <TableCell colSpan={8} className="p-6">
+                                                <TableCell colSpan={9} className="p-6">
                                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
                                                         {/* Detalle de Productos */}
                                                         <div className="space-y-4">
