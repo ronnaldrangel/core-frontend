@@ -33,12 +33,16 @@ import {
     Receipt,
     FileText,
     ChevronDown,
-    Calendar as CalendarIcon
+    Calendar as CalendarIcon,
+    AlertCircle,
+    ShoppingBag,
+    Wallet
 } from "lucide-react";
 import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteOrder, OrderStatus, PaymentStatus } from "@/lib/order-actions";
 import { toast } from "sonner";
 import {
@@ -70,15 +74,17 @@ interface OrderTableProps {
     orders: any[];
     orderStatuses: OrderStatus[];
     paymentStatuses: PaymentStatus[];
+    themeColor?: string;
 }
 
 type DatePreset = "all" | "today" | "3days" | "7days" | "month" | "custom";
 
-export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTableProps) {
+export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderTableProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [datePreset, setDatePreset] = useState<DatePreset>("all");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
+    const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
@@ -141,13 +147,31 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                 } else {
                     return true;
                 }
+                if (!isWithinInterval(orderDate, { start, end })) return false;
+            }
 
-                return isWithinInterval(orderDate, { start, end });
+            // Department filter
+            if (selectedDepartment !== "all") {
+                if (order.courier_provincia_dpto !== selectedDepartment) return false;
             }
 
             return true;
         });
-    }, [orders, searchQuery, datePreset, dateFrom, dateTo]);
+    }, [orders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment]);
+
+    const stats = useMemo(() => {
+        return filteredOrders.reduce((acc, order) => {
+            const total = Number(order.total) || 0;
+            const shipping = order.tipo_cobro_envio === 'destino' ? 0 : (Number(order.costo_envio) || 0);
+            const faltante = Number(order.monto_faltante) || 0;
+
+            acc.neto += (total - shipping);
+            acc.faltante += faltante;
+            acc.ventas += 1;
+
+            return acc;
+        }, { neto: 0, faltante: 0, ventas: 0 });
+    }, [filteredOrders]);
 
     const handleDelete = async () => {
         if (!orderToDelete) return;
@@ -199,6 +223,48 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
 
     return (
         <div className="space-y-4">
+            {/* Estadísticas Rápidas */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+                <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Ingreso Neto</CardTitle>
+                        <Wallet className="h-4 w-4" style={{ color: themeColor }} />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tracking-tight">S/ {stats.neto.toFixed(2)}</div>
+                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
+                            (Total - Envíos)
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Abono Faltante</CardTitle>
+                        <AlertCircle className="h-4 w-4" style={{ color: themeColor }} />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tracking-tight text-foreground">S/ {stats.faltante.toFixed(2)}</div>
+                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
+                            Pendiente por cobrar
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">Ventas</CardTitle>
+                        <ShoppingBag className="h-4 w-4" style={{ color: themeColor }} />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold tracking-tight">{stats.ventas}</div>
+                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
+                            Órdenes registradas
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+
             {/* Filtros y Buscador - Estilo simplificado tipo Toolbar */}
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
                 <div className="relative flex-1 w-full max-w-sm">
@@ -246,6 +312,22 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                             />
                         </div>
                     )}
+                    <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground/70" />
+                        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                                <SelectValue placeholder="Departamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los dptos.</SelectItem>
+                                {DEPARTAMENTOS.map((dep) => (
+                                    <SelectItem key={dep.id} value={dep.nombre}>
+                                        {dep.nombre}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
             </div>
 
@@ -255,6 +337,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="px-4 py-4 font-medium text-sm">Fecha de Venta</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Destino</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Productos</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Estados</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm text-right">Total</TableHead>
@@ -264,7 +347,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                     <TableBody className="divide-y divide-border/50">
                         {filteredOrders.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2 opacity-50">
                                         <Filter className="h-8 w-8" />
                                         <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
@@ -279,7 +362,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                         <TableRow className="group hover:bg-muted/30 transition-colors">
                                             <TableCell className="px-4 py-4">
                                                 <div className="flex items-center gap-2 text-xs font-semibold">
-                                                    <CalendarIcon className="h-3.5 w-3.5 text-primary" />
+                                                    <CalendarIcon className="h-3.5 w-3.5" style={{ color: themeColor }} />
                                                     {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
                                                 </div>
                                             </TableCell>
@@ -294,6 +377,12 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                                             {order.cliente_id.documento_identificacion}
                                                         </span>
                                                     )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="px-4 py-4">
+                                                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-tight">
+                                                    <MapPin className="h-3.5 w-3.5 text-primary/60" />
+                                                    {order.courier_provincia_dpto || "-"}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="px-4 py-4">
@@ -369,7 +458,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                                     >
                                                         <FileText className="h-4 w-4" />
                                                     </Button>
-                                                    <Separator orientation="vertical" className="h-4 mx-1" />
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -391,7 +479,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                         </TableRow>
                                         {isExpanded && (
                                             <TableRow className="bg-muted/20">
-                                                <TableCell colSpan={6} className="p-6">
+                                                <TableCell colSpan={7} className="p-6">
                                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
                                                         {/* Detalle de Productos */}
                                                         <div className="space-y-4">
@@ -433,26 +521,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                                                     </div>
                                                                 </div>
 
-                                                                <Separator className="bg-border/40" />
-
-                                                                <div className="space-y-2">
-                                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Destino</p>
-                                                                    <div className="flex items-start gap-2 text-xs">
-                                                                        <MapPin className="h-3.5 w-3.5 text-primary/70 shrink-0 mt-0.5" />
-                                                                        <span className="leading-tight">
-                                                                            {order.cliente_id?.departamento ? (
-                                                                                <>
-                                                                                    <span className="font-semibold">{getLocationName(order.cliente_id.departamento, 'dep')}</span>
-                                                                                    <br />
-                                                                                    <span className="text-muted-foreground text-[10px]">
-                                                                                        {getLocationName(order.cliente_id.provincia, 'prov')} / {getLocationName(order.cliente_id.distrito, 'dist')}
-                                                                                    </span>
-                                                                                </>
-                                                                            ) : "Venta en Mostrador / Recojo"}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-
                                                                 {order.configurar_envio && (
                                                                     <>
                                                                         <Separator className="bg-border/40" />
@@ -463,6 +531,12 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                                                                     <span className="text-muted-foreground">Agencia:</span>
                                                                                     <span className="font-semibold">{order.courier_nombre || "-"}</span>
                                                                                 </div>
+                                                                                {order.courier_provincia_dpto && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Departamento:</span>
+                                                                                        <span className="font-semibold">{order.courier_provincia_dpto}</span>
+                                                                                    </div>
+                                                                                )}
                                                                                 {order.courier_destino_agencia && (
                                                                                     <div className="flex justify-between items-start text-xs">
                                                                                         <span className="text-muted-foreground">Destino:</span>

@@ -30,8 +30,13 @@ import {
     X,
     Printer,
     FileText,
-    Receipt
+    Receipt,
+    Camera,
+    Upload,
+    ImageIcon,
+    FileImage
 } from "lucide-react";
+import { uploadFile } from "@/lib/product-actions";
 import {
     Select,
     SelectContent,
@@ -49,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { es } from "date-fns/locale";
+import { DEPARTAMENTOS } from "@/lib/peru-locations";
 import {
     Dialog,
     DialogContent,
@@ -104,15 +110,17 @@ export function POSSystem({
     const [adjustment, setAdjustment] = useState(0);
 
     // Shipping Info
-    const [configureShipping, setConfigureShipping] = useState(false);
+    const [configureShipping, setConfigureShipping] = useState(true);
     const [shippingType, setShippingType] = useState("adicional"); // adicional | incluido
     const [shippingCost, setShippingCost] = useState(0);
     const [courier, setCourier] = useState(courierTypes[0]?.value || "SHALOM");
-    const [province, setProvince] = useState("");
+    const [province, setProvince] = useState("LIMA");
     const [destination, setDestination] = useState("");
     const [courierOrder, setCourierOrder] = useState("");
     const [courierCode, setCourierCode] = useState("");
     const [courierPass, setCourierPass] = useState("");
+    const [voucherId, setVoucherId] = useState<string | null>(null);
+    const [isUploadingVoucher, setIsUploadingVoucher] = useState(false);
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -255,15 +263,37 @@ export function POSSystem({
         setOrderStatus(orderStatuses[0]?.value || "preparando");
         setAdvancePayment(0);
         setAdjustment(0);
-        setConfigureShipping(false);
+        setConfigureShipping(true);
         setShippingType("adicional");
         setShippingCost(0);
         setCourier(courierTypes[0]?.value || "SHALOM");
-        setProvince("");
+        setProvince("LIMA");
         setDestination("");
         setCourierOrder("");
         setCourierCode("");
         setCourierPass("");
+        setVoucherId(null);
+    };
+
+    const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploadingVoucher(true);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const result = await uploadFile(formData);
+            if (result.error || !result.data) throw new Error(result.error || "Error al subir el comprobante");
+
+            setVoucherId((result.data as any).id);
+            toast.success("Comprobante subido correctamente");
+        } catch (error: any) {
+            toast.error(error.message || "Error al subir el comprobante");
+        } finally {
+            setIsUploadingVoucher(false);
+        }
     };
 
     const handlePrintTicket = (order: Order) => {
@@ -375,6 +405,7 @@ export function POSSystem({
                 courier_codigo: courierCode,
                 courier_clave: courierPass,
                 ajuste_total: Number(adjustment),
+                voucher: voucherId || undefined,
             }, orderItems);
 
             if (error) throw new Error(error);
@@ -673,6 +704,66 @@ export function POSSystem({
                             </div>
                         </div>
 
+                        {/* Voucher Upload */}
+                        <div className="space-y-3 pb-4 border-b border-dashed border-border/50">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-sm font-semibold flex items-center gap-2">
+                                    <ImageIcon className="h-4 w-4 text-primary" />
+                                    Voucher de Adelanto
+                                </Label>
+                                {voucherId && (
+                                    <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-600 border-green-500/20 py-0 h-5">
+                                        SUBIDO
+                                    </Badge>
+                                )}
+                            </div>
+
+                            <div className="relative group">
+                                <Input
+                                    type="file"
+                                    id="voucher-upload"
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleVoucherUpload}
+                                    disabled={isUploadingVoucher}
+                                />
+                                <Label
+                                    htmlFor="voucher-upload"
+                                    className={cn(
+                                        "flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                                        voucherId
+                                            ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10"
+                                            : "border-muted-foreground/20 bg-muted/5 hover:bg-muted/10 hover:border-primary/30",
+                                        isUploadingVoucher && "opacity-50 cursor-not-allowed"
+                                    )}
+                                >
+                                    {isUploadingVoucher ? (
+                                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                    ) : voucherId ? (
+                                        <div className="flex flex-col items-center">
+                                            <FileImage className="h-6 w-6 text-green-600 mb-1" />
+                                            <span className="text-[10px] font-bold text-green-600 uppercase">Cambiar Imagen</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center">
+                                            <Camera className="h-6 w-6 text-muted-foreground/40 mb-1 group-hover:text-primary transition-colors" />
+                                            <span className="text-[10px] font-bold text-muted-foreground/60 uppercase group-hover:text-primary transition-colors">Subir Comprobante</span>
+                                        </div>
+                                    )}
+                                </Label>
+                                {voucherId && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border shadow-sm text-muted-foreground hover:text-destructive"
+                                        onClick={() => setVoucherId(null)}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
                         {/* Pagos */}
                         <div className="grid grid-cols-2 gap-6 py-4 border-y border-dashed border-border/50">
                             <div className="space-y-2">
@@ -781,12 +872,19 @@ export function POSSystem({
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-sm font-medium">Provincia / Dpto</Label>
-                                            <Input
-                                                className="h-10 text-sm"
-                                                value={province}
-                                                onChange={(e) => setProvince(e.target.value)}
-                                            />
+                                            <Label className="text-sm font-medium">Departamento</Label>
+                                            <Select value={province} onValueChange={setProvince}>
+                                                <SelectTrigger className="h-10 text-sm w-full">
+                                                    <SelectValue placeholder="Seleccionar..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {DEPARTAMENTOS.map((dep) => (
+                                                        <SelectItem key={dep.id} value={dep.nombre}>
+                                                            {dep.nombre}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                         <div className="space-y-1.5">
                                             <Label className="text-sm font-medium">Destino / Agencia</Label>

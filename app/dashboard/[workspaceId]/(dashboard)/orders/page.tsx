@@ -44,6 +44,7 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
                 orders={orders}
                 orderStatuses={orderStatuses}
                 paymentStatuses={paymentStatuses}
+                themeColor={workspace.color}
             />
         </div>
     );
