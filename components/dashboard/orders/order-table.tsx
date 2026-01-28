@@ -42,7 +42,8 @@ import {
     Plus,
     Loader2,
     Camera,
-    X
+    X,
+    MoreVertical
 } from "lucide-react";
 import Image from "next/image";
 import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
@@ -79,6 +80,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface OrderTableProps {
     orders: any[];
@@ -90,16 +99,27 @@ interface OrderTableProps {
 type DatePreset = "all" | "today" | "3days" | "7days" | "month" | "custom";
 
 export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderTableProps) {
+    const [localOrders, setLocalOrders] = useState(orders);
     const [searchQuery, setSearchQuery] = useState("");
     const [datePreset, setDatePreset] = useState<DatePreset>("all");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
+    const [locationFilterType, setLocationFilterType] = useState<"all" | "lima" | "custom">("custom");
+
+    const handleLocationTypeChange = (value: "all" | "lima" | "custom") => {
+        if (!value) return;
+        setLocationFilterType(value);
+        // Reset dropdown state when switching modes to avoid hidden interferences
+        setSelectedDepartment("all");
+    };
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUploadingVoucher, setIsUploadingVoucher] = useState<string | null>(null);
+    const [editingAmounts, setEditingAmounts] = useState<Record<string, { monto_adelanto?: string; monto_faltante?: string }>>({});
+    const [isSavingAmounts, setIsSavingAmounts] = useState<string | null>(null);
 
     const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>, order: any) => {
         const file = e.target.files?.[0];
@@ -185,8 +205,80 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
         }));
     };
 
+    const handleAmountChange = (orderId: string, field: 'monto_adelanto' | 'monto_faltante', value: string, orderTotal: number) => {
+        const numValue = value === '' ? 0 : parseFloat(value);
+
+        // Validate: neither field can exceed the total
+        const validatedValue = Math.min(numValue, orderTotal);
+
+        // Calculate the complementary field automatically
+        let adelanto: string;
+        let faltante: string;
+
+        if (field === 'monto_adelanto') {
+            adelanto = validatedValue.toString();
+            // Faltante = Total - Adelanto
+            const calculatedFaltante = Math.max(0, orderTotal - validatedValue);
+            faltante = calculatedFaltante.toString();
+        } else {
+            faltante = validatedValue.toString();
+            // Adelanto = Total - Faltante
+            const calculatedAdelanto = Math.max(0, orderTotal - validatedValue);
+            adelanto = calculatedAdelanto.toString();
+        }
+
+        setEditingAmounts(prev => ({
+            ...prev,
+            [orderId]: {
+                monto_adelanto: adelanto,
+                monto_faltante: faltante
+            }
+        }));
+    };
+
+    const handleSaveAmounts = async (orderId: string) => {
+        const editingData = editingAmounts[orderId];
+        if (!editingData) return;
+
+        // Convert string values to numbers for API
+        const changes = {
+            monto_adelanto: editingData.monto_adelanto ? parseFloat(editingData.monto_adelanto) : 0,
+            monto_faltante: editingData.monto_faltante ? parseFloat(editingData.monto_faltante) : 0
+        };
+
+        try {
+            setIsSavingAmounts(orderId);
+            const result = await updateOrder(orderId, changes);
+
+            if (result.data) {
+                toast.success("Montos actualizados correctamente");
+
+                // Update local orders state
+                setLocalOrders(prev => prev.map(order =>
+                    order.id === orderId
+                        ? { ...order, ...changes }
+                        : order
+                ));
+
+                // Clear editing state for this order
+                setEditingAmounts(prev => {
+                    const updated = { ...prev };
+                    delete updated[orderId];
+                    return updated;
+                });
+            } else {
+                toast.error(result.error || "Error al actualizar montos");
+            }
+        } catch (error) {
+            toast.error("Error al actualizar montos");
+            console.error(error);
+        } finally {
+            setIsSavingAmounts(null);
+        }
+    };
+
     const filteredOrders = useMemo(() => {
-        return orders.filter(order => {
+        return localOrders.filter(order => {
             // Search filter
             if (searchQuery) {
                 const searchLower = searchQuery.toLowerCase();
@@ -238,14 +330,26 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 if (!isWithinInterval(orderDate, { start, end })) return false;
             }
 
-            // Department filter
-            if (selectedDepartment !== "all") {
-                if (order.courier_provincia_dpto !== selectedDepartment) return false;
+            // Department filter - Normalización para comparación robusta
+            const orderDept = order.courier_provincia_dpto?.toUpperCase()?.trim() || "";
+
+            if (locationFilterType === "lima") {
+                // Modo Lima: Solo registros que sean LIMA
+                if (orderDept !== "LIMA") return false;
+            } else if (locationFilterType === "all") {
+                // Modo Departamentos: Todo EXCEPTO Lima (Provincias)
+                if (orderDept === "LIMA") return false;
+            } else if (locationFilterType === "custom") {
+                // Modo Personalizado: Según la selección del dropdown
+                if (selectedDepartment !== "all") {
+                    const filterValue = selectedDepartment.toUpperCase().trim();
+                    if (orderDept !== filterValue) return false;
+                }
             }
 
             return true;
         });
-    }, [orders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment]);
+    }, [orders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, locationFilterType]);
 
     const stats = useMemo(() => {
         return filteredOrders.reduce((acc, order) => {
@@ -400,21 +504,40 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                             />
                         </div>
                     )}
-                    <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground/70" />
-                        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                                <SelectValue placeholder="Departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos los dptos.</SelectItem>
-                                {DEPARTAMENTOS.map((dep) => (
-                                    <SelectItem key={dep.id} value={dep.nombre}>
-                                        {dep.nombre}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground/70 hidden lg:block" />
+                        <ToggleGroup
+                            type="single"
+                            value={locationFilterType}
+                            onValueChange={handleLocationTypeChange}
+                            className="bg-muted/10 p-0.5 rounded-lg border border-border/40"
+                        >
+                            <ToggleGroupItem value="lima" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
+                                Lima
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="all" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
+                                Departamentos
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="custom" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
+                                Personalizado
+                            </ToggleGroupItem>
+                        </ToggleGroup>
+
+                        {locationFilterType === "custom" && (
+                            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                                <SelectTrigger className="h-9 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg text-xs animate-in slide-in-from-left-2">
+                                    <SelectValue placeholder="Dpto." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos los dptos.</SelectItem>
+                                    {DEPARTAMENTOS.map((dep) => (
+                                        <SelectItem key={dep.id} value={dep.nombre}>
+                                            {dep.nombre}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                 </div>
             </div>
@@ -424,6 +547,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     <TableHeader className="bg-muted/50 text-muted-foreground border-b border-border/50">
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="px-4 py-4 font-medium text-sm">Fecha de Venta</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Fecha de Entrega</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Destino</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Productos</TableHead>
@@ -435,7 +559,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     <TableBody className="divide-y divide-border/50">
                         {filteredOrders.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2 opacity-50">
                                         <Filter className="h-8 w-8" />
                                         <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
@@ -448,11 +572,21 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                 return (
                                     <Fragment key={order.id}>
                                         <TableRow className="group hover:bg-muted/30 transition-colors">
-                                            <TableCell className="px-4 py-4">
+                                            <TableCell className="px-4 py-4 focus-within:z-10">
                                                 <div className="flex items-center gap-2 text-xs font-semibold">
                                                     <CalendarIcon className="h-3.5 w-3.5" style={{ color: themeColor }} />
                                                     {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className="px-4 py-4">
+                                                {order.fecha_entrega ? (
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-primary">
+                                                        <Truck className="h-3.5 w-3.5" />
+                                                        {format(new Date(order.fecha_entrega), "dd/MM/yyyy", { locale: es })}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground/50 italic">- Por asignar -</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="px-4 py-4">
                                                 <div className="flex flex-col">
@@ -526,48 +660,54 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                 </div>
                                             </TableCell>
                                             <TableCell className="px-4 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                        onClick={() => window.open(`/ticket/${order.id}`, '_blank')}
-                                                        title="Boleta Térmica"
-                                                    >
-                                                        <Receipt className="h-4 w-4" />
-                                                    </Button>
-
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                                                        onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}
-                                                        title="Guía de Envío (A4)"
-                                                    >
-                                                        <FileText className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                        onClick={() => toggleRow(order.id)}
-                                                    >
-                                                        {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all"
-                                                        onClick={() => setOrderToDelete(order.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                        >
+                                                            <MoreVertical className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-48">
+                                                        <DropdownMenuItem onClick={() => toggleRow(order.id)}>
+                                                            {isExpanded ? (
+                                                                <>
+                                                                    <EyeOff className="h-4 w-4 mr-2" />
+                                                                    Ocultar detalles
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Eye className="h-4 w-4 mr-2" />
+                                                                    Ver detalles
+                                                                </>
+                                                            )}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => window.open(`/ticket/${order.id}`, '_blank')}>
+                                                            <Receipt className="h-4 w-4 mr-2" />
+                                                            Boleta Térmica
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}>
+                                                            <FileText className="h-4 w-4 mr-2" />
+                                                            Guía de Envío
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={() => setOrderToDelete(order.id)}
+                                                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 mr-2" />
+                                                            Eliminar
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                         {isExpanded && (
                                             <TableRow className="bg-muted/20">
-                                                <TableCell colSpan={7} className="p-6">
+                                                <TableCell colSpan={8} className="p-6">
                                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
                                                         {/* Detalle de Productos */}
                                                         <div className="space-y-4">
@@ -712,14 +852,53 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                                     <span className="text-xs font-semibold tracking-widest text-primary">Total Final</span>
                                                                     <span className="text-xl font-semibold text-primary tracking-tight tabular-nums">S/ {Number(order.total).toFixed(2)}</span>
                                                                 </div>
-                                                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                                                    <div className="bg-green-500/5 p-3 rounded-lg border border-green-500/10">
-                                                                        <p className="text-[10px] font-semibold tracking-tight text-green-600 opacity-60">Adelantado</p>
-                                                                        <p className="text-sm font-semibold text-green-600 tabular-nums">S/ {Number(order.monto_adelanto || 0).toFixed(2)}</p>
-                                                                    </div>
-                                                                    <div className="bg-red-500/5 p-3 rounded-lg border border-red-500/10">
-                                                                        <p className="text-[10px] font-semibold tracking-tight text-red-600 opacity-60">Faltante</p>
-                                                                        <p className="text-sm font-semibold text-red-600 tabular-nums">S/ {Number(order.monto_faltante || 0).toFixed(2)}</p>
+
+                                                                <div className="space-y-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="flex-1 bg-green-500/5 p-3 rounded-lg border border-green-500/10 space-y-2">
+                                                                            <Label className="text-[10px] font-semibold tracking-tight text-green-600 opacity-60">Adelantado</Label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                placeholder="0.00"
+                                                                                value={
+                                                                                    editingAmounts[order.id]?.monto_adelanto !== undefined
+                                                                                        ? editingAmounts[order.id]?.monto_adelanto
+                                                                                        : (order.monto_adelanto && order.monto_adelanto > 0 ? order.monto_adelanto : '')
+                                                                                }
+                                                                                onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
+                                                                                className="h-9 text-sm font-semibold text-green-600 bg-white border-green-500/20 focus:border-green-500 focus:ring-green-500"
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex-1 bg-red-500/5 p-3 rounded-lg border border-red-500/10 space-y-2">
+                                                                            <Label className="text-[10px] font-semibold tracking-tight text-red-600 opacity-60">Faltante</Label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                step="0.01"
+                                                                                placeholder="0.00"
+                                                                                value={
+                                                                                    editingAmounts[order.id]?.monto_faltante !== undefined
+                                                                                        ? editingAmounts[order.id]?.monto_faltante
+                                                                                        : (order.monto_faltante && order.monto_faltante > 0 ? order.monto_faltante : '')
+                                                                                }
+                                                                                onChange={(e) => handleAmountChange(order.id, 'monto_faltante', e.target.value, Number(order.total))}
+                                                                                className="h-9 text-sm font-semibold text-red-600 bg-white border-red-500/20 focus:border-red-500 focus:ring-red-500"
+                                                                            />
+                                                                        </div>
+                                                                        {editingAmounts[order.id] && (
+                                                                            <Button
+                                                                                onClick={() => handleSaveAmounts(order.id)}
+                                                                                disabled={isSavingAmounts === order.id}
+                                                                                size="sm"
+                                                                                className="h-9 mt-6 px-3 text-xs font-bold"
+                                                                            >
+                                                                                {isSavingAmounts === order.id ? (
+                                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                                ) : (
+                                                                                    "Guardar"
+                                                                                )}
+                                                                            </Button>
+                                                                        )}
                                                                     </div>
                                                                 </div>
 

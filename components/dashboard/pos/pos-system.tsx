@@ -108,6 +108,7 @@ export function POSSystem({
     const [orderStatus, setOrderStatus] = useState(orderStatuses[0]?.value || "preparando");
     const [advancePayment, setAdvancePayment] = useState(0);
     const [adjustment, setAdjustment] = useState(0);
+    const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Shipping Info
     const [configureShipping, setConfigureShipping] = useState(true);
@@ -334,64 +335,75 @@ export function POSSystem({
         try {
             setIsProcessing(true);
 
+            // --- VALIDATIONS ---
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (deliveryDate < todayStr) {
+                toast.error("La fecha de entrega no puede ser anterior a hoy");
+                setIsProcessing(false);
+                return;
+            }
+
             // --- RESOLVE CLIENT ID (Find or Create) ---
             let finalClientId = selectedClientId;
 
-            // If no ID selected but we have a Doc number, try to resolve it
-            if (!finalClientId && clientDoc.length >= 8) {
-                // 1. Check if exists in DB (even if not in local list state)
-                const existingClient = await getClientByDni(workspaceId, clientDoc);
+            // Cases for Client Resolution:
+            // 1. If we have a Client ID already (found locally or returned from create previously) -> We use it
+            // 2. If no ID, but we HAVE a DNI -> Check DB. If exists, use it. If not, create it.
+            // 3. If no ID AND no DNI, but we HAVE a Name -> Create a client without DNI.
 
-                if (existingClient) {
-                    finalClientId = existingClient.id;
-                    // Update UI state for consistency
-                    setClientName(existingClient.nombre_completo);
-                    setSelectedClientId(existingClient.id);
-                } else {
-                    // 2. Not found in DB, try to Create from RENIEC/Input
-                    // We try RENIEC lookup first for better data, or fall back to manual input if available
-                    let nameToUse = clientName;
-
-                    if (!nameToUse) {
-                        const dniData = await lookupDni(clientDoc);
-                        if (dniData && dniData.full_name) {
-                            nameToUse = dniData.full_name
-                                .split(' ')
-                                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                                .join(' ');
-                        }
-                    }
-
-                    if (nameToUse) {
+            if (!finalClientId) {
+                if (clientDoc && clientDoc.length >= 8) {
+                    // Check if exists in DB by DNI
+                    const existingClient = await getClientByDni(workspaceId, clientDoc);
+                    if (existingClient) {
+                        finalClientId = existingClient.id;
+                        setClientName(existingClient.nombre_completo);
+                        setSelectedClientId(existingClient.id);
+                    } else if (clientName) {
+                        // Create from DNI + Name
                         const newClientData = {
                             workspace_id: workspaceId,
-                            nombre_completo: nameToUse,
+                            nombre_completo: clientName,
                             documento_identificacion: clientDoc,
                             tipo_cliente: clientType,
                             telefono: clientPhone,
                             status: "active"
                         };
-
                         const { data: newClient, error } = await createClient(newClientData);
-
                         if (newClient) {
                             finalClientId = newClient.id;
-                            setClientName(newClient.nombre_completo);
                             setSelectedClientId(newClient.id);
-                            toast.success("Cliente creado automáticamente para la orden");
+                            toast.success("Cliente registrado con DNI");
                         } else {
-                            console.error("Auto-create failed:", error);
-                            // We don't block order if create fails, we just don't attach client? 
-                            // Or better, we throw error to warn user.
-                            // User asked to create, if fails, better warn.
-                            toast.error("No se pudo crear el cliente automáticamente. Verifique los datos: " + error);
-                            // Continue without client? Or return? 
-                            // Let's return to be safe, so they can fix it.
+                            toast.error("Error al registrar cliente con DNI: " + error);
                             setIsProcessing(false);
                             return;
                         }
                     }
+                } else if (clientName) {
+                    // Create from Name Only (No DNI)
+                    const newClientData = {
+                        workspace_id: workspaceId,
+                        nombre_completo: clientName,
+                        tipo_cliente: clientType,
+                        telefono: clientPhone,
+                        status: "active"
+                    };
+                    const { data: newClient, error } = await createClient(newClientData);
+                    if (newClient) {
+                        finalClientId = newClient.id;
+                        setSelectedClientId(newClient.id);
+                        toast.success("Cliente registrado sin DNI");
+                    } else {
+                        toast.error("Error al registrar cliente sin DNI: " + error);
+                        setIsProcessing(false);
+                        return;
+                    }
                 }
+            } else if (selectedClientId && clientName) {
+                // Potential Update? (For now, just use the existing ID)
+                // If the user modified the name/phone but kept the ID, we might want to updateClient here.
+                // But for simplicity in POS, we just attach to the already selected/resolved ID.
             }
 
             // --- CREATE ORDER ---
@@ -423,6 +435,7 @@ export function POSSystem({
                 courier_clave: courierPass,
                 ajuste_total: Number(adjustment),
                 voucher: voucherIds.length > 0 ? voucherIds.map(id => ({ directus_files_id: id })) : undefined,
+                fecha_entrega: deliveryDate,
             }, orderItems);
 
             if (error) throw new Error(error);
@@ -793,7 +806,7 @@ export function POSSystem({
                         </div>
 
                         {/* Pagos */}
-                        <div className="grid grid-cols-2 gap-6 py-4 border-y border-dashed border-border/50">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 border-y border-dashed border-border/50">
                             <div className="space-y-2">
                                 <Label className="text-sm font-medium">Adelanto</Label>
                                 <div className="relative">
@@ -817,6 +830,16 @@ export function POSSystem({
                                         value={balanceDue.toFixed(2)}
                                     />
                                 </div>
+                            </div>
+                            <div className="space-y-2 col-span-2">
+                                <Label className="text-sm font-medium">Fecha de Entrega</Label>
+                                <Input
+                                    type="date"
+                                    className="h-10 text-sm font-medium w-full"
+                                    value={deliveryDate}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setDeliveryDate(e.target.value)}
+                                />
                             </div>
                         </div>
 

@@ -262,7 +262,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 <div className="space-y-2 font-bold">
                                     <Label htmlFor="precio_venta">Precio Venta</Label>
                                     <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <span className="absolute left-3 text-muted-foreground select-none">S/</span>
                                         <Input
                                             id="precio_venta"
                                             type="number"
@@ -281,7 +281,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 <div className="space-y-2">
                                     <Label htmlFor="precio_compra">Precio Compra</Label>
                                     <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <span className="absolute left-3 text-muted-foreground select-none">S/</span>
                                         <Input
                                             id="precio_compra"
                                             type="number"
@@ -299,7 +299,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 <div className="space-y-2">
                                     <Label htmlFor="pack2">Precio Pack 2</Label>
                                     <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <span className="absolute left-3 text-muted-foreground select-none">S/</span>
                                         <Input
                                             id="pack2"
                                             type="number"
@@ -317,7 +317,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 <div className="space-y-2">
                                     <Label htmlFor="pack3">Precio Pack 3</Label>
                                     <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-muted-foreground select-none">$</span>
+                                        <span className="absolute left-3 text-muted-foreground select-none">S/</span>
                                         <Input
                                             id="pack3"
                                             type="number"
@@ -394,7 +394,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                         <div className="w-24 space-y-1">
                                             <Label className="text-[10px] uppercase font-bold">Precio</Label>
                                             <div className="relative flex items-center">
-                                                <span className="absolute left-3 text-muted-foreground select-none text-xs">$</span>
+                                                <span className="absolute left-3 text-muted-foreground select-none text-xs">S/</span>
                                                 <Input
                                                     type="number"
                                                     step="0.01"

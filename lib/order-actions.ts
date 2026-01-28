@@ -39,6 +39,7 @@ export interface Order {
     ajuste_total?: number;
     voucher?: any;
     items?: OrderItem[];
+    fecha_entrega?: string;
     user_created?: any;
     date_created?: string;
 }
@@ -69,6 +70,7 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
                 courier_clave: orderData.courier_clave,
                 ajuste_total: orderData.ajuste_total || 0,
                 voucher: orderData.voucher,
+                fecha_entrega: orderData.fecha_entrega,
             })
         );
 

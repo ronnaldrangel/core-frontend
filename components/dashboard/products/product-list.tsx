@@ -144,7 +144,7 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 font-semibold text-primary/90">
-                                            ${Number(product.precio_venta || 0).toFixed(2)}
+                                            S/ {Number(product.precio_venta || 0).toFixed(2)}
                                         </td>
                                         <td className="px-4 py-3">
                                             <Badge variant={product.stock > 0 ? "default" : "destructive"}>
