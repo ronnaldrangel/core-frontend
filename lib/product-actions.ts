@@ -25,15 +25,19 @@ export interface Product {
 export async function uploadFile(formData: FormData) {
     try {
         console.log("Iniciando subida de archivo...");
-        const file = await directus.request(uploadFiles(formData));
-        console.log("Archivo subido con éxito:", file);
-        return { data: file, error: null };
+        const response = await directus.request(uploadFiles(formData));
+
+        // Asegurarnos de devolver un objeto plano y serializable
+        const fileData = JSON.parse(JSON.stringify(response));
+
+        console.log("Archivo subido con éxito:", fileData);
+        return { data: fileData, error: null };
     } catch (error: any) {
         console.error("Error detallado en uploadFile (lib/product-actions.ts):", error);
 
         // Extraer mensaje de error de Directus si existe
         const msg = error.errors?.[0]?.message || error.message || "Error al subir la imagen";
-        return { data: null, error: msg };
+        return { data: null, error: String(msg) };
     }
 }
 

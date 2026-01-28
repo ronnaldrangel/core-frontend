@@ -36,15 +36,25 @@ import {
     Calendar as CalendarIcon,
     AlertCircle,
     ShoppingBag,
-    Wallet
+    Wallet,
+    ImageIcon,
+    ExternalLink,
+    Plus,
+    Loader2,
+    Camera,
+    X
 } from "lucide-react";
+import Image from "next/image";
 import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteOrder, OrderStatus, PaymentStatus } from "@/lib/order-actions";
+import { deleteOrder, updateOrder, OrderStatus, PaymentStatus } from "@/lib/order-actions";
+import { uploadFile } from "@/lib/product-actions";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -89,6 +99,84 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isUploadingVoucher, setIsUploadingVoucher] = useState<string | null>(null);
+
+    const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>, order: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploadingVoucher(order.id);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const uploadResult = await uploadFile(formData);
+            if (uploadResult.error || !uploadResult.data) {
+                toast.error(`Error al subir imagen: ${uploadResult.error}`);
+                return;
+            }
+
+            const newVoucherId = (uploadResult.data as any).id;
+
+            // Obtener vouchers actuales
+            const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
+
+            // Preparar el array para Directus M2M
+            // Nota: order.voucher viene del readItems con fields "voucher.*", 
+            // así que ya son objetos de la tabla intermedia si se cargaron bien, 
+            // o IDs si no se expandieron. Pero en lib/order-history-actions.ts pusimos "voucher.*".
+
+            const junctionItems = currentVouchers.map((v: any) => ({
+                directus_files_id: typeof v === 'object' ? v.directus_files_id : v
+            }));
+
+            // Agregar el nuevo
+            junctionItems.push({ directus_files_id: newVoucherId });
+
+            const updateResult = await updateOrder(order.id, {
+                voucher: junctionItems
+            });
+
+            if (updateResult.error) {
+                toast.error(`Error al actualizar la orden: ${updateResult.error}`);
+            } else {
+                toast.success("Comprobante agregado correctamente");
+            }
+        } catch (error: any) {
+            toast.error("Error al procesar la subida");
+            console.error(error);
+        } finally {
+            setIsUploadingVoucher(null);
+            if (e.target) e.target.value = "";
+        }
+    };
+
+    const handleRemoveVoucher = async (order: any, fileId: string) => {
+        try {
+            // Obtener vouchers actuales
+            const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
+
+            // Filtrar el que queremos eliminar
+            const junctionItems = currentVouchers
+                .map((v: any) => ({
+                    directus_files_id: typeof v === 'object' ? v.directus_files_id : v
+                }))
+                .filter(v => v.directus_files_id !== fileId);
+
+            const result = await updateOrder(order.id, {
+                voucher: junctionItems
+            });
+
+            if (result.error) {
+                toast.error(`Error al eliminar: ${result.error}`);
+            } else {
+                toast.success("Comprobante eliminado");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el comprobante");
+            console.error(error);
+        }
+    };
 
     const toggleRow = (id: string) => {
         setExpandedRows(prev => ({
@@ -633,6 +721,86 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                                         <p className="text-[10px] font-semibold tracking-tight text-red-600 opacity-60">Faltante</p>
                                                                         <p className="text-sm font-semibold text-red-600 tabular-nums">S/ {Number(order.monto_faltante || 0).toFixed(2)}</p>
                                                                     </div>
+                                                                </div>
+
+                                                                {/* Comprobantes / Vouchers */}
+                                                                <div className="space-y-3 pt-2">
+                                                                    <div className="flex items-center justify-between">
+                                                                        <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-60">
+                                                                            <ImageIcon className="h-3.5 w-3.5 text-primary" />
+                                                                            Comprobantes de Adelanto
+                                                                        </div>
+
+                                                                        <div className="relative">
+                                                                            <Input
+                                                                                type="file"
+                                                                                id={`history-voucher-${order.id}`}
+                                                                                className="hidden"
+                                                                                accept="image/*"
+                                                                                onChange={(e) => handleVoucherUpload(e, order)}
+                                                                                disabled={isUploadingVoucher === order.id}
+                                                                            />
+                                                                            <Label
+                                                                                htmlFor={`history-voucher-${order.id}`}
+                                                                                className={cn(
+                                                                                    "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
+                                                                                    isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
+                                                                                )}
+                                                                            >
+                                                                                {isUploadingVoucher === order.id ? (
+                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                ) : (
+                                                                                    <Plus className="h-3 w-3" />
+                                                                                )}
+                                                                                Subir Más
+                                                                            </Label>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {order.voucher && (Array.isArray(order.voucher) ? order.voucher.length > 0 : !!order.voucher) ? (
+                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                            {(() => {
+                                                                                const vouchers = Array.isArray(order.voucher) ? order.voucher : [order.voucher];
+                                                                                return vouchers.map((v: any, idx: number) => {
+                                                                                    const fileId = typeof v === 'object' ? v.directus_files_id : v;
+                                                                                    if (!fileId) return null;
+                                                                                    return (
+                                                                                        <div key={fileId || idx} className="group relative aspect-square rounded-md overflow-hidden border border-border/50 bg-muted/30 hover:border-primary/50 transition-colors shadow-sm">
+                                                                                            <Image
+                                                                                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}?width=150&height=150&fit=cover`}
+                                                                                                alt={`Voucher ${idx + 1}`}
+                                                                                                fill
+                                                                                                className="object-cover"
+                                                                                            />
+                                                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                                                                                                <a
+                                                                                                    href={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}`}
+                                                                                                    target="_blank"
+                                                                                                    rel="noopener noreferrer"
+                                                                                                    className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+                                                                                                    title="Ver imagen"
+                                                                                                >
+                                                                                                    <ExternalLink className="h-4 w-4 text-white" />
+                                                                                                </a>
+                                                                                                <button
+                                                                                                    onClick={() => handleRemoveVoucher(order, fileId)}
+                                                                                                    className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
+                                                                                                    title="Eliminar comprobante"
+                                                                                                >
+                                                                                                    <X className="h-4 w-4 text-white" />
+                                                                                                </button>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                });
+                                                                            })()}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex flex-col items-center justify-center py-6 border rounded-md border-dashed border-muted-foreground/20 bg-muted/5">
+                                                                            <Camera className="h-6 w-6 text-muted-foreground/20 mb-2" />
+                                                                            <p className="text-[10px] text-muted-foreground uppercase font-bold opacity-40">Sin comprobantes</p>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>

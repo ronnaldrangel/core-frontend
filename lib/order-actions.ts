@@ -37,7 +37,7 @@ export interface Order {
     courier_codigo?: string;
     courier_clave?: string;
     ajuste_total?: number;
-    voucher?: string;
+    voucher?: any;
     items?: OrderItem[];
     user_created?: any;
     date_created?: string;
@@ -269,5 +269,20 @@ export async function deleteOrder(id: string) {
     } catch (error: any) {
         console.error("Error deleting order:", error);
         return { success: false, error: "Error al eliminar la orden" };
+    }
+}
+
+export async function updateOrder(id: string, data: any) {
+    try {
+        const { updateItem } = await import("@directus/sdk");
+        const order = await directus.request(
+            updateItem("orders", id, data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: order, error: null };
+    } catch (error: any) {
+        console.error("Error updating order:", error);
+        const errorMessage = error.errors?.[0]?.message || error.message || "Error al actualizar la orden";
+        return { data: null, error: errorMessage };
     }
 }
