@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Users, Box, Clock, TrendingUp, Package, UserCheck } from "lucide-react"
+import { Users, Box, Clock, TrendingUp, Package, UserCheck, CreditCard, ShoppingBag, Receipt, AlertCircle } from "lucide-react"
 import { SalesChart } from "@/components/dashboard/sales-chart"
 import {
     Select,
@@ -20,7 +20,10 @@ interface DashboardContentProps {
     initialSalesData: Array<{
         date: string
         total: number
+        net?: number
         count?: number
+        items_count?: number
+        pending?: number
     }>
     topProducts: Array<{
         name: string
@@ -40,6 +43,9 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
     const [dateFrom, setDateFrom] = React.useState("")
     const [dateTo, setDateTo] = React.useState("")
 
+    // El color del workspace
+    const themeColor = workspace.color || "#6366F1"
+
     // Filtrar datos según el rango de tiempo seleccionado
     const filteredData = React.useMemo(() => {
         if (!initialSalesData || initialSalesData.length === 0) return []
@@ -56,7 +62,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
             })
         }
 
-        // Hoy - solo las ventas de hoy
+        // Hoy
         if (datePreset === "today") {
             const today = new Date()
             today.setHours(0, 0, 0, 0)
@@ -69,7 +75,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
             })
         }
 
-        // Ayer - solo las ventas de ayer
+        // Ayer
         if (datePreset === "yesterday") {
             const today = new Date()
             today.setHours(0, 0, 0, 0)
@@ -82,7 +88,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
             })
         }
 
-        // Rangos predefinidos (7d, 30d, 90d)
+        // Rangos predefinidos
         const daysMap = {
             "7d": 7,
             "30d": 30,
@@ -102,20 +108,22 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
 
     // Calcular estadísticas basadas en datos filtrados
     const stats = React.useMemo(() => {
-        const totalRevenue = filteredData.reduce((acc, item) => {
-            return acc + (Number(item?.total) || 0)
-        }, 0)
+        const result = filteredData.reduce((acc, item) => {
+            return {
+                totalRevenue: acc.totalRevenue + (Number(item?.total) || 0),
+                totalNet: acc.totalNet + (Number(item?.net) || 0),
+                totalOrders: acc.totalOrders + (Number(item?.count) || 0),
+                totalPending: acc.totalPending + (Number(item?.pending) || 0),
+            }
+        }, { totalRevenue: 0, totalNet: 0, totalOrders: 0, totalPending: 0 })
 
-        const totalOrders = filteredData.filter(item => item.total > 0).length
-
-        const averagePerDay = filteredData.length > 0
-            ? totalRevenue / filteredData.length
+        const ticketPromedio = result.totalOrders > 0
+            ? result.totalRevenue / result.totalOrders
             : 0
 
         return {
-            totalRevenue,
-            totalOrders,
-            averagePerDay,
+            ...result,
+            ticketPromedio
         }
     }, [filteredData])
 
@@ -123,7 +131,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
     const ordersChartConfig = {
         count: {
             label: "Cantidad",
-            color: "hsl(var(--chart-2))",
+            color: themeColor,
         },
     } satisfies ChartConfig
 
@@ -135,7 +143,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
                         <div
                             className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm text-white text-xl"
-                            style={{ backgroundColor: workspace.color || "#6366F1" }}
+                            style={{ backgroundColor: themeColor }}
                         >
                             {workspace.icon === 'boxes' ? <Box className="h-5 w-5" /> : (workspace.name?.[0]?.toUpperCase() || "W")}
                         </div>
@@ -146,7 +154,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     </p>
                 </div>
 
-                {/* Selector de período al estilo de historial de ventas */}
                 <div className="flex items-center gap-3">
                     <Clock className="h-4 w-4 text-muted-foreground/70" />
                     <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
@@ -183,70 +190,97 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 </div>
             </div>
 
-            {/* Quick Stats Grid - CARDS QUE RESPONDEN AL FILTRO */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {/* Card 1: Total de Ingresos */}
+            {/* Quick Stats Grid - 5 CARDS CON ESTILO UNIFORME */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                {/* 1. Ingreso Bruto */}
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Ingresos</CardTitle>
-                        <Box className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Ingreso Bruto</CardTitle>
+                        <Receipt className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">S/ {stats.totalRevenue.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
-                            En el período seleccionado
+                            Ventas totales bruta
                         </p>
                     </CardContent>
                 </Card>
 
-                {/* Card 2: Total de Órdenes */}
+                {/* 2. Ingreso Neto */}
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Órdenes</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Ingreso Neto</CardTitle>
+                        <CreditCard className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">S/ {stats.totalNet.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            (Total - Envíos)
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* 3. Abono Faltante */}
+                <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Abono Faltante</CardTitle>
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">S/ {stats.totalPending.toFixed(2)}</div>
+                        <p className="text-xs text-muted-foreground">
+                            Pendiente por cobrar
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* 4. Número de Ventas */}
+                <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Ventas</CardTitle>
+                        <ShoppingBag className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalOrders}</div>
                         <p className="text-xs text-muted-foreground">
-                            Órdenes con ventas
+                            Órdenes registradas
                         </p>
                     </CardContent>
                 </Card>
 
-                {/* Card 3: Promedio por Día */}
+                {/* 5. Ticket Promedio */}
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Promedio Diario</CardTitle>
-                        <Activity className="h-4 w-4 text-muted-foreground" />
+                        <CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle>
+                        <Users className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">S/ {stats.averagePerDay.toFixed(2)}</div>
+                        <div className="text-2xl font-bold">S/ {stats.ticketPromedio.toFixed(2)}</div>
                         <p className="text-xs text-muted-foreground">
-                            Ingreso promedio por día
+                            Promedio por orden
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Charts Row - Ingresos y Cantidad de Ventas */}
+            {/* Charts Row */}
             <div className="grid gap-4 md:grid-cols-2">
-                {/* Sales Chart (Ingresos) */}
                 <SalesChart
                     data={filteredData}
                     workspaceId={workspace.id}
                     externalTimeRange={datePreset === "custom" ? "custom" : datePreset}
                     onTimeRangeChange={(val) => setDatePreset(val as DatePreset)}
+                    themeColor={themeColor}
                 />
 
-                {/* Cantidad de Ventas en el Tiempo */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" />
-                            Cantidad de Ventas en el Tiempo
+                            <TrendingUp className="h-5 w-5" style={{ color: themeColor }} />
+                            Ventas en el Tiempo (Órdenes)
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            Total: {filteredData.reduce((acc, item) => acc + (item.count || 0), 0)} órdenes
+                            Total: {stats.totalOrders} órdenes
                         </p>
                     </CardHeader>
                     <CardContent>
@@ -273,7 +307,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                                 <ChartTooltip content={<ChartTooltipContent />} />
                                 <Bar
                                     dataKey="count"
-                                    fill="var(--color-count)"
+                                    fill={themeColor}
                                     radius={[4, 4, 0, 0]}
                                 />
                             </BarChart>
@@ -282,13 +316,12 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 </Card>
             </div>
 
-            {/* Bottom Row - Ventas por Vendedor y Top Productos */}
+            {/* Bottom Row */}
             <div className="grid gap-4 md:grid-cols-2">
-                {/* Comparación de Ventas por Vendedor */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <UserCheck className="h-5 w-5" />
+                            <UserCheck className="h-5 w-5" style={{ color: themeColor }} />
                             Comparación de Ventas por Vendedor
                         </CardTitle>
                     </CardHeader>
@@ -298,7 +331,10 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                                 salesByUser.map((user, index) => (
                                     <div key={index} className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold">
+                                            <div
+                                                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white"
+                                                style={{ backgroundColor: themeColor }}
+                                            >
                                                 {user.name[0]?.toUpperCase()}
                                             </div>
                                             <div>
@@ -318,11 +354,10 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     </CardContent>
                 </Card>
 
-                {/* Top Productos Más Vendidos */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Package className="h-5 w-5" />
+                            <Package className="h-5 w-5" style={{ color: themeColor }} />
                             Top Productos Más Vendidos
                         </CardTitle>
                     </CardHeader>
@@ -332,12 +367,15 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                                 topProducts.map((product, index) => (
                                     <div key={index} className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
+                                            <div
+                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white shadow-sm"
+                                                style={{ backgroundColor: themeColor }}
+                                            >
                                                 {index + 1}
                                             </div>
                                             <p className="text-sm font-medium">{product.name}</p>
                                         </div>
-                                        <p className="text-sm font-semibold">{product.quantity} unidades</p>
+                                        <p className="text-sm font-semibold" style={{ color: themeColor }}>{product.quantity} unidades</p>
                                     </div>
                                 ))
                             ) : (

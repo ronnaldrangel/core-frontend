@@ -342,7 +342,6 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                        <Settings className="h-8 w-8 text-primary" />
                         Configuración del Workspace
                     </h1>
                     <p className="text-muted-foreground mt-1">
@@ -351,48 +350,54 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 </div>
             </div>
 
-            {/* General Settings */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Settings className="h-5 w-5 text-muted-foreground" /> General
-                    </CardTitle>
-                    <CardDescription>
-                        Información básica para identificar tu espacio.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">Nombre del Workspace</Label>
-                        <Input
-                            id="name"
-                            value={formData.name}
-                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="Mi Workspace"
-                            disabled={!canEdit}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="description">Descripción</Label>
-                        <Input
-                            id="description"
-                            value={formData.description}
-                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                            placeholder="Descripción opcional..."
-                            disabled={!canEdit}
-                        />
-                    </div>
-
-                    <div className="pt-4 border-t border-border/50">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Mail className="h-5 w-5 text-primary" />
-                            <h3 className="font-semibold">Información de Contacto</h3>
+            {/* General & Contact Settings Divided */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* General Settings Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <Settings className="h-5 w-5 text-muted-foreground" /> General
+                        </CardTitle>
+                        <CardDescription>
+                            Información básica para identificar tu espacio.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">Nombre del Workspace</Label>
+                            <Input
+                                id="name"
+                                value={formData.name}
+                                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="Mi Workspace"
+                                disabled={!canEdit}
+                            />
                         </div>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Estos datos aparecerán en el encabezado de tus boletas y guías de envío.
-                        </p>
+                        <div className="grid gap-2">
+                            <Label htmlFor="description">Descripción</Label>
+                            <Input
+                                id="description"
+                                value={formData.description}
+                                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                                placeholder="Descripción opcional..."
+                                disabled={!canEdit}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Contact Settings Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <Mail className="h-5 w-5 text-primary" /> Información de Contacto
+                        </CardTitle>
+                        <CardDescription>
+                            Estos datos aparecerán en el encabezado de tus boletas y guías de envío.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label htmlFor="email_contacto">Correo de Contacto</Label>
                                 <Input
@@ -427,9 +432,9 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                                 disabled={!canEdit}
                             />
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Appearance & Branding */}
             <Card>

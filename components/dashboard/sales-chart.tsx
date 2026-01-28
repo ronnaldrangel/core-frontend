@@ -38,26 +38,28 @@ interface SalesChartProps {
     workspaceId: string
     externalTimeRange?: string
     onTimeRangeChange?: (value: string) => void
+    themeColor?: string
 }
-
-const chartConfig = {
-    ingresos: {
-        label: "Ingresos",
-    },
-    total: {
-        label: "Total",
-        color: "hsl(var(--primary))",
-    },
-} satisfies ChartConfig
 
 export function SalesChart({
     data,
     workspaceId,
     externalTimeRange,
-    onTimeRangeChange
+    onTimeRangeChange,
+    themeColor = "hsl(var(--primary))"
 }: SalesChartProps) {
     const isMobile = useIsMobile()
     const [internalTimeRange, setInternalTimeRange] = React.useState("90d")
+
+    const chartConfig = {
+        ingresos: {
+            label: "Ingresos",
+        },
+        total: {
+            label: "Total",
+            color: themeColor,
+        },
+    } satisfies ChartConfig
 
     // Usar el timeRange externo si está disponible, si no usar el interno
     const timeRange = externalTimeRange || internalTimeRange
@@ -158,12 +160,12 @@ export function SalesChart({
                             <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
                                 <stop
                                     offset="5%"
-                                    stopColor="var(--color-total)"
+                                    stopColor={themeColor}
                                     stopOpacity={0.8}
                                 />
                                 <stop
                                     offset="95%"
-                                    stopColor="var(--color-total)"
+                                    stopColor={themeColor}
                                     stopOpacity={0.1}
                                 />
                             </linearGradient>
@@ -213,7 +215,7 @@ export function SalesChart({
                             dataKey="total"
                             type="natural"
                             fill="url(#fillTotal)"
-                            stroke="var(--color-total)"
+                            stroke={themeColor}
                             strokeWidth={2}
                         />
                     </AreaChart>

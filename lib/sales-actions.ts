@@ -6,7 +6,10 @@ import { readItems, aggregate } from "@directus/sdk";
 interface SalesData {
     date: string;
     total: number;
-    count?: number; // Agregamos contador de órdenes
+    net?: number;
+    count?: number; // Cantidad de órdenes
+    items_count?: number; // Cantidad de productos (unidades)
+    pending?: number; // Abono faltante
 }
 
 export async function getSalesData(workspaceId: string, days: number = 90) {
@@ -16,6 +19,7 @@ export async function getSalesData(workspaceId: string, days: number = 90) {
         startDate.setDate(startDate.getDate() - days);
 
         // Get all orders for the workspace within the date range
+        // Agregamos costo_envio para calcular el neto e items para las unidades
         const orders = await directus.request(
             readItems("orders", {
                 filter: {
@@ -27,20 +31,37 @@ export async function getSalesData(workspaceId: string, days: number = 90) {
                         _lte: endDate.toISOString(),
                     },
                 },
-                fields: ["fecha_venta", "total"],
+                fields: [
+                    "fecha_venta",
+                    "total",
+                    "costo_envio",
+                    "monto_faltante",
+                    { items: ["cantidad"] }
+                ],
                 sort: ["fecha_venta"],
             })
         );
 
-        // Group by date and sum totals + count orders
-        const salesByDate = new Map<string, { total: number; count: number }>();
+        // Group by date and sum totals + count orders + items + pending
+        const salesByDate = new Map<string, { total: number; net: number; count: number; items_count: number; pending: number }>();
 
-        orders.forEach((order) => {
+        orders.forEach((order: any) => {
             const date = new Date(order.fecha_venta).toISOString().split("T")[0];
-            const current = salesByDate.get(date) || { total: 0, count: 0 };
+            const current = salesByDate.get(date) || { total: 0, net: 0, count: 0, items_count: 0, pending: 0 };
+
+            const orderTotal = Number(order.total) || 0;
+            const orderShipping = Number(order.costo_envio) || 0;
+            const orderPending = Number(order.monto_faltante) || 0;
+            const orderNet = orderTotal - orderShipping;
+
+            const orderItemsCount = order.items?.reduce((acc: number, item: any) => acc + (Number(item.cantidad) || 0), 0) || 0;
+
             salesByDate.set(date, {
-                total: current.total + (order.total || 0),
+                total: current.total + orderTotal,
+                net: current.net + orderNet,
                 count: current.count + 1,
+                items_count: current.items_count + orderItemsCount,
+                pending: current.pending + orderPending,
             });
         });
 
@@ -50,11 +71,14 @@ export async function getSalesData(workspaceId: string, days: number = 90) {
 
         while (currentDate <= endDate) {
             const dateStr = currentDate.toISOString().split("T")[0];
-            const data = salesByDate.get(dateStr) || { total: 0, count: 0 };
+            const data = salesByDate.get(dateStr) || { total: 0, net: 0, count: 0, items_count: 0, pending: 0 };
             result.push({
                 date: dateStr,
                 total: data.total,
+                net: data.net,
                 count: data.count,
+                items_count: data.items_count,
+                pending: data.pending,
             });
             currentDate.setDate(currentDate.getDate() + 1);
         }
@@ -111,7 +135,7 @@ export async function getSalesStats(workspaceId: string) {
     }
 }
 
-// Nueva función: Top productos más vendidos
+// Top productos más vendidos
 export async function getTopProducts(workspaceId: string, limit: number = 5) {
     try {
         const orders = await directus.request(
@@ -125,7 +149,6 @@ export async function getTopProducts(workspaceId: string, limit: number = 5) {
             })
         );
 
-        // Agrupar por producto y sumar cantidades
         const productMap = new Map<string, { name: string; quantity: number }>();
 
         orders.forEach((order: any) => {
@@ -136,13 +159,12 @@ export async function getTopProducts(workspaceId: string, limit: number = 5) {
                     const current = productMap.get(productId) || { name: productName, quantity: 0 };
                     productMap.set(productId, {
                         name: productName,
-                        quantity: current.quantity + (item.cantidad || 0),
+                        quantity: current.quantity + (Number(item.cantidad) || 0),
                     });
                 }
             });
         });
 
-        // Convertir a array y ordenar por cantidad
         const topProducts = Array.from(productMap.values())
             .sort((a, b) => b.quantity - a.quantity)
             .slice(0, limit);
@@ -161,7 +183,7 @@ export async function getTopProducts(workspaceId: string, limit: number = 5) {
     }
 }
 
-// Nueva función: Ventas por vendedor (user_created)
+// Ventas por vendedor (user_created)
 export async function getSalesByUser(workspaceId: string) {
     try {
         const orders = await directus.request(
@@ -175,7 +197,6 @@ export async function getSalesByUser(workspaceId: string) {
             })
         );
 
-        // Agrupar por usuario y sumar totales
         const userMap = new Map<string, { name: string; total: number; count: number }>();
 
         orders.forEach((order: any) => {
@@ -185,13 +206,12 @@ export async function getSalesByUser(workspaceId: string) {
                 const current = userMap.get(userId) || { name: userName, total: 0, count: 0 };
                 userMap.set(userId, {
                     name: userName,
-                    total: current.total + (order.total || 0),
+                    total: current.total + (Number(order.total) || 0),
                     count: current.count + 1,
                 });
             }
         });
 
-        // Convertir a array y ordenar por total
         const salesByUser = Array.from(userMap.values())
             .sort((a, b) => b.total - a.total);
 

@@ -54,11 +54,13 @@ export function DashboardHeader({
                 </Link>
             </div>
 
-            <div className="flex flex-1 items-center justify-end gap-4 md:gap-2 lg:gap-4">
-                {mounted && <NotificationBell initialInvitations={initialInvitations} />}
-                <div className="hidden md:flex">
-                    <ModeToggle />
-                </div>
+            <div className="flex flex-1 items-center justify-end gap-3">
+                {mounted && (
+                    <NotificationBell
+                        initialInvitations={initialInvitations}
+                    />
+                )}
+                <ModeToggle />
                 {mounted && <UserNav user={user} />}
             </div>
         </header>

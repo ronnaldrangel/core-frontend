@@ -17,9 +17,10 @@ import { cn } from "@/lib/utils";
 
 interface NotificationBellProps {
     initialInvitations: WorkspaceInvitation[];
+    themeColor?: string;
 }
 
-export function NotificationBell({ initialInvitations }: NotificationBellProps) {
+export function NotificationBell({ initialInvitations, themeColor }: NotificationBellProps) {
     const [invitations, setInvitations] = useState<WorkspaceInvitation[]>(initialInvitations);
     const [isPendingAction, startTransition] = useTransition();
     const pendingCount = invitations.length;
@@ -59,7 +60,7 @@ export function NotificationBell({ initialInvitations }: NotificationBellProps) 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="icon-sm" className="relative text-foreground rounded-full">
                     <Bell className="h-5 w-5" />
                     {pendingCount > 0 && (
                         <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
