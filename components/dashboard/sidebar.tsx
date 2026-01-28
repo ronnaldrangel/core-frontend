@@ -12,6 +12,7 @@ import {
     UserCircle,
     ShoppingCart,
     Receipt,
+    Banknote,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -82,6 +83,11 @@ export function Sidebar({
             title: "Historial de Ventas",
             href: `/dashboard/${currentWorkspaceId}/orders`,
             icon: Receipt,
+        },
+        {
+            title: "Caja",
+            href: `/dashboard/${currentWorkspaceId}/cashbox`,
+            icon: Banknote,
         },
         {
             title: "Configuración",
