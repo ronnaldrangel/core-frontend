@@ -35,6 +35,8 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
                     email: session.user.email || "",
                     image: session.user.image,
                 }}
+                workspaces={allWorkspaces || []}
+                currentWorkspaceId={workspace.slug}
                 workspaceId={workspace.id}
                 workspaceLogo={workspace.logo}
                 workspaceName={workspace.name}
@@ -45,6 +47,9 @@ export default async function WorkspaceLayout({ children, params }: LayoutProps)
                 <Sidebar
                     workspaces={allWorkspaces || []}
                     currentWorkspaceId={workspace.slug}
+                    workspaceLogo={workspace.logo}
+                    workspaceName={workspace.name}
+                    workspaceColor={workspace.color}
                 />
                 <main className="flex-1 overflow-y-auto md:ml-64 p-6 bg-muted/10">
                     {children}

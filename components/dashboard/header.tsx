@@ -15,6 +15,8 @@ interface DashboardHeaderProps {
         email: string;
         image?: string | null;
     };
+    workspaces?: any[];
+    currentWorkspaceId?: string; // This is the slug
     workspaceId?: string;
     workspaceLogo?: string | null;
     workspaceName?: string;
@@ -24,6 +26,8 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({
     user,
+    workspaces = [],
+    currentWorkspaceId,
     workspaceLogo,
     workspaceName,
     workspaceColor,
@@ -41,7 +45,17 @@ export function DashboardHeader({
 
     return (
         <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-6">
-            {mounted ? <MobileSidebar /> : <div className="h-10 w-10 md:hidden" />}
+            {mounted ? (
+                <MobileSidebar
+                    workspaces={workspaces}
+                    currentWorkspaceId={currentWorkspaceId}
+                    workspaceLogo={workspaceLogo}
+                    workspaceName={workspaceName}
+                    workspaceColor={workspaceColor}
+                />
+            ) : (
+                <div className="h-10 w-10 md:hidden" />
+            )}
 
             <div className="flex items-center gap-2 font-semibold">
                 <Link href="/workspaces" className="flex items-center gap-2">

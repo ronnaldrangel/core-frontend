@@ -27,9 +27,10 @@ interface Workspace {
 interface WorkspaceSwitcherProps {
     workspaces: Workspace[];
     currentWorkspaceId?: string; // This is now the slug
+    onItemClick?: () => void;
 }
 
-export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceSwitcherProps) {
+export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, onItemClick }: WorkspaceSwitcherProps) {
     const router = useRouter();
     const currentWorkspace = workspaces.find(ws => ws.slug === currentWorkspaceId);
 
@@ -37,10 +38,12 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
         if (workspaceSlug === currentWorkspaceId) return;
         // Navegar al nuevo workspace con slug
         router.push(`/dashboard/${workspaceSlug}`);
+        onItemClick?.();
     };
 
     const handleGoToSelector = () => {
         router.push("/workspaces");
+        onItemClick?.();
     };
 
     if (!currentWorkspace && workspaces.length === 0) {
@@ -67,17 +70,26 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                     className="w-full justify-start gap-2 px-2 py-2 h-auto data-[state=open]:bg-accent"
                 >
                     <div
-                        className="flex size-8 items-center justify-center rounded-lg text-white text-sm font-bold overflow-hidden relative"
-                        style={{ backgroundColor: currentWorkspace?.color || "#6366F1" }}
+                        className="flex size-8 items-center justify-center rounded-lg text-white text-sm font-bold overflow-hidden relative border bg-background"
+                        style={{ backgroundColor: !currentWorkspace?.logo ? (currentWorkspace?.color || "#6366F1") : undefined }}
                     >
-                        <Boxes className="size-5" />
+                        {currentWorkspace?.logo ? (
+                            <Image
+                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${currentWorkspace.logo}?width=32&height=32&fit=cover`}
+                                alt={currentWorkspace.name}
+                                fill
+                                className="object-cover"
+                            />
+                        ) : (
+                            <span>{currentWorkspace?.name?.[0].toUpperCase() || <Boxes className="size-5" />}</span>
+                        )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">
+                        <span className="truncate font-semibold text-xs text-muted-foreground uppercase tracking-widest leading-none">
                             {currentWorkspace?.name || "Sin seleccionar"}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                            Workspace activo
+                        <span className="truncate text-[10px] font-bold text-muted-foreground/50 uppercase mt-1 tracking-tight">
+                            Espacio de Trabajo
                         </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
@@ -99,12 +111,21 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId }: WorkspaceS
                         className="gap-2 p-2 cursor-pointer"
                     >
                         <div
-                            className="flex size-6 items-center justify-center rounded-md text-white text-xs font-bold overflow-hidden relative"
-                            style={{ backgroundColor: ws.color || "#6366F1" }}
+                            className="flex size-6 items-center justify-center rounded-md text-white text-[10px] font-bold overflow-hidden relative border"
+                            style={{ backgroundColor: !ws.logo ? (ws.color || "#6366F1") : undefined }}
                         >
-                            <Boxes className="size-3.5" />
+                            {ws.logo ? (
+                                <Image
+                                    src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${ws.logo}?width=24&height=24&fit=cover`}
+                                    alt={ws.name}
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <span>{ws.name[0].toUpperCase()}</span>
+                            )}
                         </div>
-                        <span className="flex-1 truncate">{ws.name}</span>
+                        <span className="flex-1 truncate font-medium text-xs">{ws.name}</span>
                         {ws.slug === currentWorkspaceId && (
                             <Check className="size-4 text-primary" />
                         )}
