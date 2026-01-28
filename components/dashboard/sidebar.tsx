@@ -95,7 +95,7 @@ export function Sidebar({
             {/* Workspace Logo Only Area - Only shown in Mobile Sidebar */}
             {isMobile && (
                 <div className="px-6 py-6 flex items-center justify-center border-b bg-muted/5 group cursor-pointer hover:bg-muted/10 transition-colors h-24">
-                    <Link href="/workspaces" onClick={onItemClick} className="flex items-center justify-center">
+                    <Link href={`/dashboard/${currentWorkspaceId}`} onClick={onItemClick} className="flex items-center justify-center">
                         <div
                             className="size-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl relative overflow-hidden border-2 bg-background shadow-md group-hover:scale-110 transition-transform duration-300"
                             style={{ backgroundColor: !workspaceLogo ? (workspaceColor || "#6366F1") : undefined }}

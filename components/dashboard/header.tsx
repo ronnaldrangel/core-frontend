@@ -58,7 +58,7 @@ export function DashboardHeader({
             )}
 
             <div className="flex items-center gap-2 font-semibold">
-                <Link href="/workspaces" className="flex items-center gap-2">
+                <Link href={`/dashboard/${currentWorkspaceId}`} className="flex items-center gap-2">
                     <Logo
                         height={32}
                         src={logoUrl}
