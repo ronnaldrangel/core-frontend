@@ -331,7 +331,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 </div>
             </div>
 
-            <div className="border rounded-lg border-border/50 overflow-hidden bg-card shadow-sm">
+            <div className="border rounded-lg border-border/50 overflow-x-auto bg-card shadow-sm">
                 <Table>
                     <TableHeader className="bg-muted/50 text-muted-foreground border-b border-border/50">
                         <TableRow className="hover:bg-transparent">
@@ -646,7 +646,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                         )}
                     </TableBody>
                 </Table>
-            </div>
+            </div >
 
             <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
                 <AlertDialogContent>
@@ -668,6 +668,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </div >
     );
 }

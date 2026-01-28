@@ -66,8 +66,8 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="relative flex-1 w-full max-w-sm">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="relative flex-1 w-full md:max-w-sm">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Buscar por nombre o SKU..."

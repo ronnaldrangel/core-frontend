@@ -14,6 +14,15 @@ import {
 import { Input } from "@/components/ui/input"
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Bar, BarChart, XAxis, YAxis } from "recharts"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
+
 
 interface DashboardContentProps {
     workspace: any
@@ -326,30 +335,47 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {salesByUser && salesByUser.length > 0 ? (
-                                salesByUser.map((user, index) => (
-                                    <div key={index} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white"
-                                                style={{ backgroundColor: themeColor }}
-                                            >
-                                                {user.name[0]?.toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">{user.name}</p>
-                                                <p className="text-xs text-muted-foreground">{user.count} ventas</p>
-                                            </div>
-                                        </div>
-                                        <p className="text-sm font-semibold">S/ {Number(user.total || 0).toFixed(2)}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">
-                                    No hay datos de ventas por vendedor
-                                </p>
-                            )}
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="w-[100px]">Vendedor</TableHead>
+                                        <TableHead className="text-center">Ventas</TableHead>
+                                        <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {salesByUser && salesByUser.length > 0 ? (
+                                        salesByUser.map((user, index) => (
+                                            <TableRow key={index} className="group">
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
+                                                            style={{ backgroundColor: themeColor }}
+                                                        >
+                                                            {user.name[0]?.toUpperCase()}
+                                                        </div>
+                                                        <span className="text-sm font-medium truncate max-w-[120px]">{user.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-center text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                                    {user.count} ventas
+                                                </TableCell>
+                                                <TableCell className="text-right font-semibold tabular-nums text-sm whitespace-nowrap">
+                                                    S/ {Number(user.total || 0).toFixed(2)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="text-sm text-muted-foreground text-center py-4">
+                                                No hay datos de ventas por vendedor
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
                     </CardContent>
                 </Card>
@@ -362,27 +388,46 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
-                            {topProducts && topProducts.length > 0 ? (
-                                topProducts.map((product, index) => (
-                                    <div key={index} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white shadow-sm"
-                                                style={{ backgroundColor: themeColor }}
-                                            >
-                                                {index + 1}
-                                            </div>
-                                            <p className="text-sm font-medium">{product.name}</p>
-                                        </div>
-                                        <p className="text-sm font-semibold" style={{ color: themeColor }}>{product.quantity} unidades</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground text-center py-4">
-                                    No hay datos de productos vendidos
-                                </p>
-                            )}
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead className="w-[50px]">Pos.</TableHead>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead className="text-right">Cantidad</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {topProducts && topProducts.length > 0 ? (
+                                        topProducts.map((product, index) => (
+                                            <TableRow key={index} className="group">
+                                                <TableCell className="text-center">
+                                                    <div
+                                                        className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shadow-sm flex-shrink-0"
+                                                        style={{ backgroundColor: themeColor }}
+                                                    >
+                                                        {index + 1}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-sm font-medium line-clamp-1">{product.name}</span>
+                                                </TableCell>
+                                                <TableCell className="text-right whitespace-nowrap">
+                                                    <span className="text-sm font-semibold" style={{ color: themeColor }}>
+                                                        {product.quantity} uds.
+                                                    </span>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={3} className="text-sm text-muted-foreground text-center py-4">
+                                                No hay datos de productos vendidos
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
                     </CardContent>
                 </Card>

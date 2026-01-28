@@ -118,9 +118,9 @@ export default function WorkspacesClient({ workspaces, currentUserId }: Workspac
                 </header>
 
                 {/* Actions Bar */}
-                <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
                     {/* Search */}
-                    <div className="relative flex-1">
+                    <div className="relative flex-1 w-full md:max-w-sm">
                         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-500" />
                         <input
                             type="text"
@@ -134,7 +134,7 @@ export default function WorkspacesClient({ workspaces, currentUserId }: Workspac
                     {/* Create Button */}
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                     >
                         <Plus className="w-5 h-5" />
                         <span>Nuevo Workspace</span>

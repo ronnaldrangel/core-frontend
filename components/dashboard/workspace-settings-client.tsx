@@ -618,7 +618,7 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                         )}
                     </CardHeader>
                     <CardContent className="flex-1">
-                        <div className="rounded-md border overflow-hidden">
+                        <div className="rounded-md border overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
@@ -749,7 +749,7 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                         )}
                     </CardHeader>
                     <CardContent className="flex-1">
-                        <div className="rounded-md border overflow-hidden">
+                        <div className="rounded-md border overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/50">
@@ -881,7 +881,7 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                     )}
                 </CardHeader>
                 <CardContent>
-                    <div className="rounded-md border overflow-hidden">
+                    <div className="rounded-md border overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-muted/50">

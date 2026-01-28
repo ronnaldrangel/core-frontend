@@ -141,14 +141,14 @@ export function WorkspaceSelector({
     return (
         <div className="w-full max-w-7xl mx-auto p-6 space-y-8">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-foreground tracking-tight">Tus Workspaces</h1>
                     <p className="text-muted-foreground mt-1">Selecciona un espacio de trabajo para continuar</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative w-full md:w-64">
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto">
+                    <div className="relative flex-1 w-full md:max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Buscar workspace..."
@@ -159,7 +159,7 @@ export function WorkspaceSelector({
                     </div>
                     <Button
                         variant={hasPaid ? "default" : "secondary"}
-                        className="gap-2 font-medium"
+                        className="w-full md:w-auto gap-2 font-medium"
                         onClick={() => {
                             if (!hasPaid) {
                                 toast.error("Función Premium", {
