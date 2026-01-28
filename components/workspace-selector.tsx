@@ -158,12 +158,8 @@ export function WorkspaceSelector({
                         />
                     </div>
                     <Button
-                        className={cn(
-                            "gap-2 font-medium transition-all shadow-sm active:scale-95",
-                            hasPaid
-                                ? "bg-green-600 hover:bg-green-700 text-white"
-                                : "bg-muted-foreground/10 text-muted-foreground cursor-not-allowed hover:bg-muted-foreground/20"
-                        )}
+                        variant={hasPaid ? "default" : "secondary"}
+                        className="gap-2 font-medium"
                         onClick={() => {
                             if (!hasPaid) {
                                 toast.error("Función Premium", {
@@ -346,8 +342,7 @@ export function WorkspaceSelector({
                             </p>
                             {!searchTerm && hasPaid && (
                                 <Button
-                                    variant="outline"
-                                    className="border-border text-foreground hover:bg-accent"
+                                    variant="default"
                                     onClick={() => setIsCreateModalOpen(true)}
                                 >
                                     Crear mi primer workspace
