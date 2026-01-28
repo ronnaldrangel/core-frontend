@@ -168,7 +168,7 @@ export function CashboxClient({ initialTransactions, workspaceId }: CashboxClien
                                         </div>
                                     </TableCell>
                                     <TableCell className="px-4 py-4">
-                                        <div className="font-medium text-sm tracking-tight capitalize italic text-muted-foreground">
+                                        <div className="font-medium text-sm tracking-tight capitalize text-muted-foreground">
                                             {t.descripcion || "Sin descripción"}
                                         </div>
                                     </TableCell>
