@@ -76,13 +76,13 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
         <Dialog open={isOpen} onOpenChange={(open) => {
             if (!open) onClose();
         }}>
-            <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                 <div className={cn(
-                    "h-2 w-full transition-colors duration-500",
+                    "absolute top-0 left-0 right-0 h-1 transition-colors duration-500",
                     tipo === "ingreso" ? "bg-emerald-500" : "bg-rose-500"
                 )} />
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-8 py-4">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                             {tipo === "ingreso" ? (
@@ -93,21 +93,21 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
                             Registrar Movimiento
                         </DialogTitle>
                         <DialogDescription>
-                            Ingresa los detalles del flujo de caja.
+                            Completa la información del movimiento de caja.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Movimiento</Label>
+                            <Label>Tipo de Movimiento</Label>
                             <div className="grid grid-cols-2 gap-2">
                                 <Button
                                     type="button"
                                     variant={tipo === "ingreso" ? "default" : "outline"}
                                     className={cn(
-                                        "h-12 flex items-center gap-2 border-2 transition-all",
+                                        "h-11 flex items-center gap-2 transition-all",
                                         tipo === "ingreso"
-                                            ? "bg-emerald-500 hover:bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                                            ? "bg-emerald-500 hover:bg-emerald-600 text-white"
                                             : "hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
                                     )}
                                     onClick={() => setTipo("ingreso")}
@@ -119,9 +119,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
                                     type="button"
                                     variant={tipo === "egreso" ? "default" : "outline"}
                                     className={cn(
-                                        "h-12 flex items-center gap-2 border-2 transition-all",
+                                        "h-11 flex items-center gap-2 transition-all",
                                         tipo === "egreso"
-                                            ? "bg-rose-500 hover:bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-500/20"
+                                            ? "bg-rose-500 hover:bg-rose-600 text-white"
                                             : "hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
                                     )}
                                     onClick={() => setTipo("egreso")}
@@ -133,9 +133,9 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="monto" className="text-xs font-bold uppercase text-muted-foreground">Monto</Label>
+                            <Label htmlFor="monto">Monto</Label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground">S/</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground select-none">S/</span>
                                 <Input
                                     id="monto"
                                     type="number"
@@ -143,16 +143,16 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
                                     value={monto}
                                     onChange={(e) => setMonto(e.target.value)}
                                     placeholder="0.00"
-                                    className="pl-12 h-14 text-xl font-bold bg-muted/30 border-none focus-visible:ring-primary"
+                                    className="pl-7"
                                     required
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="metodo" className="text-xs font-bold uppercase text-muted-foreground">Método de Pago</Label>
+                            <Label htmlFor="metodo">Método de Pago</Label>
                             <Select value={metodoPago} onValueChange={(v: any) => setMetodoPago(v)}>
-                                <SelectTrigger id="metodo" className="h-12 bg-muted/30 border-none">
+                                <SelectTrigger id="metodo">
                                     <SelectValue placeholder="Selecciona un método" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -179,28 +179,33 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="descripcion" className="text-xs font-bold uppercase text-muted-foreground">Descripción (Opcional)</Label>
+                            <Label htmlFor="descripcion">Descripción (Opcional)</Label>
                             <Input
                                 id="descripcion"
                                 value={descripcion}
                                 onChange={(e) => setDescripcion(e.target.value)}
                                 placeholder="Ej: Pago de alquiler, Venta extra..."
-                                className="h-12 bg-muted/30 border-none"
                             />
                         </div>
                     </div>
 
-                    <DialogFooter className="pt-4">
+                    <DialogFooter className="pt-6 border-t gap-2 md:gap-0">
+                        <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+                            Cancelar
+                        </Button>
                         <Button
                             type="submit"
                             disabled={isLoading}
                             className={cn(
-                                "w-full h-12 text-lg font-bold transition-all active:scale-95",
-                                tipo === "ingreso" ? "bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/25" : "bg-rose-500 hover:bg-rose-600 shadow-rose-500/25"
+                                "px-8",
+                                tipo === "ingreso" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-rose-500 hover:bg-rose-600"
                             )}
                         >
                             {isLoading ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Guardando...
+                                </>
                             ) : (
                                 `Registrar ${tipo}`
                             )}
