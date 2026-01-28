@@ -29,7 +29,7 @@ export function TicketView({ order, workspace }: TicketViewProps) {
     const total = Number(order.total || 0);
 
     return (
-        <div className="w-[80mm] bg-white p-2 shadow-lg print:shadow-none print:w-full print:p-0 text-black font-mono text-[10px] leading-tight">
+        <div className="w-full max-w-[80mm] mx-auto bg-white p-3 md:p-4 shadow-lg print:shadow-none print:w-full print:p-0 text-black font-mono text-[10px] md:text-xs leading-tight">
             {/* HEADER */}
             <div className="text-center mb-4">
                 {workspace.logo && (

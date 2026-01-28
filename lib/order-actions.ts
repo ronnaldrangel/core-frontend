@@ -22,6 +22,7 @@ export interface Order {
     total: number;
     metodo_pago: string;
     status: string;
+    numero_correlativo?: number;
     estado_pago?: string;
     estado_pedido?: string;
     monto_adelanto?: number;

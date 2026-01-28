@@ -32,9 +32,10 @@ import { cn } from "@/lib/utils";
 interface ClientListProps {
     initialClients: Client[];
     workspaceId: string;
+    clientTotals?: Record<string, number>;
 }
 
-export function ClientList({ initialClients, workspaceId }: ClientListProps) {
+export function ClientList({ initialClients, workspaceId, clientTotals = {} }: ClientListProps) {
     const [clients, setClients] = useState<Client[]>(initialClients);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -121,9 +122,9 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                             <tr>
                                 <th className="px-4 py-3 min-w-[250px]">Cliente</th>
                                 <th className="px-4 py-3 hidden md:table-cell">Contacto</th>
-                                <th className="px-4 py-3 hidden lg:table-cell">Identificación</th>
                                 <th className="px-4 py-3">Tipo</th>
                                 <th className="px-4 py-3">Ubicación</th>
+                                <th className="px-4 py-3 text-right">Total Gastado</th>
                                 <th className="px-4 py-3 text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -149,6 +150,11 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                                                     <span className="font-semibold text-foreground line-clamp-1">
                                                         {client.nombre_completo}
                                                     </span>
+                                                    {client.documento_identificacion && (
+                                                        <span className="text-xs text-muted-foreground mt-0.5">
+                                                            {client.documento_identificacion}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
@@ -168,11 +174,7 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 hidden lg:table-cell">
-                                            <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono border text-muted-foreground whitespace-nowrap">
-                                                {client.documento_identificacion || "-"}
-                                            </code>
-                                        </td>
+
                                         <td className="px-4 py-3">
                                             <Badge className={getBadgeColor(client.tipo_cliente)}>
                                                 {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
@@ -182,6 +184,13 @@ export function ClientList({ initialClients, workspaceId }: ClientListProps) {
                                             <span className="line-clamp-1">
                                                 {getDepartamentoNombre(client.departamento) || "-"}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div className="flex flex-col items-end">
+                                                <span className="font-bold text-lg text-foreground">
+                                                    S/ {(clientTotals[client.id] || 0).toFixed(2)}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">

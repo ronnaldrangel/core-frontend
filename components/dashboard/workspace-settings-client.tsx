@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Globe, Mail, Phone, MapPin } from "lucide-react";
+import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Mail, Phone, MapPin } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
 import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType } from "@/lib/order-actions";
 import { toast } from "sonner";
@@ -381,19 +381,6 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                             placeholder="Descripción opcional..."
                             disabled={!canEdit}
                         />
-                    </div>
-                    <div className="grid gap-2 p-4 bg-muted/30 rounded-lg border border-border/50">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Globe className="h-4 w-4" />
-                            URL del Workspace
-                        </div>
-                        <div className="flex items-center gap-1 font-mono text-sm font-semibold">
-                            <span>/dashboard/</span>
-                            <span className="text-primary">{workspace.slug}</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            El slug se genera automáticamente y no se puede cambiar para evitar romper enlaces.
-                        </p>
                     </div>
 
                     <div className="pt-4 border-t border-border/50">

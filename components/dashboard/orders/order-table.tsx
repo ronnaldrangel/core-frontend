@@ -469,18 +469,31 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses }: OrderTabl
                                                                                         <span className="font-semibold text-right max-w-[140px]">{order.courier_destino_agencia}</span>
                                                                                     </div>
                                                                                 )}
-                                                                                <div className="flex flex-wrap gap-2 pt-1 font-mono">
-                                                                                    {order.courier_codigo && (
-                                                                                        <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded border text-[10px]">
-                                                                                            <Hash className="h-3 w-3" /> {order.courier_codigo}
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {order.courier_clave && (
-                                                                                        <div className="flex items-center gap-1 bg-muted px-2 py-1 rounded border text-[10px]">
-                                                                                            <Key className="h-3 w-3" /> {order.courier_clave}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <Separator className="bg-border/40" />
+                                                                        <div className="space-y-2">
+                                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Seguimiento</p>
+                                                                            <div className="space-y-2">
+                                                                                {order.courier_nro_orden && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">N° Orden:</span>
+                                                                                        <span className="font-semibold">{order.courier_nro_orden}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.courier_codigo && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Código:</span>
+                                                                                        <span className="font-semibold">{order.courier_codigo}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.courier_clave && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Clave:</span>
+                                                                                        <span className="font-semibold">{order.courier_clave}</span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     </>
