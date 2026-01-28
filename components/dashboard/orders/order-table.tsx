@@ -161,7 +161,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 .map((v: any) => ({
                     directus_files_id: typeof v === 'object' ? v.directus_files_id : v
                 }))
-                .filter(v => v.directus_files_id !== fileId);
+                .filter((v: any) => v.directus_files_id !== fileId);
 
             const result = await updateOrder(order.id, {
                 voucher: junctionItems
