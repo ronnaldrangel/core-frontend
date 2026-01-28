@@ -187,7 +187,7 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex flex-col items-end">
-                                                <span className="font-bold text-lg text-foreground">
+                                                <span className="font-semibold text-foreground">
                                                     S/ {(clientTotals[client.id] || 0).toFixed(2)}
                                                 </span>
                                             </div>
