@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "DirectOS",
+  title: process.env.NEXT_PUBLIC_APP_NAME || "DirectOS",
   description: "Gestión eficiente de proyectos y equipos",
   icons: {
     icon: [

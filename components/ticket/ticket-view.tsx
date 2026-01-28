@@ -146,7 +146,7 @@ export function TicketView({ order, workspace }: TicketViewProps) {
             <div className="text-center space-y-2">
                 <p>Método de Pago: {(order.metodo_pago || "").toUpperCase()}</p>
                 <p className="italic">¡Gracias por su preferencia!</p>
-                <p className="text-[8px] text-gray-500 mt-4">Generado por DirectOS</p>
+                <p className="text-[8px] text-gray-500 mt-4">Generado por {process.env.NEXT_PUBLIC_APP_NAME || "DirectOS"}</p>
             </div>
 
             {/* Print Button (Screen only) */}

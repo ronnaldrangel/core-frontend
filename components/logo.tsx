@@ -102,7 +102,7 @@ export function Logo({
         >
             <Image
                 src={finalSrc}
-                alt={type === "icon" ? "DirectOS Icon" : "DirectOS Logo"}
+                alt={type === "icon" ? `${process.env.NEXT_PUBLIC_APP_NAME || "DirectOS"} Icon` : `${process.env.NEXT_PUBLIC_APP_NAME || "DirectOS"} Logo`}
                 width={finalWidth}
                 height={finalHeight}
                 priority={priority}

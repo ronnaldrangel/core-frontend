@@ -109,7 +109,7 @@ export function GuideView({ order, workspace }: GuideViewProps) {
                     </div>
                 </div>
                 <p className="text-[8px]">{format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                <p className="text-[7px] italic mt-2 opacity-50 font-sans">Guía de envío generada por DirectOS</p>
+                <p className="text-[7px] italic mt-2 opacity-50 font-sans">Guía de envío generada por {process.env.NEXT_PUBLIC_APP_NAME || "DirectOS"}</p>
             </div>
 
             {/* Print Button (Screen only) */}
