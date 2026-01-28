@@ -85,7 +85,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, onItemClick 
                         )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold text-xs text-muted-foreground uppercase tracking-widest leading-none">
+                        <span className="truncate font-semibold">
                             {currentWorkspace?.name || "Sin seleccionar"}
                         </span>
                         <span className="truncate text-[10px] font-bold text-muted-foreground/50 uppercase mt-1 tracking-tight">
@@ -125,7 +125,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, onItemClick 
                                 <span>{ws.name[0].toUpperCase()}</span>
                             )}
                         </div>
-                        <span className="flex-1 truncate font-medium text-xs">{ws.name}</span>
+                        <span className="flex-1 truncate">{ws.name}</span>
                         {ws.slug === currentWorkspaceId && (
                             <Check className="size-4 text-primary" />
                         )}

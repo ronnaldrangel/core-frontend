@@ -92,26 +92,28 @@ export function Sidebar({
 
     const content = (
         <div className="flex h-full max-h-screen flex-col gap-2">
-            {/* Workspace Logo Only Area */}
-            <div className="px-6 py-6 flex items-center justify-center border-b bg-muted/5 group cursor-pointer hover:bg-muted/10 transition-colors h-24">
-                <Link href="/workspaces" onClick={onItemClick} className="flex items-center justify-center">
-                    <div
-                        className="size-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl relative overflow-hidden border-2 bg-background shadow-md group-hover:scale-110 transition-transform duration-300"
-                        style={{ backgroundColor: !workspaceLogo ? (workspaceColor || "#6366F1") : undefined }}
-                    >
-                        {workspaceLogo ? (
-                            <Image
-                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}?width=60&height=60&fit=cover`}
-                                alt={workspaceName || ""}
-                                fill
-                                className="object-cover"
-                            />
-                        ) : (
-                            <span>{workspaceName?.[0].toUpperCase() || "W"}</span>
-                        )}
-                    </div>
-                </Link>
-            </div>
+            {/* Workspace Logo Only Area - Only shown in Mobile Sidebar */}
+            {isMobile && (
+                <div className="px-6 py-6 flex items-center justify-center border-b bg-muted/5 group cursor-pointer hover:bg-muted/10 transition-colors h-24">
+                    <Link href="/workspaces" onClick={onItemClick} className="flex items-center justify-center">
+                        <div
+                            className="size-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl relative overflow-hidden border-2 bg-background shadow-md group-hover:scale-110 transition-transform duration-300"
+                            style={{ backgroundColor: !workspaceLogo ? (workspaceColor || "#6366F1") : undefined }}
+                        >
+                            {workspaceLogo ? (
+                                <Image
+                                    src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}?width=60&height=60&fit=cover`}
+                                    alt={workspaceName || ""}
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <span>{workspaceName?.[0].toUpperCase() || "W"}</span>
+                            )}
+                        </div>
+                    </Link>
+                </div>
+            )}
 
             {/* Workspace Switcher */}
             <div className="px-2 pt-2 border-b pb-2">
