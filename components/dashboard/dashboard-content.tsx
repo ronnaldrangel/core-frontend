@@ -12,8 +12,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Bar, BarChart, XAxis, YAxis } from "recharts"
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartDescription } from "@/components/ui/chart"
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts"
+
 import {
     Table,
     TableBody,
@@ -199,8 +200,8 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 </div>
             </div>
 
-            {/* Quick Stats Grid - 5 CARDS CON ESTILO UNIFORME */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {/* Quick Stats Grid - 2 COLS MOBILE, 3 COLS MD, 5 COLS LG */}
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 {/* 1. Ingreso Bruto */}
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -257,8 +258,8 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     </CardContent>
                 </Card>
 
-                {/* 5. Ticket Promedio */}
-                <Card className="hover:shadow-md transition-shadow">
+                {/* 5. Ticket Promedio - Spans 2 cols on mobile to balance grid */}
+                <Card className="hover:shadow-md transition-shadow col-span-2 md:col-span-1 lg:col-span-1">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle>
                         <Users className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
@@ -282,24 +283,28 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     themeColor={themeColor}
                 />
 
-                <Card>
+                <Card className="@container/orders-chart">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5" style={{ color: themeColor }} />
-                            Ventas en el Tiempo (Órdenes)
+                            <TrendingUp className="h-5 w-5 text-primary" style={{ color: themeColor }} />
+                            <span className="hidden @[450px]/orders-chart:inline">Ventas en el Tiempo (Órdenes)</span>
+                            <span className="@[450px]/orders-chart:hidden text-sm">Ventas por Día</span>
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                            Total: {stats.totalOrders} órdenes
+                            <span className="hidden @[500px]/orders-chart:inline">Total: {stats.totalOrders} órdenes registradas</span>
+                            <span className="@[500px]/orders-chart:hidden">Total: {stats.totalOrders} ventas</span>
                         </p>
                     </CardHeader>
-                    <CardContent>
-                        <ChartContainer config={ordersChartConfig} className="h-[300px] w-full">
+                    <CardContent className="px-2 sm:p-6">
+                        <ChartContainer config={ordersChartConfig} className="aspect-auto h-[250px] w-full">
                             <BarChart data={filteredData}>
+                                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.4} />
                                 <XAxis
                                     dataKey="date"
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={8}
+                                    minTickGap={30}
                                     tickFormatter={(value) => {
                                         const date = new Date(value)
                                         return date.toLocaleDateString("es-PE", {
@@ -312,35 +317,52 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                                     tickLine={false}
                                     axisLine={false}
                                     tickMargin={8}
+                                    tickFormatter={(val) => Math.floor(val).toString()}
                                 />
-                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartTooltipContent
+                                            labelFormatter={(value) => {
+                                                return new Date(value).toLocaleDateString("es-PE", {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                })
+                                            }}
+                                        />
+                                    }
+                                />
                                 <Bar
                                     dataKey="count"
                                     fill={themeColor}
                                     radius={[4, 4, 0, 0]}
+                                    maxBarSize={40}
                                 />
                             </BarChart>
                         </ChartContainer>
                     </CardContent>
                 </Card>
+
             </div>
 
             {/* Bottom Row */}
             <div className="grid gap-4 md:grid-cols-2">
-                <Card>
+                <Card className="@container/sales-table">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-base @[400px]/sales-table:text-xl">
                             <UserCheck className="h-5 w-5" style={{ color: themeColor }} />
-                            Comparación de Ventas por Vendedor
+                            <span className="hidden @[450px]/sales-table:inline">Comparación de Ventas por Vendedor</span>
+                            <span className="@[450px]/sales-table:hidden">Ventas por Vendedor</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
+                    <CardContent className="px-2 @[400px]/sales-table:px-6">
+                        <div className="overflow-x-auto overflow-y-hidden">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead className="w-[100px]">Vendedor</TableHead>
-                                        <TableHead className="text-center">Ventas</TableHead>
+                                        <TableHead className="w-[150px] @[400px]/sales-table:w-[200px]">Vendedor</TableHead>
+                                        <TableHead className="text-center hidden @[500px]/sales-table:table-cell">Ventas</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -348,21 +370,26 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                                     {salesByUser && salesByUser.length > 0 ? (
                                         salesByUser.map((user, index) => (
                                             <TableRow key={index} className="group">
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
+                                                <TableCell className="py-3 px-2 @[400px]/sales-table:px-4">
+                                                    <div className="flex items-center gap-2 @[400px]/sales-table:gap-3">
                                                         <div
-                                                            className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
+                                                            className="w-7 h-7 @[400px]/sales-table:w-8 @[400px]/sales-table:h-8 rounded-full flex items-center justify-center text-[10px] @[400px]/sales-table:text-sm font-semibold text-white flex-shrink-0"
                                                             style={{ backgroundColor: themeColor }}
                                                         >
                                                             {user.name[0]?.toUpperCase()}
                                                         </div>
-                                                        <span className="text-sm font-medium truncate max-w-[120px]">{user.name}</span>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="text-xs @[400px]/sales-table:text-sm font-medium truncate">{user.name}</span>
+                                                            <span className="text-[10px] text-muted-foreground @[500px]/sales-table:hidden">
+                                                                {user.count} ventas
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-center text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                                <TableCell className="text-center text-xs font-medium text-muted-foreground whitespace-nowrap hidden @[500px]/sales-table:table-cell">
                                                     {user.count} ventas
                                                 </TableCell>
-                                                <TableCell className="text-right font-semibold tabular-nums text-sm whitespace-nowrap">
+                                                <TableCell className="text-right font-semibold tabular-nums text-xs @[400px]/sales-table:text-sm whitespace-nowrap px-2 @[400px]/sales-table:px-4">
                                                     S/ {Number(user.total || 0).toFixed(2)}
                                                 </TableCell>
                                             </TableRow>
@@ -380,41 +407,45 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                     </CardContent>
                 </Card>
 
-                <Card>
+
+                <Card className="@container/products-table">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-base @[400px]/products-table:text-xl">
                             <Package className="h-5 w-5" style={{ color: themeColor }} />
-                            Top Productos Más Vendidos
+                            <span className="hidden @[450px]/products-table:inline">Top Productos Más Vendidos</span>
+                            <span className="@[450px]/products-table:hidden">Top Productos</span>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
+                    <CardContent className="px-2 @[400px]/products-table:px-6">
+                        <div className="overflow-x-auto overflow-y-hidden">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead className="w-[50px]">Pos.</TableHead>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead className="text-right">Cantidad</TableHead>
+                                        <TableHead className="w-[40px] @[400px]/products-table:w-[60px] px-2">Pos.</TableHead>
+                                        <TableHead className="px-2">Producto</TableHead>
+                                        <TableHead className="text-right px-2">Cantidad</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {topProducts && topProducts.length > 0 ? (
                                         topProducts.map((product, index) => (
                                             <TableRow key={index} className="group">
-                                                <TableCell className="text-center">
+                                                <TableCell className="text-center px-2 py-3">
                                                     <div
-                                                        className="w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold text-white shadow-sm flex-shrink-0"
+                                                        className="w-5 h-5 @[400px]/products-table:w-6 @[400px]/products-table:h-6 rounded-md flex items-center justify-center text-[10px] @[400px]/products-table:text-xs font-bold text-white shadow-sm flex-shrink-0 mx-auto"
                                                         style={{ backgroundColor: themeColor }}
                                                     >
                                                         {index + 1}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <span className="text-sm font-medium line-clamp-1">{product.name}</span>
+                                                <TableCell className="px-2 py-3">
+                                                    <span className="text-xs @[400px]/products-table:text-sm font-medium line-clamp-1">
+                                                        {product.name}
+                                                    </span>
                                                 </TableCell>
-                                                <TableCell className="text-right whitespace-nowrap">
-                                                    <span className="text-sm font-semibold" style={{ color: themeColor }}>
-                                                        {product.quantity} uds.
+                                                <TableCell className="text-right whitespace-nowrap px-2 py-3">
+                                                    <span className="text-xs @[400px]/products-table:text-sm font-semibold" style={{ color: themeColor }}>
+                                                        {product.quantity} <span className="hidden @[450px]/products-table:inline">uds.</span>
                                                     </span>
                                                 </TableCell>
                                             </TableRow>
@@ -431,6 +462,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                         </div>
                     </CardContent>
                 </Card>
+
             </div>
         </div>
     )
