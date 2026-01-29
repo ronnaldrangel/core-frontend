@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import {
     Table,
     TableBody,
@@ -52,7 +52,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { deleteOrder, updateOrder, OrderStatus, PaymentStatus } from "@/lib/order-actions";
+import { deleteOrder, updateOrder, OrderStatus, PaymentStatus, CourierType } from "@/lib/order-actions";
 import { uploadFile } from "@/lib/product-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -92,12 +92,13 @@ interface OrderTableProps {
     orders: any[];
     orderStatuses: OrderStatus[];
     paymentStatuses: PaymentStatus[];
+    couriers: CourierType[];
     themeColor?: string;
 }
 type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | "custom";
 
 
-export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderTableProps) {
+export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, themeColor = "#6366F1" }: OrderTableProps) {
     const [localOrders, setLocalOrders] = useState(orders);
     const [searchQuery, setSearchQuery] = useState("");
     const [datePreset, setDatePreset] = useState<DatePreset>("today");
@@ -106,6 +107,11 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
     const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
     const [selectedCourier, setSelectedCourier] = useState<string>("all");
     const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
+
+    // Sync local orders when props change
+    useEffect(() => {
+        setLocalOrders(orders);
+    }, [orders]);
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
@@ -340,13 +346,24 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
 
             // Courier filter
             if (selectedCourier !== "all") {
-                const orderCourier = order.courier_nombre?.toLowerCase() || "";
-                if (orderCourier !== selectedCourier.toLowerCase()) return false;
+                const orderCourier = order.courier_nombre?.toLowerCase()?.trim() || "";
+                const selectedLower = selectedCourier.toLowerCase().trim();
+
+                // Allow matching by name or value (if stored that way)
+                const courierObj = couriers.find(c => c.name === selectedCourier || c.value === selectedCourier);
+                const courierName = courierObj?.name?.toLowerCase()?.trim() || "";
+                const courierValue = courierObj?.value?.toLowerCase()?.trim() || "";
+
+                if (orderCourier !== courierName && orderCourier !== courierValue && orderCourier !== selectedLower) {
+                    return false;
+                }
             }
 
             // Order Status filter
             if (selectedOrderStatus !== "all") {
-                if (order.estado_pedido !== selectedOrderStatus) return false;
+                const orderStatus = order.estado_pedido?.toLowerCase()?.trim() || "";
+                const targetStatus = selectedOrderStatus.toLowerCase().trim();
+                if (orderStatus !== targetStatus) return false;
             }
 
             return true;
@@ -533,9 +550,9 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     </SelectTrigger>
                     <SelectContent position="popper" align="start">
                         <SelectItem value="all">Todos los couriers</SelectItem>
-                        {Array.from(new Set(localOrders.map(o => o.courier_nombre).filter(Boolean))).sort().map((courier) => (
-                            <SelectItem key={courier} value={courier!}>
-                                {courier}
+                        {couriers.map((courier) => (
+                            <SelectItem key={courier.id} value={courier.name}>
+                                {courier.name}
                             </SelectItem>
                         ))}
                     </SelectContent>
