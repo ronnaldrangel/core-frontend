@@ -1,7 +1,7 @@
 "use server";
 
 import { directus } from "./directus";
-import { createItem, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
+import { createItem, createItems, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { generateSlug } from "./utils";
@@ -308,6 +308,38 @@ export async function createWorkspace(data: CreateWorkspaceData) {
                 telefono_contacto: data.telefono_contacto || null,
                 direccion_contacto: data.direccion_contacto || null,
             })
+        );
+
+        const workspaceId = workspace.id;
+
+        // Create Default Order Statuses
+        await directus.request(
+            createItems("order_statuses", [
+                { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
+                { workspace_id: workspaceId, name: "Confirmado", value: "confirmado", color: "#3B82F6", sort: 2 },
+                { workspace_id: workspaceId, name: "Preparando", value: "preparando", color: "#F59E0B", sort: 3 },
+                { workspace_id: workspaceId, name: "Enviado", value: "enviado", color: "#8B5CF6", sort: 4 },
+                { workspace_id: workspaceId, name: "Entregado", value: "entregado", color: "#10B981", sort: 5 },
+            ])
+        );
+
+        // Create Default Payment Statuses
+        await directus.request(
+            createItems("payment_statuses", [
+                { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
+                { workspace_id: workspaceId, name: "Pagado", value: "pagado", color: "#10B981", sort: 2 },
+            ])
+        );
+
+        // Create Default Courier Types
+        await directus.request(
+            createItems("courier_types", [
+                { workspace_id: workspaceId, name: "Olva Courier", value: "OLVA", color: "#EF4444", sort: 1 },
+                { workspace_id: workspaceId, name: "Shalom", value: "SHALOM", color: "#F59E0B", sort: 2 },
+                { workspace_id: workspaceId, name: "Marvisur", value: "MARVISUR", color: "#3B82F6", sort: 3 },
+                { workspace_id: workspaceId, name: "Motorizado", value: "MOTORIZADO", color: "#10B981", sort: 4 },
+                { workspace_id: workspaceId, name: "Courier Propio", value: "PROPIO", color: "#6366F1", sort: 5 },
+            ])
         );
 
         revalidatePath("/workspaces");
