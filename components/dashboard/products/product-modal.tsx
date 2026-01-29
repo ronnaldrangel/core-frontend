@@ -307,11 +307,11 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                     <form onSubmit={handleSubmit} className="space-y-8 py-4">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* Columna de Imagen */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 flex flex-col items-center md:items-start">
                                 <Label>Imagen del Producto</Label>
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="aspect-square rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer flex flex-col items-center justify-center overflow-hidden relative group"
+                                    className="w-full h-[120px] md:aspect-square rounded-xl border-2 border-dashed border-muted-foreground/20 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer flex flex-col items-center justify-center overflow-hidden relative group"
                                 >
                                     {imagePreview ? (
                                         <>
@@ -339,7 +339,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="w-full text-xs text-destructive"
+                                        className="w-full max-w-[100px] md:max-w-none text-xs text-destructive"
                                         onClick={() => {
                                             setImageFile(null);
                                             setImagePreview(null);

@@ -334,8 +334,8 @@ export async function createWorkspace(data: CreateWorkspaceData) {
         // Create Default Courier Types
         await directus.request(
             createItems("courier_types", [
-                { workspace_id: workspaceId, name: "Olva Courier", value: "OLVA", color: "#EF4444", sort: 1 },
-                { workspace_id: workspaceId, name: "Shalom", value: "SHALOM", color: "#F59E0B", sort: 2 },
+                { workspace_id: workspaceId, name: "Shalom", value: "SHALOM", color: "#F59E0B", sort: 1 },
+                { workspace_id: workspaceId, name: "Olva Courier", value: "OLVA", color: "#EF4444", sort: 2 },
                 { workspace_id: workspaceId, name: "Marvisur", value: "MARVISUR", color: "#3B82F6", sort: 3 },
                 { workspace_id: workspaceId, name: "Motorizado", value: "MOTORIZADO", color: "#10B981", sort: 4 },
                 { workspace_id: workspaceId, name: "Courier Propio", value: "PROPIO", color: "#6366F1", sort: 5 },
