@@ -54,7 +54,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { es } from "date-fns/locale";
-import { DEPARTAMENTOS } from "@/lib/peru-locations";
+import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
 import {
     Dialog,
     DialogContent,
@@ -98,6 +98,7 @@ export function POSSystem({
     const [clientDoc, setClientDoc] = useState("");
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
+    const [clientAddress, setClientAddress] = useState("");
     const [clientType, setClientType] = useState("persona"); // Added client type
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [isLookingUpClient, setIsLookingUpClient] = useState(false); // New loading state for lookup
@@ -114,8 +115,10 @@ export function POSSystem({
     const [configureShipping, setConfigureShipping] = useState(true);
     const [shippingType, setShippingType] = useState("adicional"); // adicional | incluido
     const [shippingCost, setShippingCost] = useState(0);
+    const [selectedDept, setSelectedDept] = useState("LIMA");
+    const [selectedProv, setSelectedProv] = useState("LIMA");
+    const [selectedDist, setSelectedDist] = useState("LIMA");
     const [courier, setCourier] = useState(courierTypes[0]?.value || "SHALOM");
-    const [province, setProvince] = useState("LIMA");
     const [destination, setDestination] = useState("");
     const [courierOrder, setCourierOrder] = useState("");
     const [courierCode, setCourierCode] = useState("");
@@ -190,6 +193,17 @@ export function POSSystem({
         }
     };
 
+    // Cascading Selects Data
+    const availableProvincias = useMemo(() => {
+        const dept = DEPARTAMENTOS.find(d => d.nombre === selectedDept);
+        return dept ? PROVINCIAS.filter(p => p.departamento_id === dept.id) : [];
+    }, [selectedDept]);
+
+    const availableDistritos = useMemo(() => {
+        const prov = PROVINCIAS.find(p => p.nombre === selectedProv && p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === selectedDept)?.id);
+        return prov ? DISTRITOS.filter(d => d.provincia_id === prov.id) : [];
+    }, [selectedDept, selectedProv]);
+
     const filteredProducts = useMemo(() => {
         let result = products.filter(p =>
             p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -259,6 +273,7 @@ export function POSSystem({
         setClientDoc("");
         setClientName("");
         setClientPhone("");
+        setClientAddress("");
         setSelectedClientId(null);
         setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
         setOrderStatus(orderStatuses[0]?.value || "preparando");
@@ -268,7 +283,9 @@ export function POSSystem({
         setShippingType("adicional");
         setShippingCost(0);
         setCourier(courierTypes[0]?.value || "SHALOM");
-        setProvince("LIMA");
+        setSelectedDept("LIMA");
+        setSelectedProv("LIMA");
+        setSelectedDist("LIMA");
         setDestination("");
         setCourierOrder("");
         setCourierCode("");
@@ -367,6 +384,10 @@ export function POSSystem({
                             documento_identificacion: clientDoc,
                             tipo_cliente: clientType,
                             telefono: clientPhone,
+                            departamento: selectedDept,
+                            provincia: selectedProv,
+                            distrito: selectedDist,
+                            direccion: clientAddress,
                             status: "active"
                         };
                         const { data: newClient, error } = await createClient(newClientData);
@@ -387,6 +408,10 @@ export function POSSystem({
                         nombre_completo: clientName,
                         tipo_cliente: clientType,
                         telefono: clientPhone,
+                        departamento: selectedDept,
+                        provincia: selectedProv,
+                        distrito: selectedDist,
+                        direccion: clientAddress,
                         status: "active"
                     };
                     const { data: newClient, error } = await createClient(newClientData);
@@ -428,7 +453,7 @@ export function POSSystem({
                 tipo_cobro_envio: shippingType,
                 costo_envio: Number(shippingCost),
                 courier_nombre: courier,
-                courier_provincia_dpto: province,
+                courier_provincia_dpto: selectedDept,
                 courier_destino_agencia: destination,
                 courier_nro_orden: courierOrder,
                 courier_codigo: courierCode,
@@ -633,12 +658,12 @@ export function POSSystem({
                                 <Label className="text-sm font-semibold">Información del Cliente</Label>
                             </div>
 
-                            {/* DNI (Row 1) */}
+                            {/* Documento de Identificación */}
                             <div className="space-y-1.5 relative">
                                 <Label className="text-sm font-medium">DNI / RUC</Label>
                                 <div className="relative">
                                     <Input
-                                        placeholder="00000000"
+                                        placeholder="Número de documento"
                                         className="h-10 text-sm font-medium pr-8"
                                         value={clientDoc}
                                         onChange={(e) => setClientDoc(e.target.value)}
@@ -653,12 +678,12 @@ export function POSSystem({
                                 </div>
                             </div>
 
-                            {/* Tipo & Nombre (Row 2) */}
+                            {/* Tipo & Nombre */}
                             <div className="grid grid-cols-[1fr_3fr] gap-3">
                                 <div className="space-y-1.5">
                                     <Label className="text-sm font-medium">Tipo</Label>
                                     <Select value={clientType} onValueChange={setClientType}>
-                                        <SelectTrigger className="h-10 text-xs font-medium bg-muted/20 border-border/60">
+                                        <SelectTrigger className="h-10 text-sm font-medium">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -679,7 +704,7 @@ export function POSSystem({
                                 </div>
                             </div>
 
-                            {/* Telefono (Row 3) */}
+                            {/* Telefono */}
                             <div className="space-y-1.5">
                                 <Label className="text-sm font-medium">Teléfono</Label>
                                 <PhoneInput
@@ -689,6 +714,79 @@ export function POSSystem({
                                     value={clientPhone}
                                     onChange={(value) => setClientPhone(value || "")}
                                 />
+                            </div>
+
+                            {/* Ubicación: Departamento, Provincia, Distrito */}
+                            <div className="grid grid-cols-1 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-sm font-medium">Departamento</Label>
+                                    <Select value={selectedDept} onValueChange={(val) => {
+                                        setSelectedDept(val);
+                                        const firstProv = PROVINCIAS.find(p => p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === val)?.id);
+                                        if (firstProv) {
+                                            setSelectedProv(firstProv.nombre);
+                                            const firstDist = DISTRITOS.find(d => d.provincia_id === firstProv.id);
+                                            if (firstDist) setSelectedDist(firstDist.nombre);
+                                        }
+                                    }}>
+                                        <SelectTrigger className="h-10 text-sm w-full">
+                                            <SelectValue placeholder="Seleccionar departamento" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {DEPARTAMENTOS.map((dep) => (
+                                                <SelectItem key={dep.id} value={dep.nombre}>{dep.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-sm font-medium">Provincia</Label>
+                                        <Select value={selectedProv} onValueChange={(val) => {
+                                            setSelectedProv(val);
+                                            const prov = PROVINCIAS.find(p => p.nombre === val && p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === selectedDept)?.id);
+                                            if (prov) {
+                                                const firstDist = DISTRITOS.find(d => d.provincia_id === prov.id);
+                                                if (firstDist) setSelectedDist(firstDist.nombre);
+                                            }
+                                        }}>
+                                            <SelectTrigger className="h-10 text-sm w-full">
+                                                <SelectValue placeholder="Provincia" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableProvincias.map((prov) => (
+                                                    <SelectItem key={prov.id} value={prov.nombre}>{prov.nombre}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-sm font-medium">Distrito</Label>
+                                        <Select value={selectedDist} onValueChange={setSelectedDist}>
+                                            <SelectTrigger className="h-10 text-sm w-full">
+                                                <SelectValue placeholder="Distrito" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {availableDistritos.map((dist) => (
+                                                    <SelectItem key={dist.id} value={dist.nombre}>{dist.nombre}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Direccion */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-sm font-medium">Dirección</Label>
+                                    <Input
+                                        placeholder="Av. Las Magnolias 123..."
+                                        className="h-10 text-sm font-medium"
+                                        value={clientAddress}
+                                        onChange={(e) => setClientAddress(e.target.value)}
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -921,26 +1019,12 @@ export function POSSystem({
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4">
                                         <div className="space-y-1.5">
-                                            <Label className="text-sm font-medium">Departamento</Label>
-                                            <Select value={province} onValueChange={setProvince}>
-                                                <SelectTrigger className="h-10 text-sm w-full">
-                                                    <SelectValue placeholder="Seleccionar..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {DEPARTAMENTOS.map((dep) => (
-                                                        <SelectItem key={dep.id} value={dep.nombre}>
-                                                            {dep.nombre}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-sm font-medium">Destino / Agencia</Label>
+                                            <Label className="text-sm font-medium">Destino / Agencia (Referencia)</Label>
                                             <Input
                                                 className="h-10 text-sm"
+                                                placeholder="Ej: Agencia Shalom Av. Grau"
                                                 value={destination}
                                                 onChange={(e) => setDestination(e.target.value)}
                                             />
