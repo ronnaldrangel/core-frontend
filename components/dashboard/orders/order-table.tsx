@@ -80,7 +80,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -95,24 +94,18 @@ interface OrderTableProps {
     paymentStatuses: PaymentStatus[];
     themeColor?: string;
 }
+type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | "custom";
 
-type DatePreset = "all" | "today" | "3days" | "7days" | "month" | "custom";
 
 export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderTableProps) {
     const [localOrders, setLocalOrders] = useState(orders);
     const [searchQuery, setSearchQuery] = useState("");
-    const [datePreset, setDatePreset] = useState<DatePreset>("all");
+    const [datePreset, setDatePreset] = useState<DatePreset>("today");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-    const [locationFilterType, setLocationFilterType] = useState<"all" | "lima" | "custom">("custom");
-
-    const handleLocationTypeChange = (value: "all" | "lima" | "custom") => {
-        if (!value) return;
-        setLocationFilterType(value);
-        // Reset dropdown state when switching modes to avoid hidden interferences
-        setSelectedDepartment("all");
-    };
+    const [selectedCourier, setSelectedCourier] = useState<string>("all");
+    const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
@@ -304,7 +297,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 let start: Date;
                 let end: Date = endOfDay(now);
 
-                if (datePreset === "today") {
+                if (datePreset === "yesterday") {
+                    start = startOfDay(subDays(now, 1));
+                    end = endOfDay(subDays(now, 1));
+                } else if (datePreset === "today") {
                     start = startOfDay(now);
                 } else if (datePreset === "3days") {
                     start = startOfDay(subDays(now, 2));
@@ -330,26 +326,32 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 if (!isWithinInterval(orderDate, { start, end })) return false;
             }
 
-            // Department filter - Normalización para comparación robusta
+            // Department filter
             const orderDept = order.courier_provincia_dpto?.toUpperCase()?.trim() || "";
 
-            if (locationFilterType === "lima") {
-                // Modo Lima: Solo registros que sean LIMA
+            if (selectedDepartment === "lima") {
                 if (orderDept !== "LIMA") return false;
-            } else if (locationFilterType === "all") {
-                // Modo Departamentos: Todo EXCEPTO Lima (Provincias)
-                if (orderDept === "LIMA") return false;
-            } else if (locationFilterType === "custom") {
-                // Modo Personalizado: Según la selección del dropdown
-                if (selectedDepartment !== "all") {
-                    const filterValue = selectedDepartment.toUpperCase().trim();
-                    if (orderDept !== filterValue) return false;
-                }
+            } else if (selectedDepartment === "no_lima") {
+                if (orderDept === "LIMA" || !orderDept) return false;
+            } else if (selectedDepartment !== "all") {
+                const filterValue = selectedDepartment.toUpperCase().trim();
+                if (orderDept !== filterValue) return false;
+            }
+
+            // Courier filter
+            if (selectedCourier !== "all") {
+                const orderCourier = order.courier_nombre?.toLowerCase() || "";
+                if (orderCourier !== selectedCourier.toLowerCase()) return false;
+            }
+
+            // Order Status filter
+            if (selectedOrderStatus !== "all") {
+                if (order.estado_pedido !== selectedOrderStatus) return false;
             }
 
             return true;
         });
-    }, [orders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, locationFilterType]);
+    }, [localOrders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, selectedCourier, selectedOrderStatus]);
 
     const stats = useMemo(() => {
         return filteredOrders.reduce((acc, order) => {
@@ -457,9 +459,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 </Card>
             </div>
 
-            {/* Filtros y Buscador - Estilo simplificado tipo Toolbar */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
-                <div className="relative flex-1 w-full max-w-sm">
+            {/* Filtros y Buscador - Una sola fila */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                {/* Buscador */}
+                <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                     <Input
                         placeholder="Buscar pedido..."
@@ -469,77 +472,95 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground/70" />
-                        <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
-                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                                <SelectValue placeholder="Periodo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todo el tiempo</SelectItem>
-                                <SelectItem value="today">Hoy</SelectItem>
-                                <SelectItem value="3days">Últimos 3 días</SelectItem>
-                                <SelectItem value="7days">Últimos 7 días</SelectItem>
-                                <SelectItem value="month">Este mes</SelectItem>
-                                <SelectItem value="custom">Rango personalizado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                {/* Filtro de Fecha */}
+                <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
+                    <SelectTrigger className="h-10 w-[160px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Fecha" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="today">Hoy</SelectItem>
+                        <SelectItem value="yesterday">Ayer</SelectItem>
+                        <SelectItem value="3days">Últimos 3 días</SelectItem>
+                        <SelectItem value="7days">Últimos 7 días</SelectItem>
+                        <SelectItem value="month">Este mes</SelectItem>
+                        <SelectItem value="all">Todas las fechas</SelectItem>
+                        <SelectItem value="custom">Rango personalizado</SelectItem>
+                    </SelectContent>
+                </Select>
 
-                    {datePreset === "custom" && (
-                        <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-200">
-                            <Input
-                                type="date"
-                                className="h-10 w-[140px] bg-muted/10 border-border/40 text-xs rounded-lg"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                            />
-                            <span className="text-muted-foreground text-xs font-bold">a</span>
-                            <Input
-                                type="date"
-                                className="h-10 w-[140px] bg-muted/10 border-border/40 text-xs rounded-lg"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                            />
-                        </div>
-                    )}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground/70 hidden lg:block" />
-                        <ToggleGroup
-                            type="single"
-                            value={locationFilterType}
-                            onValueChange={handleLocationTypeChange}
-                            className="bg-muted/10 p-0.5 rounded-lg border border-border/40"
-                        >
-                            <ToggleGroupItem value="lima" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Lima
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="all" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Departamentos
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="custom" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Personalizado
-                            </ToggleGroupItem>
-                        </ToggleGroup>
+                {/* Inputs personalizados de fecha */}
+                {datePreset === "custom" && (
+                    <>
+                        <Input
+                            type="date"
+                            placeholder="Desde"
+                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                        />
+                        <Input
+                            type="date"
+                            placeholder="Hasta"
+                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                        />
+                    </>
+                )}
 
-                        {locationFilterType === "custom" && (
-                            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                                <SelectTrigger className="h-9 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg text-xs animate-in slide-in-from-left-2">
-                                    <SelectValue placeholder="Dpto." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos los dptos.</SelectItem>
-                                    {DEPARTAMENTOS.map((dep) => (
-                                        <SelectItem key={dep.id} value={dep.nombre}>
-                                            {dep.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
-                </div>
+                {/* Departamento */}
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Departamento" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los dptos.</SelectItem>
+                        <SelectItem value="lima">Lima</SelectItem>
+                        <SelectItem value="no_lima">Todos menos Lima</SelectItem>
+                        <div className="border-t my-1"></div>
+                        {DEPARTAMENTOS.map((dep) => (
+                            <SelectItem key={dep.id} value={dep.nombre}>
+                                {dep.nombre}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Courier */}
+                <Select value={selectedCourier} onValueChange={setSelectedCourier}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Courier" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los couriers</SelectItem>
+                        {Array.from(new Set(localOrders.map(o => o.courier_nombre).filter(Boolean))).sort().map((courier) => (
+                            <SelectItem key={courier} value={courier!}>
+                                {courier}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Estado de Pedido */}
+                <Select value={selectedOrderStatus} onValueChange={setSelectedOrderStatus}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los estados</SelectItem>
+                        {orderStatuses.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="h-2 w-2 rounded-full"
+                                        style={{ backgroundColor: status.color }}
+                                    />
+                                    {status.name}
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
             <div className="border rounded-lg border-border/50 overflow-x-auto bg-card shadow-sm">
