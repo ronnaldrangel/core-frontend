@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Product, deleteProduct } from "@/lib/product-actions";
+import { Category, getCategoriesByWorkspace } from "@/lib/category-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Package, Plus, Search, Trash2, Edit, Layers, Image as ImageIcon } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Package, Plus, Search, Trash2, Edit, Layers, Image as ImageIcon, Filter } from "lucide-react";
 import { toast } from "sonner";
 import { ProductModal } from "./product-modal";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,8 @@ interface ProductListProps {
 export function ProductList({ initialProducts, workspaceId, workspaceSlug }: ProductListProps) {
     const [products, setProducts] = useState<Product[]>(initialProducts);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState<string>("all");
+    const [categories, setCategories] = useState<Category[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
 
@@ -35,10 +39,26 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [productToDelete, setProductToDelete] = useState<{ id: string, nombre: string } | null>(null);
 
-    const filteredProducts = products.filter(p =>
-        p.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    // Load categories
+    useEffect(() => {
+        const loadCategories = async () => {
+            const { data } = await getCategoriesByWorkspace(workspaceId);
+            if (data) setCategories(data);
+        };
+        loadCategories();
+    }, [workspaceId]);
+
+    const filteredProducts = products.filter(p => {
+        const matchesSearch = p.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesCategory = selectedCategory === "all" ||
+            (selectedCategory === "none" && !p.category) ||
+            (typeof p.category === 'object' && p.category?.id === selectedCategory) ||
+            p.category === selectedCategory;
+
+        return matchesSearch && matchesCategory;
+    });
 
     const handleConfirmDelete = async () => {
         if (!productToDelete) return;
@@ -67,14 +87,37 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
     return (
         <div className="space-y-4">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="relative flex-1 w-full md:max-w-sm">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por nombre o SKU..."
-                        className="pl-8"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+                <div className="flex flex-1 gap-2 w-full">
+                    <div className="relative flex-1 md:max-w-sm">
+                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar por nombre o SKU..."
+                            className="pl-8"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="w-[180px]">
+                            <Filter className="h-4 w-4 mr-2" />
+                            <SelectValue placeholder="Categoría" />
+                        </SelectTrigger>
+                        <SelectContent position="popper" align="start" sideOffset={4}>
+                            <SelectItem value="all">Todas</SelectItem>
+                            <SelectItem value="none">Sin categoría</SelectItem>
+                            {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-3 h-3 rounded-full"
+                                            style={{ backgroundColor: cat.color || '#6366F1' }}
+                                        />
+                                        {cat.nombre}
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
                 <Button onClick={() => {
                     setEditingProduct(undefined);
@@ -126,7 +169,26 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
                                                 </div>
                                                 <div className="flex flex-col">
                                                     <span className="font-semibold text-foreground line-clamp-1">{product.nombre}</span>
-                                                    <span className="text-xs text-muted-foreground line-clamp-1">{product.descripcion_corta || "Sin descripción"}</span>
+                                                    <span className="text-xs text-muted-foreground line-clamp-1 flex items-center gap-1.5">
+                                                        {(() => {
+                                                            const category = typeof product.category === 'object' && product.category
+                                                                ? product.category
+                                                                : categories.find(c => c.id === product.category);
+
+                                                            if (category) {
+                                                                return (
+                                                                    <>
+                                                                        <div
+                                                                            className="w-2 h-2 rounded-full flex-shrink-0"
+                                                                            style={{ backgroundColor: category.color || '#6366F1' }}
+                                                                        />
+                                                                        {category.nombre}
+                                                                    </>
+                                                                );
+                                                            }
+                                                            return "Sin categoría";
+                                                        })()}
+                                                    </span>
                                                 </div>
                                             </div>
                                         </td>

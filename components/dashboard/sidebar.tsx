@@ -13,8 +13,12 @@ import {
     ShoppingCart,
     Receipt,
     Banknote,
+    ChevronDown,
+    ListChecks,
+    FolderKanban,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
+import { useState } from "react";
 
 import { Logo } from "@/components/logo";
 
@@ -47,13 +51,14 @@ export function Sidebar({
     workspaceColor,
 }: SidebarProps) {
     const pathname = usePathname();
+    const [productosOpen, setProductosOpen] = useState(false);
 
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
         : undefined;
 
     // Generar items del sidebar con rutas dinámicas usando slug
-    const sidebarItems = [
+    const sidebarItemsBeforeProducts = [
         {
             title: "Vista General",
             href: `/dashboard/${currentWorkspaceId}`,
@@ -69,18 +74,16 @@ export function Sidebar({
             href: `/dashboard/${currentWorkspaceId}/clients`,
             icon: UserCircle,
         },
-        {
-            title: "Productos",
-            href: `/dashboard/${currentWorkspaceId}/products`,
-            icon: Package,
-        },
+    ];
+
+    const sidebarItemsAfterProducts = [
         {
             title: "Punto de Venta",
             href: `/dashboard/${currentWorkspaceId}/pos`,
             icon: ShoppingCart,
         },
         {
-            title: "Historial de Ventas",
+            title: "Pedidos",
             href: `/dashboard/${currentWorkspaceId}/orders`,
             icon: Receipt,
         },
@@ -93,6 +96,17 @@ export function Sidebar({
             title: "Configuración",
             href: `/dashboard/${currentWorkspaceId}/settings`,
             icon: Settings,
+        },
+    ];
+
+    const productosSubItems = [
+        {
+            title: "Mi Lista",
+            href: `/dashboard/${currentWorkspaceId}/products`,
+        },
+        {
+            title: "Mis Categorías",
+            href: `/dashboard/${currentWorkspaceId}/categories`,
         },
     ];
 
@@ -133,7 +147,76 @@ export function Sidebar({
             {/* Navigation */}
             <div className="flex-1 overflow-auto py-2">
                 <nav className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-1">
-                    {sidebarItems.map((item) => {
+                    {/* Items antes de Productos */}
+                    {sidebarItemsBeforeProducts.map((item) => {
+                        const isActive = pathname === item.href;
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={onItemClick}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                    isActive
+                                        ? "bg-muted text-primary"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                <item.icon className="h-4 w-4" />
+                                {item.title}
+                            </Link>
+                        );
+                    })}
+
+                    {/* Productos Dropdown */}
+                    <div className="space-y-1">
+                        <button
+                            onClick={() => setProductosOpen(!productosOpen)}
+                            className={cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
+                                pathname.includes("/products") || pathname.includes("/categories")
+                                    ? "bg-muted text-primary"
+                                    : "text-muted-foreground"
+                            )}
+                        >
+                            <Package className="h-4 w-4" />
+                            <span className="flex-1 text-left">Productos</span>
+                            <ChevronDown
+                                className={cn(
+                                    "h-4 w-4 transition-transform duration-200",
+                                    productosOpen ? "rotate-180" : ""
+                                )}
+                            />
+                        </button>
+
+                        {/* Sub-items */}
+                        {productosOpen && (
+                            <div className="ml-4 space-y-1">
+                                {productosSubItems.map((subItem) => {
+                                    const isActive = pathname === subItem.href;
+                                    return (
+                                        <Link
+                                            key={subItem.href}
+                                            href={subItem.href}
+                                            onClick={onItemClick}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                                isActive
+                                                    ? "bg-muted text-primary"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            {subItem.title}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Items después de Productos */}
+                    {sidebarItemsAfterProducts.map((item) => {
                         const isActive = pathname === item.href;
 
                         return (

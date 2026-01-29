@@ -19,6 +19,7 @@ export interface Product {
     variantes_producto: any[] | null;
     pack2: string | number | null;
     pack3: string | number | null;
+    category?: string | any | null;
     date_created?: string;
 }
 
