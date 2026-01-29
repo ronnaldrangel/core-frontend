@@ -80,7 +80,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -95,24 +94,18 @@ interface OrderTableProps {
     paymentStatuses: PaymentStatus[];
     themeColor?: string;
 }
+type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | "custom";
 
-type DatePreset = "all" | "today" | "3days" | "7days" | "month" | "custom";
 
 export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderTableProps) {
     const [localOrders, setLocalOrders] = useState(orders);
     const [searchQuery, setSearchQuery] = useState("");
-    const [datePreset, setDatePreset] = useState<DatePreset>("all");
+    const [datePreset, setDatePreset] = useState<DatePreset>("today");
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-    const [locationFilterType, setLocationFilterType] = useState<"all" | "lima" | "custom">("custom");
-
-    const handleLocationTypeChange = (value: "all" | "lima" | "custom") => {
-        if (!value) return;
-        setLocationFilterType(value);
-        // Reset dropdown state when switching modes to avoid hidden interferences
-        setSelectedDepartment("all");
-    };
+    const [selectedCourier, setSelectedCourier] = useState<string>("all");
+    const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>("all");
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
@@ -304,7 +297,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 let start: Date;
                 let end: Date = endOfDay(now);
 
-                if (datePreset === "today") {
+                if (datePreset === "yesterday") {
+                    start = startOfDay(subDays(now, 1));
+                    end = endOfDay(subDays(now, 1));
+                } else if (datePreset === "today") {
                     start = startOfDay(now);
                 } else if (datePreset === "3days") {
                     start = startOfDay(subDays(now, 2));
@@ -330,26 +326,32 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 if (!isWithinInterval(orderDate, { start, end })) return false;
             }
 
-            // Department filter - Normalización para comparación robusta
+            // Department filter
             const orderDept = order.courier_provincia_dpto?.toUpperCase()?.trim() || "";
 
-            if (locationFilterType === "lima") {
-                // Modo Lima: Solo registros que sean LIMA
+            if (selectedDepartment === "lima") {
                 if (orderDept !== "LIMA") return false;
-            } else if (locationFilterType === "all") {
-                // Modo Departamentos: Todo EXCEPTO Lima (Provincias)
-                if (orderDept === "LIMA") return false;
-            } else if (locationFilterType === "custom") {
-                // Modo Personalizado: Según la selección del dropdown
-                if (selectedDepartment !== "all") {
-                    const filterValue = selectedDepartment.toUpperCase().trim();
-                    if (orderDept !== filterValue) return false;
-                }
+            } else if (selectedDepartment === "no_lima") {
+                if (orderDept === "LIMA" || !orderDept) return false;
+            } else if (selectedDepartment !== "all") {
+                const filterValue = selectedDepartment.toUpperCase().trim();
+                if (orderDept !== filterValue) return false;
+            }
+
+            // Courier filter
+            if (selectedCourier !== "all") {
+                const orderCourier = order.courier_nombre?.toLowerCase() || "";
+                if (orderCourier !== selectedCourier.toLowerCase()) return false;
+            }
+
+            // Order Status filter
+            if (selectedOrderStatus !== "all") {
+                if (order.estado_pedido !== selectedOrderStatus) return false;
             }
 
             return true;
         });
-    }, [orders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, locationFilterType]);
+    }, [localOrders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, selectedCourier, selectedOrderStatus]);
 
     const stats = useMemo(() => {
         return filteredOrders.reduce((acc, order) => {
@@ -457,9 +459,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                 </Card>
             </div>
 
-            {/* Filtros y Buscador - Estilo simplificado tipo Toolbar */}
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
-                <div className="relative flex-1 w-full max-w-sm">
+            {/* Filtros y Buscador - Una sola fila */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+                {/* Buscador */}
+                <div className="relative flex-1 min-w-[250px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
                     <Input
                         placeholder="Buscar pedido..."
@@ -469,90 +472,107 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground/70" />
-                        <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
-                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                                <SelectValue placeholder="Periodo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todo el tiempo</SelectItem>
-                                <SelectItem value="today">Hoy</SelectItem>
-                                <SelectItem value="3days">Últimos 3 días</SelectItem>
-                                <SelectItem value="7days">Últimos 7 días</SelectItem>
-                                <SelectItem value="month">Este mes</SelectItem>
-                                <SelectItem value="custom">Rango personalizado</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                {/* Filtro de Fecha */}
+                <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
+                    <SelectTrigger className="h-10 w-[160px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Fecha" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="today">Hoy</SelectItem>
+                        <SelectItem value="yesterday">Ayer</SelectItem>
+                        <SelectItem value="3days">Últimos 3 días</SelectItem>
+                        <SelectItem value="7days">Últimos 7 días</SelectItem>
+                        <SelectItem value="month">Este mes</SelectItem>
+                        <SelectItem value="all">Todas las fechas</SelectItem>
+                        <SelectItem value="custom">Rango personalizado</SelectItem>
+                    </SelectContent>
+                </Select>
 
-                    {datePreset === "custom" && (
-                        <div className="flex items-center gap-2 animate-in slide-in-from-left-2 duration-200">
-                            <Input
-                                type="date"
-                                className="h-10 w-[140px] bg-muted/10 border-border/40 text-xs rounded-lg"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                            />
-                            <span className="text-muted-foreground text-xs font-bold">a</span>
-                            <Input
-                                type="date"
-                                className="h-10 w-[140px] bg-muted/10 border-border/40 text-xs rounded-lg"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                            />
-                        </div>
-                    )}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground/70 hidden lg:block" />
-                        <ToggleGroup
-                            type="single"
-                            value={locationFilterType}
-                            onValueChange={handleLocationTypeChange}
-                            className="bg-muted/10 p-0.5 rounded-lg border border-border/40"
-                        >
-                            <ToggleGroupItem value="lima" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Lima
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="all" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Departamentos
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="custom" className="h-8 px-3 text-xs font-semibold data-[state=on]:bg-background data-[state=on]:shadow-sm">
-                                Personalizado
-                            </ToggleGroupItem>
-                        </ToggleGroup>
+                {/* Inputs personalizados de fecha */}
+                {datePreset === "custom" && (
+                    <>
+                        <Input
+                            type="date"
+                            placeholder="Desde"
+                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                        />
+                        <Input
+                            type="date"
+                            placeholder="Hasta"
+                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                        />
+                    </>
+                )}
 
-                        {locationFilterType === "custom" && (
-                            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                                <SelectTrigger className="h-9 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg text-xs animate-in slide-in-from-left-2">
-                                    <SelectValue placeholder="Dpto." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todos los dptos.</SelectItem>
-                                    {DEPARTAMENTOS.map((dep) => (
-                                        <SelectItem key={dep.id} value={dep.nombre}>
-                                            {dep.nombre}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
-                </div>
+                {/* Departamento */}
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Departamento" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los dptos.</SelectItem>
+                        <SelectItem value="lima">Lima</SelectItem>
+                        <SelectItem value="no_lima">Todos menos Lima</SelectItem>
+                        <div className="border-t my-1"></div>
+                        {DEPARTAMENTOS.map((dep) => (
+                            <SelectItem key={dep.id} value={dep.nombre}>
+                                {dep.nombre}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Courier */}
+                <Select value={selectedCourier} onValueChange={setSelectedCourier}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Courier" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los couriers</SelectItem>
+                        {Array.from(new Set(localOrders.map(o => o.courier_nombre).filter(Boolean))).sort().map((courier) => (
+                            <SelectItem key={courier} value={courier!}>
+                                {courier}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {/* Estado de Pedido */}
+                <Select value={selectedOrderStatus} onValueChange={setSelectedOrderStatus}>
+                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                        <SelectValue placeholder="Estado" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" align="start">
+                        <SelectItem value="all">Todos los estados</SelectItem>
+                        {orderStatuses.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="h-2 w-2 rounded-full"
+                                        style={{ backgroundColor: status.color }}
+                                    />
+                                    {status.name}
+                                </div>
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
 
             <div className="border rounded-lg border-border/50 overflow-x-auto bg-card shadow-sm">
                 <Table>
                     <TableHeader className="bg-muted/50 text-muted-foreground border-b border-border/50">
                         <TableRow className="hover:bg-transparent">
-                            <TableHead className="px-4 py-4 font-medium text-sm">Fecha de Venta</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Fecha de Entrega</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">ID</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Fechas</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Destino</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Productos</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pago</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Destino/Courier</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pedido</TableHead>
+                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pago</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm text-right">Total</TableHead>
                             <TableHead className="px-4 py-4 font-medium text-sm text-right">Acciones</TableHead>
                         </TableRow>
@@ -560,7 +580,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                     <TableBody className="divide-y divide-border/50">
                         {filteredOrders.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                                     <div className="flex flex-col items-center gap-2 opacity-50">
                                         <Filter className="h-8 w-8" />
                                         <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
@@ -573,22 +593,32 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                 return (
                                     <Fragment key={order.id}>
                                         <TableRow className="group hover:bg-muted/30 transition-colors">
+                                            {/* ID */}
                                             <TableCell className="px-4 py-4 focus-within:z-10">
-                                                <div className="flex items-center gap-2 text-xs font-semibold">
-                                                    <CalendarIcon className="h-3.5 w-3.5" style={{ color: themeColor }} />
-                                                    {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
+                                                <div className="text-xs font-mono font-semibold text-primary/80">
+                                                    {order.id.slice(0, 8).toUpperCase()}
                                                 </div>
                                             </TableCell>
+
+                                            {/* Fechas (Envío y Entrega) */}
                                             <TableCell className="px-4 py-4">
-                                                {order.fecha_entrega ? (
-                                                    <div className="flex items-center gap-2 text-xs font-bold text-primary">
-                                                        <Truck className="h-3.5 w-3.5" />
-                                                        {format(new Date(order.fecha_entrega), "dd/MM/yyyy", { locale: es })}
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2 text-xs font-semibold">
+                                                        <CalendarIcon className="h-3 w-3" style={{ color: themeColor }} />
+                                                        {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
                                                     </div>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground/50 italic">- Por asignar -</span>
-                                                )}
+                                                    {order.fecha_entrega ? (
+                                                        <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                                                            <Truck className="h-3 w-3" />
+                                                            {format(new Date(order.fecha_entrega), "dd/MM/yyyy", { locale: es })}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] text-muted-foreground/50 italic ml-5">Sin fecha entrega</span>
+                                                    )}
+                                                </div>
                                             </TableCell>
+
+                                            {/* Cliente */}
                                             <TableCell className="px-4 py-4">
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2 font-semibold text-sm tracking-tight capitalize">
@@ -602,52 +632,110 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                     )}
                                                 </div>
                                             </TableCell>
+
+                                            {/* Destino/Courier */}
                                             <TableCell className="px-4 py-4">
-                                                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-tight">
-                                                    <MapPin className="h-3.5 w-3.5 text-primary/60" />
-                                                    {order.courier_provincia_dpto || "-"}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="px-4 py-4">
-                                                <div className="flex flex-col gap-0.5 max-w-[240px]">
-                                                    {order.items?.slice(0, 3).map((item: any) => (
-                                                        <div
-                                                            key={item.id}
-                                                            className="text-[11px] font-medium text-muted-foreground line-clamp-1"
-                                                        >
-                                                            <span className="font-semibold text-primary mr-1.5 opacity-80">{item.cantidad}×</span>
-                                                            <span className="capitalize">{item.product_id?.nombre.toLowerCase()}</span>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2 text-xs font-semibold">
+                                                        <MapPin className="h-3 w-3 text-primary/60" />
+                                                        <span className="text-muted-foreground uppercase tracking-tight">{order.courier_provincia_dpto || "-"}</span>
+                                                    </div>
+                                                    {order.courier_nombre && (
+                                                        <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/70">
+                                                            <Truck className="h-3 w-3" />
+                                                            {order.courier_nombre}
                                                         </div>
-                                                    ))}
-                                                    {order.items?.length > 3 && (
-                                                        <span className="text-[10px] text-primary font-bold uppercase tracking-tighter mt-1 opacity-60">
-                                                            + {order.items.length - 3} items adicionales
-                                                        </span>
                                                     )}
                                                 </div>
                                             </TableCell>
+
+                                            {/* Estado de Pedido - EDITABLE */}
                                             <TableCell className="px-4 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div
-                                                        className="h-2 w-2 rounded-full flex-shrink-0"
-                                                        style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
-                                                    />
-                                                    <span className="text-xs font-semibold tracking-tight opacity-90">
-                                                        {getStatusName(order.estado_pago, 'payment')}
-                                                    </span>
-                                                </div>
+                                                <Select
+                                                    value={order.estado_pedido}
+                                                    onValueChange={async (value) => {
+                                                        const result = await updateOrder(order.id, { estado_pedido: value });
+                                                        if (result.data) {
+                                                            setLocalOrders(prev => prev.map(o =>
+                                                                o.id === order.id ? { ...o, estado_pedido: value } : o
+                                                            ));
+                                                            toast.success("Estado de pedido actualizado");
+                                                        } else {
+                                                            toast.error(result.error || "Error al actualizar");
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent hover:bg-muted/50 focus:ring-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="h-2 w-2 rounded-full flex-shrink-0"
+                                                                style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
+                                                            />
+                                                            <span className="text-xs font-semibold truncate">
+                                                                {getStatusName(order.estado_pedido, 'order')}
+                                                            </span>
+                                                        </div>
+                                                    </SelectTrigger>
+                                                    <SelectContent position="popper" align="start">
+                                                        {orderStatuses.map((status) => (
+                                                            <SelectItem key={status.value} value={status.value}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div
+                                                                        className="h-2 w-2 rounded-full"
+                                                                        style={{ backgroundColor: status.color }}
+                                                                    />
+                                                                    {status.name}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
+
+                                            {/* Estado de Pago - EDITABLE */}
                                             <TableCell className="px-4 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <div
-                                                        className="h-2 w-2 rounded-full flex-shrink-0"
-                                                        style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
-                                                    />
-                                                    <span className="text-xs font-semibold tracking-tight text-muted-foreground opacity-70">
-                                                        {getStatusName(order.estado_pedido, 'order')}
-                                                    </span>
-                                                </div>
+                                                <Select
+                                                    value={order.estado_pago}
+                                                    onValueChange={async (value) => {
+                                                        const result = await updateOrder(order.id, { estado_pago: value });
+                                                        if (result.data) {
+                                                            setLocalOrders(prev => prev.map(o =>
+                                                                o.id === order.id ? { ...o, estado_pago: value } : o
+                                                            ));
+                                                            toast.success("Estado de pago actualizado");
+                                                        } else {
+                                                            toast.error(result.error || "Error al actualizar");
+                                                        }
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent hover:bg-muted/50 focus:ring-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="h-2 w-2 rounded-full flex-shrink-0"
+                                                                style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
+                                                            />
+                                                            <span className="text-xs font-semibold truncate">
+                                                                {getStatusName(order.estado_pago, 'payment')}
+                                                            </span>
+                                                        </div>
+                                                    </SelectTrigger>
+                                                    <SelectContent position="popper" align="start">
+                                                        {paymentStatuses.map((status) => (
+                                                            <SelectItem key={status.value} value={status.value}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <div
+                                                                        className="h-2 w-2 rounded-full"
+                                                                        style={{ backgroundColor: status.color }}
+                                                                    />
+                                                                    {status.name}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
+
+                                            {/* Total */}
                                             <TableCell className="px-4 py-4 text-right">
                                                 <div className="flex flex-col items-end">
                                                     <span className="text-sm font-semibold text-green-600 dark:text-green-500 tabular-nums">
@@ -660,6 +748,8 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                                     )}
                                                 </div>
                                             </TableCell>
+
+                                            {/* Acciones */}
                                             <TableCell className="px-4 py-4 text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -708,7 +798,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, themeColor 
                                         </TableRow>
                                         {isExpanded && (
                                             <TableRow className="bg-muted/20">
-                                                <TableCell colSpan={9} className="p-6">
+                                                <TableCell colSpan={8} className="p-6">
                                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
                                                         {/* Detalle de Productos */}
                                                         <div className="space-y-4">
