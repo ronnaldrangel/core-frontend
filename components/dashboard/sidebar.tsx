@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { useState } from "react";
-
+import { useRBAC } from "@/components/providers/rbac-provider";
 import { Logo } from "@/components/logo";
 
 interface Workspace {
@@ -51,6 +51,7 @@ export function Sidebar({
     workspaceColor,
 }: SidebarProps) {
     const pathname = usePathname();
+    const { hasPermission, isLoading } = useRBAC();
     const [productosOpen, setProductosOpen] = useState(false);
 
     const logoUrl = workspaceLogo
@@ -63,16 +64,19 @@ export function Sidebar({
             title: "Vista General",
             href: `/dashboard/${currentWorkspaceId}`,
             icon: LayoutDashboard,
+            permission: "dashboard.read",
         },
         {
             title: "Miembros",
             href: `/dashboard/${currentWorkspaceId}/members`,
             icon: Users,
+            permission: "settings.manage",
         },
         {
             title: "Clientes",
             href: `/dashboard/${currentWorkspaceId}/clients`,
             icon: UserCircle,
+            permission: "clients.read",
         },
     ];
 
@@ -81,21 +85,25 @@ export function Sidebar({
             title: "Punto de Venta",
             href: `/dashboard/${currentWorkspaceId}/pos`,
             icon: ShoppingCart,
+            permission: "orders.create",
         },
         {
             title: "Pedidos",
             href: `/dashboard/${currentWorkspaceId}/orders`,
             icon: Receipt,
+            permission: "orders.read",
         },
         {
             title: "Caja",
             href: `/dashboard/${currentWorkspaceId}/cashbox`,
             icon: Banknote,
+            permission: "cashbox.read",
         },
         {
             title: "Configuración",
             href: `/dashboard/${currentWorkspaceId}/settings`,
             icon: Settings,
+            permission: "settings.manage",
         },
     ];
 
@@ -103,19 +111,40 @@ export function Sidebar({
         {
             title: "Mi Lista",
             href: `/dashboard/${currentWorkspaceId}/products`,
+            permission: "products.read",
         },
         {
             title: "Mis Categorías",
             href: `/dashboard/${currentWorkspaceId}/categories`,
+            permission: "categories.manage",
         },
     ];
+
+    // Filter items based on permissions
+    const visibleBeforeProducts = sidebarItemsBeforeProducts.filter(item =>
+        !item.permission || hasPermission(item.permission)
+    );
+
+    const visibleAfterProducts = sidebarItemsAfterProducts.filter(item =>
+        !item.permission || hasPermission(item.permission)
+    );
+
+    const visibleProductsSubItems = productosSubItems.filter(item =>
+        !item.permission || hasPermission(item.permission)
+    );
+
+    const hasProductsAccess = visibleProductsSubItems.length > 0;
 
     const content = (
         <div className="flex h-full max-h-screen flex-col gap-2">
             {/* Workspace Logo Only Area - Only shown in Mobile Sidebar */}
             {isMobile && (
                 <div className="px-6 py-6 flex items-center justify-center border-b bg-muted/5 group cursor-pointer hover:bg-muted/10 transition-colors h-24">
-                    <Link href={`/dashboard/${currentWorkspaceId}`} onClick={onItemClick} className="flex items-center justify-center">
+                    <Link
+                        href={hasPermission("dashboard.read") ? `/dashboard/${currentWorkspaceId}` : `/dashboard/${currentWorkspaceId}/orders`}
+                        onClick={onItemClick}
+                        className="flex items-center justify-center"
+                    >
                         <div
                             className="size-14 rounded-2xl flex items-center justify-center text-white font-bold text-2xl relative overflow-hidden border-2 bg-background shadow-md group-hover:scale-110 transition-transform duration-300"
                             style={{ backgroundColor: !workspaceLogo ? (workspaceColor || "#6366F1") : undefined }}
@@ -148,7 +177,7 @@ export function Sidebar({
             <div className="flex-1 overflow-auto py-2">
                 <nav className="grid items-start px-2 text-sm font-medium lg:px-4 space-y-1">
                     {/* Items antes de Productos */}
-                    {sidebarItemsBeforeProducts.map((item) => {
+                    {visibleBeforeProducts.map((item) => {
                         const isActive = pathname === item.href;
 
                         return (
@@ -170,53 +199,55 @@ export function Sidebar({
                     })}
 
                     {/* Productos Dropdown */}
-                    <div className="space-y-1">
-                        <button
-                            onClick={() => setProductosOpen(!productosOpen)}
-                            className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
-                                pathname.includes("/products") || pathname.includes("/categories")
-                                    ? "bg-muted text-primary"
-                                    : "text-muted-foreground"
-                            )}
-                        >
-                            <Package className="h-4 w-4" />
-                            <span className="flex-1 text-left">Productos</span>
-                            <ChevronDown
+                    {hasProductsAccess && (
+                        <div className="space-y-1">
+                            <button
+                                onClick={() => setProductosOpen(!productosOpen)}
                                 className={cn(
-                                    "h-4 w-4 transition-transform duration-200",
-                                    productosOpen ? "rotate-180" : ""
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
+                                    pathname.includes("/products") || pathname.includes("/categories")
+                                        ? "bg-muted text-primary"
+                                        : "text-muted-foreground"
                                 )}
-                            />
-                        </button>
+                            >
+                                <Package className="h-4 w-4" />
+                                <span className="flex-1 text-left">Productos</span>
+                                <ChevronDown
+                                    className={cn(
+                                        "h-4 w-4 transition-transform duration-200",
+                                        productosOpen ? "rotate-180" : ""
+                                    )}
+                                />
+                            </button>
 
-                        {/* Sub-items */}
-                        {productosOpen && (
-                            <div className="ml-4 space-y-1">
-                                {productosSubItems.map((subItem) => {
-                                    const isActive = pathname === subItem.href;
-                                    return (
-                                        <Link
-                                            key={subItem.href}
-                                            href={subItem.href}
-                                            onClick={onItemClick}
-                                            className={cn(
-                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
-                                                isActive
-                                                    ? "bg-muted text-primary"
-                                                    : "text-muted-foreground"
-                                            )}
-                                        >
-                                            {subItem.title}
-                                        </Link>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
+                            {/* Sub-items */}
+                            {productosOpen && (
+                                <div className="ml-4 space-y-1">
+                                    {visibleProductsSubItems.map((subItem) => {
+                                        const isActive = pathname === subItem.href;
+                                        return (
+                                            <Link
+                                                key={subItem.href}
+                                                href={subItem.href}
+                                                onClick={onItemClick}
+                                                className={cn(
+                                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                                    isActive
+                                                        ? "bg-muted text-primary"
+                                                        : "text-muted-foreground"
+                                                )}
+                                            >
+                                                {subItem.title}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Items después de Productos */}
-                    {sidebarItemsAfterProducts.map((item) => {
+                    {visibleAfterProducts.map((item) => {
                         const isActive = pathname === item.href;
 
                         return (

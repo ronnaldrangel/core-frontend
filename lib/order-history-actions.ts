@@ -1,11 +1,18 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusAdmin } from "./directus";
 import { readItems } from "@directus/sdk";
+import { getMyPermissions } from "./rbac-actions";
 
 export async function getOrdersByWorkspace(workspaceId: string) {
     try {
-        const orders = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { data: [], error: "No tienes permiso para ver el historial de pedidos" };
+        }
+
+        const orders = await directusAdmin.request(
             readItems("orders", {
                 filter: {
                     workspace_id: { _eq: workspaceId }

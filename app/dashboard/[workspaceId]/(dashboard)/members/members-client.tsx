@@ -88,9 +88,10 @@ interface MembersClientProps {
     currentUserEmail: string;
     isOwner: boolean;
     isAdmin: boolean;
+    rbacRoles: any[];
 }
 
-const roleLabels = {
+const roleLabels: any = {
     admin: { label: "Administrador", icon: Shield, color: "text-blue-500" },
     editor: { label: "Editor", icon: Edit, color: "text-green-500" },
     viewer: { label: "Visualizador", icon: Eye, color: "text-gray-500" },
@@ -102,17 +103,27 @@ export function MembersClient({
     currentUserId,
     currentUserEmail,
     isOwner,
-    isAdmin
+    isAdmin,
+    rbacRoles = []
 }: MembersClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState<"admin" | "editor" | "viewer">("viewer");
+    const [inviteRole, setInviteRole] = useState<string>("");
     const [memberToDelete, setMemberToDelete] = useState<any>(null);
     const [memberToEdit, setMemberToEdit] = useState<any>(null);
-    const [editRole, setEditRole] = useState<"admin" | "editor" | "viewer">("viewer");
+    const [editRole, setEditRole] = useState<string>("");
     const [invitationToCancel, setInvitationToCancel] = useState<any>(null);
+
+    // Initial role selection
+    useState(() => {
+        if (rbacRoles.length > 0) {
+            setInviteRole(rbacRoles[rbacRoles.length - 1].id); // Usually viewer is last
+        } else {
+            setInviteRole("viewer");
+        }
+    });
 
     const owner = typeof workspace.owner === 'object' ? workspace.owner : null;
     const members = workspace.members || [];
@@ -261,29 +272,36 @@ export function MembersClient({
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="role">Rol</Label>
-                                    <Select value={inviteRole} onValueChange={(v: any) => setInviteRole(v)}>
-                                        <SelectTrigger>
+                                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v)}>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Selecciona un rol" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="viewer">
-                                                <div className="flex items-center gap-2">
-                                                    <Eye className="h-4 w-4 text-gray-500" />
-                                                    Visualizador - Solo puede ver
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="editor">
-                                                <div className="flex items-center gap-2">
-                                                    <Edit className="h-4 w-4 text-green-500" />
-                                                    Editor - Puede editar contenido
-                                                </div>
-                                            </SelectItem>
-                                            <SelectItem value="admin">
-                                                <div className="flex items-center gap-2">
-                                                    <Shield className="h-4 w-4 text-blue-500" />
-                                                    Administrador - Control total
-                                                </div>
-                                            </SelectItem>
+                                            {/* Legacy roles for backward compatibility if needed, but primarily rbacRoles */}
+                                            {rbacRoles.length > 0 ? (
+                                                rbacRoles.map((role) => {
+                                                    const isViewer = role.name.toLowerCase().includes("viewer") || role.name.toLowerCase().includes("visualizador");
+                                                    const isAdminRole = role.name.toLowerCase().includes("admin");
+                                                    const isEditor = role.name.toLowerCase().includes("editor");
+
+                                                    return (
+                                                        <SelectItem key={role.id} value={role.id}>
+                                                            <div className="flex items-center gap-2">
+                                                                {isAdminRole ? <Shield className="h-4 w-4 text-blue-500" /> :
+                                                                    isEditor ? <Edit className="h-4 w-4 text-green-500" /> :
+                                                                        <Eye className="h-4 w-4 text-gray-500" />}
+                                                                {role.name}
+                                                            </div>
+                                                        </SelectItem>
+                                                    );
+                                                })
+                                            ) : (
+                                                <>
+                                                    <SelectItem value="viewer">Visualizador</SelectItem>
+                                                    <SelectItem value="editor">Editor</SelectItem>
+                                                    <SelectItem value="admin">Administrador</SelectItem>
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -377,12 +395,14 @@ export function MembersClient({
                                             <td className="px-4 py-3">
                                                 <div className={cn(
                                                     "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border",
-                                                    member.role === 'admin' ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
-                                                        member.role === 'editor' ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
+                                                    (member.role_id?.name || member.role).toLowerCase().includes('admin') ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
+                                                        (member.role_id?.name || member.role).toLowerCase().includes('editor') ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
                                                             "bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800"
                                                 )}>
-                                                    <RoleIcon className="h-3.5 w-3.5" />
-                                                    {roleInfo.label}
+                                                    {((member.role_id?.name || member.role).toLowerCase().includes('admin')) ? <Shield className="h-3.5 w-3.5" /> :
+                                                        ((member.role_id?.name || member.role).toLowerCase().includes('editor')) ? <Edit className="h-3.5 w-3.5" /> :
+                                                            <Eye className="h-3.5 w-3.5" />}
+                                                    {member.role_id?.name || roleLabels[member.role as keyof typeof roleLabels]?.label || member.role}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
@@ -397,7 +417,7 @@ export function MembersClient({
                                                             <DropdownMenuItem
                                                                 onClick={() => {
                                                                     setMemberToEdit(member);
-                                                                    setEditRole(member.role);
+                                                                    setEditRole(member.role_id?.id || member.role);
                                                                 }}
                                                                 className="cursor-pointer"
                                                             >
@@ -435,29 +455,34 @@ export function MembersClient({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="py-4">
-                        <Select value={editRole} onValueChange={(v: any) => setEditRole(v)}>
-                            <SelectTrigger>
+                        <Select value={editRole} onValueChange={(v) => setEditRole(v)}>
+                            <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Selecciona un rol" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="viewer">
-                                    <div className="flex items-center gap-2">
-                                        <Eye className="h-4 w-4 text-gray-500" />
-                                        Visualizador
-                                    </div>
-                                </SelectItem>
-                                <SelectItem value="editor">
-                                    <div className="flex items-center gap-2">
-                                        <Edit className="h-4 w-4 text-green-500" />
-                                        Editor
-                                    </div>
-                                </SelectItem>
-                                <SelectItem value="admin">
-                                    <div className="flex items-center gap-2">
-                                        <Shield className="h-4 w-4 text-blue-500" />
-                                        Administrador
-                                    </div>
-                                </SelectItem>
+                                {rbacRoles.length > 0 ? (
+                                    rbacRoles.map((role) => {
+                                        const isAdminRole = role.name.toLowerCase().includes("admin");
+                                        const isEditor = role.name.toLowerCase().includes("editor");
+
+                                        return (
+                                            <SelectItem key={role.id} value={role.id}>
+                                                <div className="flex items-center gap-2">
+                                                    {isAdminRole ? <Shield className="h-4 w-4 text-blue-500" /> :
+                                                        isEditor ? <Edit className="h-4 w-4 text-green-500" /> :
+                                                            <Eye className="h-4 w-4 text-gray-500" />}
+                                                    {role.name}
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })
+                                ) : (
+                                    <>
+                                        <SelectItem value="viewer">Visualizador</SelectItem>
+                                        <SelectItem value="editor">Editor</SelectItem>
+                                        <SelectItem value="admin">Administrador</SelectItem>
+                                    </>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>

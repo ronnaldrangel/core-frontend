@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getWorkspacePendingInvitations } from "@/lib/invitation-actions";
+import { getAllRoles, getMyPermissions } from "@/lib/rbac-actions";
 import { MembersClient } from "./members-client";
 
 interface MembersPageProps {
@@ -19,20 +20,23 @@ export default async function MembersPage({ params }: MembersPageProps) {
         redirect("/workspaces");
     }
 
+    // Check permissions
+    const permissions = await getMyPermissions(workspace.id);
+    const isOwner = permissions.includes("*");
+    const canManageMembers = isOwner || permissions.includes("settings.manage");
+
+    if (!canManageMembers) {
+        redirect(`/dashboard/${workspaceId}`);
+    }
+
     // Get pending invitations for this workspace
     const { data: pendingInvitations } = await getWorkspacePendingInvitations(workspace.id);
 
-    // Determine if current user is owner
-    const isOwner = typeof workspace.owner === 'object'
-        ? workspace.owner.id === session.user.id
-        : workspace.owner === session.user.id;
+    // Get available RBAC roles
+    const { data: rbacRoles } = await getAllRoles(workspace.id);
 
-    // Determine if current user is admin (owner or admin role)
-    const currentUserMember = workspace.members?.find((m: any) => {
-        const memberId = typeof m.user_id === 'object' ? m.user_id.id : m.user_id;
-        return memberId === session.user.id;
-    });
-    const isAdmin = isOwner || currentUserMember?.role === 'admin';
+    // Determine if current user is admin for UI purposes
+    const isAdmin = isOwner || permissions.includes("settings.manage");
 
     return (
         <MembersClient
@@ -42,6 +46,7 @@ export default async function MembersPage({ params }: MembersPageProps) {
             currentUserEmail={session.user.email || ""}
             isOwner={isOwner}
             isAdmin={isAdmin}
+            rbacRoles={rbacRoles || []}
         />
     );
 }

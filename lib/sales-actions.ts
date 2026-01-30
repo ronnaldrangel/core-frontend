@@ -1,7 +1,8 @@
 "use server";
 
-import { directus } from "@/lib/directus";
+import { directus, directusAdmin } from "@/lib/directus";
 import { readItems, aggregate } from "@directus/sdk";
+import { getMyPermissions } from "./rbac-actions";
 
 interface SalesData {
     date: string;
@@ -14,13 +15,18 @@ interface SalesData {
 
 export async function getSalesData(workspaceId: string, days: number = 90) {
     try {
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { success: false, error: "No tienes permiso para ver datos de ventas", data: [] };
+        }
+
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
         // Get all orders for the workspace within the date range
-        // Agregamos costo_envio para calcular el neto e items para las unidades
-        const orders = await directus.request(
+        const orders = await directusAdmin.request(
             readItems("orders", {
                 filter: {
                     workspace_id: {
@@ -99,7 +105,13 @@ export async function getSalesData(workspaceId: string, days: number = 90) {
 
 export async function getSalesStats(workspaceId: string) {
     try {
-        const result = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { success: false, error: "No tienes permiso para ver estadísticas de ventas", data: { totalRevenue: 0, totalOrders: 0 } };
+        }
+
+        const result = await directusAdmin.request(
             aggregate("orders", {
                 aggregate: {
                     sum: ["total"],
@@ -138,7 +150,13 @@ export async function getSalesStats(workspaceId: string) {
 // Top productos más vendidos
 export async function getTopProducts(workspaceId: string, limit: number = 5) {
     try {
-        const orders = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { success: false, error: "No tienes permiso para ver productos top", data: [] };
+        }
+
+        const orders = await directusAdmin.request(
             readItems("orders", {
                 filter: {
                     workspace_id: {
@@ -186,7 +204,13 @@ export async function getTopProducts(workspaceId: string, limit: number = 5) {
 // Ventas por vendedor (user_created)
 export async function getSalesByUser(workspaceId: string) {
     try {
-        const orders = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { success: false, error: "No tienes permiso para ver ventas por usuario", data: [] };
+        }
+
+        const orders = await directusAdmin.request(
             readItems("orders", {
                 filter: {
                     workspace_id: {

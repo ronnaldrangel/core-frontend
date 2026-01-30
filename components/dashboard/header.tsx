@@ -8,6 +8,7 @@ import { MobileSidebar } from "./mobile-sidebar";
 import { Logo } from "@/components/logo";
 import { NotificationBell } from "./notification-bell";
 import { type WorkspaceInvitation } from "@/lib/invitation-actions";
+import { useRBAC } from "@/components/providers/rbac-provider";
 
 interface DashboardHeaderProps {
     user: {
@@ -34,6 +35,7 @@ export function DashboardHeader({
     initialInvitations = []
 }: DashboardHeaderProps) {
     const [mounted, setMounted] = useState(false);
+    const { hasPermission } = useRBAC();
 
     useEffect(() => {
         setMounted(true);
@@ -58,7 +60,10 @@ export function DashboardHeader({
             )}
 
             <div className="flex items-center gap-2 font-semibold">
-                <Link href={`/dashboard/${currentWorkspaceId}`} className="flex items-center gap-2">
+                <Link
+                    href={hasPermission("dashboard.read") ? `/dashboard/${currentWorkspaceId}` : `/dashboard/${currentWorkspaceId}/orders`}
+                    className="flex items-center gap-2"
+                >
                     <Logo
                         height={32}
                         src={logoUrl}

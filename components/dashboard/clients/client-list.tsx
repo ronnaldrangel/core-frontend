@@ -16,6 +16,7 @@ import { Client, deleteClient } from "@/lib/client-actions";
 import { ClientModal } from "./client-modal";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useRBAC } from "@/components/providers/rbac-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -36,6 +37,11 @@ interface ClientListProps {
 }
 
 export function ClientList({ initialClients, workspaceId, clientTotals = {} }: ClientListProps) {
+    const { hasPermission } = useRBAC();
+    const canCreate = hasPermission("clients.create");
+    const canUpdate = hasPermission("clients.update");
+    const canDelete = hasPermission("clients.delete");
+
     const [clients, setClients] = useState<Client[]>(initialClients);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -103,16 +109,18 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button
-                    onClick={() => {
-                        setEditingClient(null);
-                        setIsModalOpen(true);
-                    }}
-                    className="w-full md:w-auto"
-                >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Cliente
-                </Button>
+                {canCreate && (
+                    <Button
+                        onClick={() => {
+                            setEditingClient(null);
+                            setIsModalOpen(true);
+                        }}
+                        className="w-full md:w-auto"
+                    >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Cliente
+                    </Button>
+                )}
             </div>
 
             <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
@@ -194,27 +202,31 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        setEditingClient(client);
-                                                        setIsModalOpen(true);
-                                                    }}
-                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
-                                                    title="Editar"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => setClientToDelete(client)}
-                                                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {canUpdate && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setEditingClient(client);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {canDelete && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => setClientToDelete(client)}
+                                                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

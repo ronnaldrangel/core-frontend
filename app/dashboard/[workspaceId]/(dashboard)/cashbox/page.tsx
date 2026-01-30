@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getCashboxTransactions } from "@/lib/cashbox-actions";
+import { getMyPermissions } from "@/lib/rbac-actions";
 import { CashboxClient } from "@/components/dashboard/cashbox/cashbox-client";
 
 interface CashboxPageProps {
@@ -19,6 +20,12 @@ export default async function CashboxPage({ params }: CashboxPageProps) {
 
     if (workspaceError || !workspace) {
         notFound();
+    }
+
+    // Verificar permisos
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("cashbox.read")) {
+        redirect(`/dashboard/${slug}`);
     }
 
     // Obtener movimientos usando el ID del workspace

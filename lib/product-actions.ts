@@ -1,13 +1,14 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusAdmin } from "./directus";
 import { readItems, createItem, updateItem, deleteItem, readItem, uploadFiles } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface Product {
     id: string;
     status: string;
-    workspace: string;
+    workspace: string; // ID del workspace
     nombre: string;
     sku: string;
     precio_venta: string | number | null;
@@ -26,7 +27,10 @@ export interface Product {
 export async function uploadFile(formData: FormData) {
     try {
         console.log("Iniciando subida de archivo...");
-        const response = await directus.request(uploadFiles(formData));
+        // La subida de archivos la permitimos con el cliente normal o admin
+        // dependiendo de si queremos que el usuario sea el 'owner' en Directus.
+        // Lo dejamos con directusAdmin para evitar líos de permisos en directus_files.
+        const response = await directusAdmin.request(uploadFiles(formData));
 
         // Asegurarnos de devolver un objeto plano y serializable
         const fileData = JSON.parse(JSON.stringify(response));
@@ -44,7 +48,13 @@ export async function uploadFile(formData: FormData) {
 
 export async function getProductsByWorkspace(workspaceId: string) {
     try {
-        const products = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("products.read")) {
+            return { data: null, error: "No tienes permiso para ver productos" };
+        }
+
+        const products = await directusAdmin.request(
             readItems("products", {
                 filter: {
                     workspace: { _eq: workspaceId }
@@ -62,7 +72,15 @@ export async function getProductsByWorkspace(workspaceId: string) {
 
 export async function createProduct(data: Partial<Product>) {
     try {
-        const product = await directus.request(
+        if (!data.workspace) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace);
+        if (!permissions.includes("*") && !permissions.includes("products.create")) {
+            return { data: null, error: "No tienes permiso para crear productos" };
+        }
+
+        const product = await directusAdmin.request(
             createItem("products", data)
         );
         revalidatePath(`/dashboard`);
@@ -75,7 +93,16 @@ export async function createProduct(data: Partial<Product>) {
 
 export async function updateProduct(id: string, data: Partial<Product>) {
     try {
-        const product = await directus.request(
+        const workspaceId = data.workspace;
+        if (!workspaceId) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("products.update")) {
+            return { data: null, error: "No tienes permiso para actualizar productos" };
+        }
+
+        const product = await directusAdmin.request(
             updateItem("products", id, data)
         );
         revalidatePath(`/dashboard`);
@@ -88,7 +115,19 @@ export async function updateProduct(id: string, data: Partial<Product>) {
 
 export async function deleteProduct(id: string) {
     try {
-        await directus.request(deleteItem("products", id));
+        // Para eliminar, primero necesitamos saber a qué workspace pertenece el producto
+        const product = await directusAdmin.request(readItem("products", id, { fields: ["workspace"] }));
+        if (!product || !product.workspace) return { error: "Producto no encontrado" };
+
+        const workspaceId = typeof product.workspace === 'object' ? product.workspace.id : product.workspace;
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("products.delete")) {
+            return { error: "No tienes permiso para eliminar productos" };
+        }
+
+        await directusAdmin.request(deleteItem("products", id));
         revalidatePath(`/dashboard`);
         return { error: null };
     } catch (error) {

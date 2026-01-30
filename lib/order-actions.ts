@@ -1,8 +1,9 @@
 "use server";
 
-import { directus } from "./directus";
-import { createItem, createItems } from "@directus/sdk";
+import { directus, directusAdmin } from "./directus";
+import { createItem, createItems, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface OrderItem {
     id?: string;
@@ -46,8 +47,16 @@ export interface Order {
 
 export async function createOrder(orderData: Partial<Order>, items: OrderItem[]) {
     try {
+        if (!orderData.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(orderData.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("orders.create")) {
+            return { data: null, error: "No tienes permiso para crear pedidos" };
+        }
+
         // 1. Crear la orden principal
-        const order = await directus.request(
+        const order = await directusAdmin.request(
             createItem("orders", {
                 workspace_id: orderData.workspace_id,
                 cliente_id: orderData.cliente_id,
@@ -80,7 +89,7 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
             order_id: (order as any).id
         }));
 
-        await directus.request(createItems("order_items", itemsWithOrderId));
+        await directusAdmin.request(createItems("order_items", itemsWithOrderId));
 
         revalidatePath(`/dashboard`);
         return { data: order, error: null };
@@ -103,8 +112,7 @@ export interface OrderStatus {
 
 export async function getOrderStatuses(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
-        const statuses = await directus.request(
+        const statuses = await directusAdmin.request(
             readItems("order_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
                 sort: ["sort"]
@@ -119,8 +127,14 @@ export async function getOrderStatuses(workspaceId: string) {
 
 export async function createOrderStatus(data: Partial<OrderStatus>) {
     try {
-        const { createItem } = await import("@directus/sdk");
-        const status = await directus.request(
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        const status = await directusAdmin.request(
             createItem("order_statuses", data)
         );
         revalidatePath(`/dashboard`);
@@ -133,8 +147,15 @@ export async function createOrderStatus(data: Partial<OrderStatus>) {
 
 export async function deleteOrderStatus(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
-        await directus.request(deleteItem("order_statuses", id));
+        const statusRecord = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
+        if (!statusRecord) return { success: false, error: "Estado no encontrado" };
+
+        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        await directusAdmin.request(deleteItem("order_statuses", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
     } catch (error: any) {
@@ -155,8 +176,7 @@ export interface PaymentStatus {
 
 export async function getPaymentStatuses(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
-        const statuses = await directus.request(
+        const statuses = await directusAdmin.request(
             readItems("payment_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
                 sort: ["sort"]
@@ -171,8 +191,14 @@ export async function getPaymentStatuses(workspaceId: string) {
 
 export async function createPaymentStatus(data: Partial<PaymentStatus>) {
     try {
-        const { createItem } = await import("@directus/sdk");
-        const status = await directus.request(
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        const status = await directusAdmin.request(
             createItem("payment_statuses", data)
         );
         revalidatePath(`/dashboard`);
@@ -185,8 +211,15 @@ export async function createPaymentStatus(data: Partial<PaymentStatus>) {
 
 export async function deletePaymentStatus(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
-        await directus.request(deleteItem("payment_statuses", id));
+        const statusRecord = await directusAdmin.request(readItem("payment_statuses", id, { fields: ["workspace_id"] }));
+        if (!statusRecord) return { success: false, error: "Estado no encontrado" };
+
+        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        await directusAdmin.request(deleteItem("payment_statuses", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
     } catch (error: any) {
@@ -207,8 +240,7 @@ export interface CourierType {
 
 export async function getCourierTypes(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
-        const types = await directus.request(
+        const types = await directusAdmin.request(
             readItems("courier_types", {
                 filter: { workspace_id: { _eq: workspaceId } },
                 sort: ["sort"]
@@ -223,8 +255,14 @@ export async function getCourierTypes(workspaceId: string) {
 
 export async function createCourierType(data: Partial<CourierType>) {
     try {
-        const { createItem } = await import("@directus/sdk");
-        const type = await directus.request(
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        const type = await directusAdmin.request(
             createItem("courier_types", data)
         );
         revalidatePath(`/dashboard`);
@@ -237,8 +275,15 @@ export async function createCourierType(data: Partial<CourierType>) {
 
 export async function deleteCourierType(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
-        await directus.request(deleteItem("courier_types", id));
+        const typeRecord = await directusAdmin.request(readItem("courier_types", id, { fields: ["workspace_id"] }));
+        if (!typeRecord) return { success: false, error: "Tipo de courier no encontrado" };
+
+        const permissions = await getMyPermissions((typeRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        await directusAdmin.request(deleteItem("courier_types", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
     } catch (error: any) {
@@ -249,12 +294,20 @@ export async function deleteCourierType(id: string) {
 
 export async function getOrderById(id: string) {
     try {
-        const { readItem } = await import("@directus/sdk");
-        const order = await directus.request(
+        const order = await directusAdmin.request(
             readItem("orders", id, {
                 fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*"],
             })
         );
+
+        if (!order) return { data: null, error: "Orden no encontrada" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions((order as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+            return { data: null, error: "No tienes permiso para ver esta orden" };
+        }
+
         return { data: order as any, error: null };
     } catch (error: any) {
         console.error("Error fetching order by id:", error);
@@ -264,8 +317,15 @@ export async function getOrderById(id: string) {
 
 export async function deleteOrder(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
-        await directus.request(deleteItem("orders", id));
+        const order = await directusAdmin.request(readItem("orders", id, { fields: ["workspace_id"] }));
+        if (!order) return { success: false, error: "Orden no encontrada" };
+
+        const permissions = await getMyPermissions((order as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("orders.delete")) {
+            return { success: false, error: "No tienes permiso para eliminar pedidos" };
+        }
+
+        await directusAdmin.request(deleteItem("orders", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
     } catch (error: any) {
@@ -276,8 +336,15 @@ export async function deleteOrder(id: string) {
 
 export async function updateOrder(id: string, data: any) {
     try {
-        const { updateItem } = await import("@directus/sdk");
-        const order = await directus.request(
+        const orderRecord = await directusAdmin.request(readItem("orders", id, { fields: ["workspace_id"] }));
+        if (!orderRecord) return { data: null, error: "Orden no encontrada" };
+
+        const permissions = await getMyPermissions((orderRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("orders.update")) {
+            return { data: null, error: "No tienes permiso para actualizar pedidos" };
+        }
+
+        const order = await directusAdmin.request(
             updateItem("orders", id, data)
         );
         revalidatePath(`/dashboard`);

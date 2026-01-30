@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getProductsByWorkspace } from "@/lib/product-actions";
 import { getClientsByWorkspace } from "@/lib/client-actions";
+import { getMyPermissions } from "@/lib/rbac-actions";
 import { POSSystem } from "@/components/dashboard/pos/pos-system";
 
 interface POSPageProps {
@@ -20,6 +21,12 @@ export default async function POSPage({ params }: POSPageProps) {
 
     if (workspaceError || !workspace) {
         notFound();
+    }
+
+    // Verificar permisos
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("orders.create")) {
+        redirect(`/dashboard/${slug}`);
     }
 
     const { getOrderStatuses, getPaymentStatuses, getCourierTypes } = await import("@/lib/order-actions");

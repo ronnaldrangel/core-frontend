@@ -10,6 +10,7 @@ import { Package, Plus, Search, Trash2, Edit, Layers, Image as ImageIcon, Filter
 import { toast } from "sonner";
 import { ProductModal } from "./product-modal";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/components/providers/rbac-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -34,6 +35,8 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
     const [categories, setCategories] = useState<Category[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | undefined>(undefined);
+
+    const { hasPermission } = useRBAC();
 
     // Deletion states
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -119,13 +122,15 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
                         </SelectContent>
                     </Select>
                 </div>
-                <Button onClick={() => {
-                    setEditingProduct(undefined);
-                    setIsModalOpen(true);
-                }} className="w-full md:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Producto
-                </Button>
+                {hasPermission("products.create") && (
+                    <Button onClick={() => {
+                        setEditingProduct(undefined);
+                        setIsModalOpen(true);
+                    }} className="w-full md:w-auto">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Producto
+                    </Button>
+                )}
             </div>
 
             <div className="border rounded-lg overflow-hidden bg-card shadow-sm">
@@ -215,30 +220,34 @@ export function ProductList({ initialProducts, workspaceId, workspaceSlug }: Pro
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex justify-end gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        setEditingProduct(product);
-                                                        setIsModalOpen(true);
-                                                    }}
-                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
-                                                    title="Editar"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        setProductToDelete({ id: product.id, nombre: product.nombre });
-                                                        setIsDeleteDialogOpen(true);
-                                                    }}
-                                                    className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                                    title="Eliminar"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                                {hasPermission("products.update") && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setEditingProduct(product);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
+                                                        title="Editar"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission("products.delete") && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            setProductToDelete({ id: product.id, nombre: product.nombre });
+                                                            setIsDeleteDialogOpen(true);
+                                                        }}
+                                                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                                        title="Eliminar"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

@@ -1,12 +1,19 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusAdmin } from "./directus";
 import { readItems, createItem } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
+import { getMyPermissions } from "./rbac-actions";
 
 export async function getCashboxTransactions(workspaceId: string) {
     try {
-        const transactions = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("cashbox.read")) {
+            return { data: [], error: "No tienes permiso para ver movimientos de caja" };
+        }
+
+        const transactions = await directusAdmin.request(
             readItems("cashbox", {
                 filter: {
                     workspace_id: { _eq: workspaceId }
@@ -29,10 +36,16 @@ export async function createTransaction(data: {
     metodo_pago: "cash" | "card" | "transfer";
 }) {
     try {
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("cashbox.create")) {
+            return { data: null, error: "No tienes permiso para registrar movimientos de caja" };
+        }
+
         // Asegurar que el egreso sea siempre negativo
         const finalAmount = data.tipo === "egreso" ? -Math.abs(data.monto) : Math.abs(data.monto);
 
-        const transaction = await directus.request(
+        const transaction = await directusAdmin.request(
             createItem("cashbox", {
                 workspace_id: data.workspace_id,
                 tipo: data.tipo,

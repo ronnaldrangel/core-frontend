@@ -1,8 +1,9 @@
 "use server";
 
-import { directus } from "./directus";
-import { readItems, createItem, updateItem, deleteItem } from "@directus/sdk";
+import { directus, directusAdmin } from "./directus";
+import { readItems, createItem, updateItem, deleteItem, readItem } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface Client {
     id: string;
@@ -22,8 +23,14 @@ export interface Client {
 
 export async function getClientsByWorkspace(workspaceId: string) {
     try {
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("clients.read")) {
+            return { data: [], error: "No tienes permiso para ver clientes" };
+        }
+
         console.log(`Buscando clientes para el workspace: ${workspaceId}`);
-        const clients = await directus.request(
+        const clients = await directusAdmin.request(
             readItems("clients", {
                 filter: {
                     workspace_id: { _eq: workspaceId }
@@ -47,7 +54,15 @@ export async function getClientsByWorkspace(workspaceId: string) {
 
 export async function createClient(data: Partial<Client>) {
     try {
-        const client = await directus.request(
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("clients.create")) {
+            return { data: null, error: "No tienes permiso para crear clientes" };
+        }
+
+        const client = await directusAdmin.request(
             createItem("clients", data)
         );
         revalidatePath(`/dashboard`);
@@ -60,7 +75,15 @@ export async function createClient(data: Partial<Client>) {
 
 export async function updateClient(id: string, data: Partial<Client>) {
     try {
-        const client = await directus.request(
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("clients.update")) {
+            return { data: null, error: "No tienes permiso para actualizar clientes" };
+        }
+
+        const client = await directusAdmin.request(
             updateItem("clients", id, data)
         );
         revalidatePath(`/dashboard`);
@@ -73,7 +96,16 @@ export async function updateClient(id: string, data: Partial<Client>) {
 
 export async function deleteClient(id: string) {
     try {
-        await directus.request(deleteItem("clients", id));
+        const client = await directusAdmin.request(readItem("clients", id, { fields: ["workspace_id"] }));
+        if (!client) return { error: "Cliente no encontrado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions((client as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("clients.delete")) {
+            return { error: "No tienes permiso para eliminar clientes" };
+        }
+
+        await directusAdmin.request(deleteItem("clients", id));
         revalidatePath(`/dashboard`);
         return { error: null };
     } catch (error) {
@@ -109,7 +141,7 @@ export async function checkDniExists(
             filter.id = { _neq: excludeClientId };
         }
 
-        const clients = await directus.request(
+        const clients = await directusAdmin.request(
             readItems("clients", {
                 filter,
                 fields: ["id"],
@@ -189,7 +221,7 @@ export async function getClientByDni(workspaceId: string, dni: string) {
     try {
         if (!dni) return null;
 
-        const clients = await directus.request(
+        const clients = await directusAdmin.request(
             readItems("clients", {
                 filter: {
                     workspace_id: { _eq: workspaceId },

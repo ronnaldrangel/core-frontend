@@ -1,10 +1,11 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusAdmin } from "./directus";
 import { createItem, createItems, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { generateSlug } from "./utils";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface Workspace {
     id: string;
@@ -34,7 +35,7 @@ export interface WorkspaceMember {
 // Helper to check user role in workspace (Now exported for use in components)
 export async function getWorkspaceRole(workspaceId: string, userId: string): Promise<"owner" | "admin" | "editor" | "viewer" | null> {
     try {
-        const workspace = await directus.request(
+        const workspace = await directusAdmin.request(
             readItem("workspaces", workspaceId, {
                 fields: ["owner"],
             })
@@ -43,7 +44,7 @@ export async function getWorkspaceRole(workspaceId: string, userId: string): Pro
         const ownerId = typeof workspace.owner === 'object' ? workspace.owner.id : workspace.owner;
         if (ownerId === userId) return "owner";
 
-        const members = await directus.request(
+        const members = await directusAdmin.request(
             readItems("workspaces_members", {
                 filter: {
                     _and: [
@@ -100,7 +101,7 @@ export async function getWorkspaces() {
         const userId = session.user.id;
 
         // Get workspaces where user is owner OR member
-        const workspaces = await directus.request(
+        const workspaces = await directusAdmin.request(
             readItems("workspaces", {
                 fields: [
                     "id",
@@ -152,7 +153,7 @@ export async function getWorkspace(id: string) {
             return { error: "No estás autenticado" };
         }
 
-        const workspace = await directus.request(
+        const workspace = await directusAdmin.request(
             readItem("workspaces", id, {
                 fields: [
                     "id",
@@ -197,7 +198,7 @@ export async function getWorkspaceBySlug(slug: string) {
             return { error: "No estás autenticado" };
         }
 
-        const workspaces = await directus.request(
+        const workspaces = await directusAdmin.request(
             readItems("workspaces", {
                 fields: [
                     "id",
@@ -220,6 +221,8 @@ export async function getWorkspaceBySlug(slug: string) {
                     "members.user_id.last_name",
                     "members.user_id.email",
                     "members.role",
+                    "members.role_id.id",
+                    "members.role_id.name",
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
@@ -279,7 +282,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
 
         // Check if slug already exists and generate unique one
         while (true) {
-            const existingWorkspaces = await directus.request(
+            const existingWorkspaces = await directusAdmin.request(
                 readItems("workspaces", {
                     filter: { slug: { _eq: slug } },
                     limit: 1,
@@ -294,7 +297,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
             slug = `${baseSlug}-${counter}`;
         }
 
-        const workspace = await directus.request(
+        const workspace = await directusAdmin.request(
             createItem("workspaces", {
                 name: data.name,
                 slug: slug,
@@ -313,7 +316,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
         const workspaceId = workspace.id;
 
         // Create Default Order Statuses
-        await directus.request(
+        await directusAdmin.request(
             createItems("order_statuses", [
                 { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
                 { workspace_id: workspaceId, name: "Confirmado", value: "confirmado", color: "#3B82F6", sort: 2 },
@@ -324,7 +327,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
         );
 
         // Create Default Payment Statuses
-        await directus.request(
+        await directusAdmin.request(
             createItems("payment_statuses", [
                 { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
                 { workspace_id: workspaceId, name: "Pagado", value: "pagado", color: "#10B981", sort: 2 },
@@ -332,7 +335,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
         );
 
         // Create Default Courier Types
-        await directus.request(
+        await directusAdmin.request(
             createItems("courier_types", [
                 { workspace_id: workspaceId, name: "Shalom", value: "SHALOM", color: "#F59E0B", sort: 1 },
                 { workspace_id: workspaceId, name: "Olva Courier", value: "OLVA", color: "#EF4444", sort: 2 },
@@ -360,13 +363,13 @@ export async function updateWorkspace(id: string, data: UpdateWorkspaceData) {
         }
 
         const userId = session.user.id;
-        const role = await getWorkspaceRole(id, userId);
+        const permissions = await getMyPermissions(id);
 
-        if (!role || role === "viewer") {
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
             return { error: "No tienes permisos para editar este workspace" };
         }
 
-        const workspace = await directus.request(
+        const workspace = await directusAdmin.request(
             updateItem("workspaces", id, data)
         );
 
@@ -410,7 +413,7 @@ export async function uploadWorkspaceLogo(formData: FormData) {
         const uploadFormData = new FormData();
         uploadFormData.append("file", file);
 
-        const uploadedFile = await directus.request(
+        const uploadedFile = await directusAdmin.request(
             uploadFiles(uploadFormData)
         );
 
@@ -430,14 +433,12 @@ export async function deleteWorkspace(id: string) {
             return { error: "No estás autenticado" };
         }
 
-        const userId = session.user.id;
-        const role = await getWorkspaceRole(id, userId);
-
-        if (role !== "owner" && role !== "admin") {
+        const permissions = await getMyPermissions(id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
             return { error: "Solo el propietario o administradores pueden eliminar el workspace" };
         }
 
-        await directus.request(deleteItem("workspaces", id));
+        await directusAdmin.request(deleteItem("workspaces", id));
 
         revalidatePath("/workspaces");
         return { success: true };
@@ -456,7 +457,12 @@ export async function addWorkspaceMember(workspaceId: string, userId: string, ro
             return { error: "No estás autenticado" };
         }
 
-        const member = await directus.request(
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar miembros" };
+        }
+
+        const member = await directusAdmin.request(
             createItem("workspaces_members", {
                 workspace_id: workspaceId,
                 user_id: userId,
@@ -481,7 +487,16 @@ export async function removeWorkspaceMember(memberId: string) {
             return { error: "No estás autenticado" };
         }
 
-        await directus.request(deleteItem("workspaces_members", memberId));
+        // Get workspaceId for permission check
+        const memberRecord = await directusAdmin.request(readItem("workspaces_members", memberId, { fields: ["workspace_id"] }));
+        if (!memberRecord) return { error: "Miembro no encontrado" };
+
+        const permissions = await getMyPermissions((memberRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar miembros" };
+        }
+
+        await directusAdmin.request(deleteItem("workspaces_members", memberId));
 
         revalidatePath("/workspaces");
         return { success: true };
@@ -493,15 +508,35 @@ export async function removeWorkspaceMember(memberId: string) {
 }
 
 // Update a member's role
-export async function updateMemberRole(memberId: string, role: "admin" | "editor" | "viewer", workspaceSlug?: string) {
+export async function updateMemberRole(memberId: string, role: string, workspaceSlug?: string) {
     try {
         const session = await auth();
         if (!session?.user?.id) {
             return { error: "No estás autenticado" };
         }
 
-        const member = await directus.request(
-            updateItem("workspaces_members", memberId, { role })
+        // Get workspaceId for permission check
+        const memberRecord = await directusAdmin.request(readItem("workspaces_members", memberId, { fields: ["workspace_id"] }));
+        if (!memberRecord) return { error: "Miembro no encontrado" };
+
+        const permissions = await getMyPermissions((memberRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar miembros" };
+        }
+
+        const data: any = {};
+        // Si el rol es un UUID (nuevo sistema), lo asignamos a role_id
+        if (role && role.length === 36) {
+            data.role_id = role;
+        } else {
+            // Si es un string normal (viejo sistema), lo mantenemos en role
+            data.role = role;
+            // Limpiar role_id si se cambia a un rol del sistema
+            data.role_id = null;
+        }
+
+        const member = await directusAdmin.request(
+            updateItem("workspaces_members", memberId, data)
         );
 
         revalidatePath("/workspaces");
@@ -524,7 +559,7 @@ export async function searchUserByEmail(email: string) {
             return { error: "No estás autenticado" };
         }
 
-        const users = await directus.request(
+        const users = await directusAdmin.request(
             readItems("directus_users", {
                 filter: {
                     email: { _eq: email }
@@ -549,7 +584,7 @@ export async function searchUserByEmail(email: string) {
 export async function addWorkspaceMemberByEmail(
     workspaceId: string,
     email: string,
-    role: "admin" | "editor" | "viewer" = "viewer",
+    role: string = "viewer", // Cambiado a string para soportar roles dinámicos
     workspaceSlug?: string
 ) {
     try {
@@ -558,8 +593,13 @@ export async function addWorkspaceMemberByEmail(
             return { error: "No estás autenticado" };
         }
 
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar miembros" };
+        }
+
         // First, find the user by email
-        const users = await directus.request(
+        const users = await directusAdmin.request(
             readItems("directus_users", {
                 filter: {
                     email: { _eq: email }
@@ -573,17 +613,10 @@ export async function addWorkspaceMemberByEmail(
             return { error: "No se encontró ningún usuario con ese email" };
         }
 
-        const userIdFromSession = session.user.id;
-        const role = await getWorkspaceRole(workspaceId, userIdFromSession);
-
-        if (role !== "owner" && role !== "admin") {
-            return { error: "No tienes permiso para invitar miembros" };
-        }
-
         const userId = users[0].id;
 
         // Check if user is already a member
-        const existingMembers = await directus.request(
+        const existingMembers = await directusAdmin.request(
             readItems("workspaces_members", {
                 filter: {
                     _and: [
@@ -599,13 +632,20 @@ export async function addWorkspaceMemberByEmail(
             return { error: "Este usuario ya es miembro del workspace" };
         }
 
+        const data: any = {
+            workspace_id: workspaceId,
+            user_id: userId,
+        };
+
+        if (role && role.length === 36) {
+            data.role_id = role;
+        } else {
+            data.role = role;
+        }
+
         // Add the member
-        const member = await directus.request(
-            createItem("workspaces_members", {
-                workspace_id: workspaceId,
-                user_id: userId,
-                role: role,
-            })
+        const member = await directusAdmin.request(
+            createItem("workspaces_members", data)
         );
 
         revalidatePath("/workspaces");
@@ -628,7 +668,15 @@ export async function removeWorkspaceMemberWithSlug(memberId: string, workspaceS
             return { error: "No estás autenticado" };
         }
 
-        await directus.request(deleteItem("workspaces_members", memberId));
+        const memberRecord = await directusAdmin.request(readItem("workspaces_members", memberId, { fields: ["workspace_id"] }));
+        if (!memberRecord) return { error: "Miembro no encontrado" };
+
+        const permissions = await getMyPermissions((memberRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar miembros" };
+        }
+
+        await directusAdmin.request(deleteItem("workspaces_members", memberId));
 
         revalidatePath("/workspaces");
         if (workspaceSlug) {

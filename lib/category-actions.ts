@@ -1,13 +1,14 @@
 "use server";
 
-import { directus } from "./directus";
-import { readItems, createItem, updateItem, deleteItem } from "@directus/sdk";
+import { directus, directusAdmin } from "./directus";
+import { readItems, createItem, updateItem, deleteItem, readItem } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface Category {
     id: string;
     status: string;
-    workspace: string;
+    workspace: string; // ID del workspace
     nombre: string;
     descripcion: string | null;
     color: string;
@@ -17,7 +18,13 @@ export interface Category {
 
 export async function getCategoriesByWorkspace(workspaceId: string) {
     try {
-        const categories = await directus.request(
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("products.read")) {
+            return { data: [], error: "No tienes permiso para ver categorías" };
+        }
+
+        const categories = await directusAdmin.request(
             readItems("categories", {
                 filter: {
                     workspace: { _eq: workspaceId }
@@ -35,9 +42,17 @@ export async function getCategoriesByWorkspace(workspaceId: string) {
 
 export async function createCategory(data: Partial<Category>) {
     try {
+        if (!data.workspace) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar categorías" };
+        }
+
         // Validar que el nombre sea único en el workspace (case-insensitive)
-        if (data.nombre && data.workspace) {
-            const existingCategories = await directus.request(
+        if (data.nombre) {
+            const existingCategories = await directusAdmin.request(
                 readItems("categories", {
                     filter: {
                         workspace: { _eq: data.workspace },
@@ -57,7 +72,7 @@ export async function createCategory(data: Partial<Category>) {
             }
         }
 
-        const category = await directus.request(
+        const category = await directusAdmin.request(
             createItem("categories", data)
         );
         revalidatePath(`/dashboard`);
@@ -70,7 +85,15 @@ export async function createCategory(data: Partial<Category>) {
 
 export async function updateCategory(id: string, data: Partial<Category>) {
     try {
-        const category = await directus.request(
+        if (!data.workspace) return { data: null, error: "Workspace no especificado" };
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(data.workspace);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar categorías" };
+        }
+
+        const category = await directusAdmin.request(
             updateItem("categories", id, data)
         );
         revalidatePath(`/dashboard`);
@@ -83,7 +106,18 @@ export async function updateCategory(id: string, data: Partial<Category>) {
 
 export async function deleteCategory(id: string) {
     try {
-        await directus.request(deleteItem("categories", id));
+        const categoryRecord = await directusAdmin.request(readItem("categories", id, { fields: ["workspace"] }));
+        if (!categoryRecord || !categoryRecord.workspace) return { error: "Categoría no encontrada" };
+
+        const workspaceId = typeof categoryRecord.workspace === 'object' ? categoryRecord.workspace.id : categoryRecord.workspace;
+
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para gestionar categorías" };
+        }
+
+        await directusAdmin.request(deleteItem("categories", id));
         revalidatePath(`/dashboard`);
         return { error: null };
     } catch (error) {

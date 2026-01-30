@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getProductsByWorkspace } from "@/lib/product-actions";
+import { getMyPermissions } from "@/lib/rbac-actions";
 import { ProductList } from "@/components/dashboard/products/product-list";
 
 interface ProductsPageProps {
@@ -19,6 +20,12 @@ export default async function ProductsPage({ params }: ProductsPageProps) {
 
     if (workspaceError || !workspace) {
         notFound();
+    }
+
+    // Verificar permisos
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("products.read")) {
+        redirect(`/dashboard/${slug}`);
     }
 
     // Obtener productos usando el ID del workspace

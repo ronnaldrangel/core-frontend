@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getOrdersByWorkspace } from "@/lib/order-history-actions";
 import { getOrderStatuses, getPaymentStatuses, getCourierTypes } from "@/lib/order-actions";
+import { getMyPermissions } from "@/lib/rbac-actions";
 import { OrderTable } from "@/components/dashboard/orders/order-table";
 
 interface OrdersPageProps {
@@ -18,6 +19,12 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
 
     if (workspaceError || !workspace) {
         notFound();
+    }
+
+    // Verificar permisos
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("orders.read")) {
+        redirect(`/dashboard/${slug}`);
     }
 
     // Fetch data in parallel

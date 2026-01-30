@@ -9,7 +9,7 @@ import { addWorkspaceMember } from "./workspace-actions";
 export interface WorkspaceInvitation {
     id: string;
     status: "pending" | "accepted" | "rejected";
-    role: "admin" | "editor" | "viewer";
+    role: string;
     workspace_id: string | {
         id: string;
         name: string;
@@ -37,7 +37,7 @@ export interface WorkspaceInvitation {
 export async function sendInvitation(
     workspaceId: string,
     email: string,
-    role: "admin" | "editor" | "viewer" = "viewer",
+    role: string = "viewer",
     workspaceSlug?: string
 ) {
     try {

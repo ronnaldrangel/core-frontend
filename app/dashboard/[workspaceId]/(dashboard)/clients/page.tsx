@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getClientsByWorkspace } from "@/lib/client-actions";
+import { getMyPermissions } from "@/lib/rbac-actions";
 import { ClientList } from "@/components/dashboard/clients/client-list";
 import { directus } from "@/lib/directus";
 import { readItems, aggregate } from "@directus/sdk";
@@ -21,6 +22,12 @@ export default async function ClientsPage({ params }: ClientsPageProps) {
 
     if (workspaceError || !workspace) {
         notFound();
+    }
+
+    // Verificar permisos
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("clients.read")) {
+        redirect(`/dashboard/${slug}`);
     }
 
     // Obtener clientes usando el ID del workspace

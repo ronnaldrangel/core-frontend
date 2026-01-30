@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getSalesData, getTopProducts, getSalesByUser } from "@/lib/sales-actions";
 import { DashboardContent } from "@/components/dashboard/dashboard-content";
+import { getMyPermissions } from "@/lib/rbac-actions";
 
 interface DashboardWorkspacePageProps {
     params: Promise<{ workspaceId: string }>;
@@ -17,6 +18,14 @@ export default async function DashboardWorkspacePage({ params }: DashboardWorksp
 
     // Si no hay workspace, el layout ya manejó el notFound()
     if (!workspace) return null;
+
+    // Verificar permisos para ver el dashboard
+    const permissions = await getMyPermissions(workspace.id);
+    if (!permissions.includes("*") && !permissions.includes("dashboard.read")) {
+        // Si no tiene permiso para el dashboard, lo mandamos a pedidos o productos
+        // que suelen ser las secciones básicas permitidas.
+        redirect(`/dashboard/${workspaceId}/orders`);
+    }
 
     // Obtener datos en paralelo
     const [salesDataResult, topProductsResult, salesByUserResult] = await Promise.all([
