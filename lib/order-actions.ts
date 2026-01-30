@@ -292,6 +292,71 @@ export async function deleteCourierType(id: string) {
     }
 }
 
+// Payment Method Actions
+export interface PaymentMethod {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+    sort?: number;
+}
+
+export async function getPaymentMethods(workspaceId: string) {
+    try {
+        const methods = await directusAdmin.request(
+            readItems("payment_methods", {
+                filter: { workspace_id: { _eq: workspaceId } },
+                sort: ["sort"]
+            })
+        );
+        return { data: methods as PaymentMethod[], error: null };
+    } catch (error: any) {
+        console.error("Error fetching payment methods:", error);
+        return { data: [], error: "Error al obtener los métodos de pago" };
+    }
+}
+
+export async function createPaymentMethod(data: Partial<PaymentMethod>) {
+    try {
+        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
+
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        const method = await directusAdmin.request(
+            createItem("payment_methods", data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: method, error: null };
+    } catch (error: any) {
+        console.error("Error creating payment method:", error);
+        return { data: null, error: "Error al crear el método de pago" };
+    }
+}
+
+export async function deletePaymentMethod(id: string) {
+    try {
+        const methodRecord = await directusAdmin.request(readItem("payment_methods", id, { fields: ["workspace_id"] }));
+        if (!methodRecord) return { success: false, error: "Método no encontrado" };
+
+        const permissions = await getMyPermissions((methodRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        await directusAdmin.request(deleteItem("payment_methods", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error("Error deleting payment method:", error);
+        return { success: false, error: "Error al eliminar el método de pago" };
+    }
+}
+
+
 export async function getOrderById(id: string) {
     try {
         const order = await directusAdmin.request(

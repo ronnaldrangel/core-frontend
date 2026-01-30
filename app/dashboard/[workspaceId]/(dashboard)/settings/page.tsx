@@ -27,11 +27,12 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         redirect("/workspaces");
     }
 
-    const { getOrderStatuses, getPaymentStatuses, getCourierTypes } = await import("@/lib/order-actions");
-    const [orderStatusesRes, paymentStatusesRes, courierTypesRes] = await Promise.all([
+    const { getOrderStatuses, getPaymentStatuses, getCourierTypes, getPaymentMethods } = await import("@/lib/order-actions");
+    const [orderStatusesRes, paymentStatusesRes, courierTypesRes, paymentMethodsRes] = await Promise.all([
         getOrderStatuses(workspace.id),
         getPaymentStatuses(workspace.id),
-        getCourierTypes(workspace.id)
+        getCourierTypes(workspace.id),
+        getPaymentMethods(workspace.id)
     ]);
 
     return (
@@ -41,8 +42,10 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
             initialOrderStatuses={orderStatusesRes.data || []}
             initialPaymentStatuses={paymentStatusesRes.data || []}
             initialCourierTypes={courierTypesRes.data || []}
+            initialPaymentMethods={paymentMethodsRes.data || []}
         />
     );
+
 }
 
 

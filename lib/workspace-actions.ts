@@ -345,7 +345,18 @@ export async function createWorkspace(data: CreateWorkspaceData) {
             ])
         );
 
+        // Create Default Payment Methods
+        await directusAdmin.request(
+            createItems("payment_methods", [
+                { workspace_id: workspaceId, name: "Yape", value: "YAPE", color: "#830E9B", sort: 1 },
+                { workspace_id: workspaceId, name: "Plin", value: "PLIN", color: "#00CED1", sort: 2 },
+                { workspace_id: workspaceId, name: "Transferencia Bancaria", value: "TRANSFERENCIA", color: "#3B82F6", sort: 3 },
+                { workspace_id: workspaceId, name: "Efectivo", value: "EFECTIVO", color: "#10B981", sort: 4 },
+            ])
+        );
+
         revalidatePath("/workspaces");
+
         return { success: true, data: workspace };
     } catch (error: any) {
         console.error("Error creating workspace:", error);

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Product } from "@/lib/product-actions";
 import { Client, lookupDni, createClient, getClientByDni } from "@/lib/client-actions";
-import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType, Order } from "@/lib/order-actions";
+import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType, Order, PaymentMethod } from "@/lib/order-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +75,7 @@ interface POSSystemProps {
     orderStatuses: OrderStatus[];
     paymentStatuses: PaymentStatus[];
     courierTypes: CourierType[];
+    paymentMethods: PaymentMethod[];
 }
 
 export function POSSystem({
@@ -83,7 +84,8 @@ export function POSSystem({
     workspaceId,
     orderStatuses,
     paymentStatuses,
-    courierTypes
+    courierTypes,
+    paymentMethods
 }: POSSystemProps) {
     // --- State ---
     const [cart, setCart] = useState<CartesianItem[]>([]);
@@ -106,6 +108,7 @@ export function POSSystem({
     // Order Info
     const [orderDate] = useState(new Date());
     const [paymentStatus, setPaymentStatus] = useState(paymentStatuses[0]?.value || "pendiente");
+    const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.value || "YAPE");
     const [orderStatus, setOrderStatus] = useState(orderStatuses[0]?.value || "preparando");
     const [advancePayment, setAdvancePayment] = useState(0);
     const [adjustment, setAdjustment] = useState(0);
@@ -276,6 +279,7 @@ export function POSSystem({
         setClientAddress("");
         setSelectedClientId(null);
         setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
+        setPaymentMethod(paymentMethods[0]?.value || "YAPE");
         setOrderStatus(orderStatuses[0]?.value || "preparando");
         setAdvancePayment(0);
         setAdjustment(0);
@@ -444,7 +448,7 @@ export function POSSystem({
                 workspace_id: workspaceId,
                 cliente_id: finalClientId, // Use resolved ID
                 total: totalWithAdjustments,
-                metodo_pago: "pos",
+                metodo_pago: paymentMethod,
                 estado_pago: paymentStatus,
                 estado_pedido: orderStatus,
                 monto_adelanto: Number(advancePayment),
@@ -792,43 +796,64 @@ export function POSSystem({
 
                         <Separator />
 
-                        {/* Estados */}
-                        <div className="grid grid-cols-2 gap-3 pb-2">
+                        {/* Pago y Estados */}
+                        <div className="space-y-4 pb-2">
                             <div className="space-y-2">
-                                <Label className="text-sm font-medium">Estado Pago</Label>
-                                <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                                    <SelectTrigger className="h-10 font-medium w-full">
+                                <Label className="text-sm font-medium">Método Pago</Label>
+                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                    <SelectTrigger className="h-10 font-bold w-full bg-primary/5 border-primary/20">
                                         <SelectValue />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        {paymentStatuses.map((status) => (
-                                            <SelectItem key={status.id} value={status.value}>
+                                    <SelectContent position="popper" side="bottom">
+                                        {paymentMethods.map((method) => (
+                                            <SelectItem key={method.id} value={method.value}>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
-                                                    {status.name}
+                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: method.color }} />
+                                                    {method.name}
                                                 </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
-                                <Label className="text-sm font-medium">Estado Pedido</Label>
-                                <Select value={orderStatus} onValueChange={setOrderStatus}>
-                                    <SelectTrigger className="h-10 font-medium w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {orderStatuses.map((status) => (
-                                            <SelectItem key={status.id} value={status.value}>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
-                                                    {status.name}
-                                                </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Estado Pago</Label>
+                                    <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                                        <SelectTrigger className="h-10 font-medium w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" side="bottom">
+                                            {paymentStatuses.map((status) => (
+                                                <SelectItem key={status.id} value={status.value}>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
+                                                        {status.name}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Estado Pedido</Label>
+                                    <Select value={orderStatus} onValueChange={setOrderStatus}>
+                                        <SelectTrigger className="h-10 font-medium w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" side="bottom">
+                                            {orderStatuses.map((status) => (
+                                                <SelectItem key={status.id} value={status.value}>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
+                                                        {status.name}
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
 
