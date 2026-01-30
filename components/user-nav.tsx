@@ -69,7 +69,7 @@ export function UserNav({ user }: UserNavProps) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                     className="text-red-500 focus:text-red-500 focus:bg-red-100 dark:focus:bg-red-900/10 cursor-pointer"
-                    onClick={() => signOut({ callbackUrl: window.location.origin + "/login" })}
+                    onClick={() => signOut({ callbackUrl: "/login" })}
                 >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Cerrar Sesión</span>

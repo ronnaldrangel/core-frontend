@@ -273,7 +273,7 @@ export async function createWorkspace(data: CreateWorkspaceData) {
         }
 
         // Generate base slug from name
-        let baseSlug = generateSlug(data.name);
+        const baseSlug = generateSlug(data.name);
         let slug = baseSlug;
         let counter = 1;
 
