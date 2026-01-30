@@ -1,10 +1,11 @@
 "use server";
 
-import { directus } from "./directus";
+import { directus, directusAdmin } from "./directus";
 import { createItem, readItems, updateItem, deleteItem, readUsers } from "@directus/sdk";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { addWorkspaceMember } from "./workspace-actions";
+import { getMyPermissions } from "./rbac-actions";
 
 export interface WorkspaceInvitation {
     id: string;
@@ -46,8 +47,14 @@ export async function sendInvitation(
             return { error: "No estás autenticado" };
         }
 
+        // Verificar permisos
+        const permissions = await getMyPermissions(workspaceId);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { error: "No tienes permiso para invitar miembros" };
+        }
+
         // Find user by email
-        const users = await directus.request(
+        const users = await directusAdmin.request(
             readUsers({
                 filter: { email: { _eq: email } },
                 fields: ["id", "email"],
@@ -67,7 +74,7 @@ export async function sendInvitation(
         }
 
         // Check if user is already a member
-        const existingMembers = await directus.request(
+        const existingMembers = await directusAdmin.request(
             readItems("workspaces_members", {
                 filter: {
                     _and: [
@@ -84,7 +91,7 @@ export async function sendInvitation(
         }
 
         // Check if there's already a pending invitation
-        const existingInvitations = await directus.request(
+        const existingInvitations = await directusAdmin.request(
             readItems("workspace_invitations", {
                 filter: {
                     _and: [
@@ -102,7 +109,7 @@ export async function sendInvitation(
         }
 
         // Create the invitation
-        const invitation = await directus.request(
+        const invitation = await directusAdmin.request(
             createItem("workspace_invitations", {
                 workspace_id: workspaceId,
                 invited_user_id: invitedUserId,
@@ -133,7 +140,7 @@ export async function getPendingInvitations() {
             return { error: "No estás autenticado" };
         }
 
-        const invitations = await directus.request(
+        const invitations = await directusAdmin.request(
             readItems("workspace_invitations", {
                 filter: {
                     _and: [
@@ -177,7 +184,7 @@ export async function acceptInvitation(invitationId: string) {
         }
 
         // Get the invitation
-        const invitations = await directus.request(
+        const invitations = await directusAdmin.request(
             readItems("workspace_invitations", {
                 filter: {
                     _and: [
@@ -197,7 +204,7 @@ export async function acceptInvitation(invitationId: string) {
 
         const invitation = invitations[0];
         const workspaceId = typeof invitation.workspace_id === 'object'
-            ? invitation.workspace_id.id
+            ? (invitation.workspace_id as any).id
             : invitation.workspace_id;
 
         // Add user as member
@@ -212,7 +219,7 @@ export async function acceptInvitation(invitationId: string) {
         }
 
         // Update invitation status
-        await directus.request(
+        await directusAdmin.request(
             updateItem("workspace_invitations", invitationId, {
                 status: "accepted"
             })
@@ -236,7 +243,7 @@ export async function rejectInvitation(invitationId: string) {
         }
 
         // Verify the invitation belongs to the current user
-        const invitations = await directus.request(
+        const invitations = await directusAdmin.request(
             readItems("workspace_invitations", {
                 filter: {
                     _and: [
@@ -254,7 +261,7 @@ export async function rejectInvitation(invitationId: string) {
         }
 
         // Update invitation status
-        await directus.request(
+        await directusAdmin.request(
             updateItem("workspace_invitations", invitationId, {
                 status: "rejected"
             })
@@ -277,7 +284,7 @@ export async function getWorkspacePendingInvitations(workspaceId: string) {
             return { error: "No estás autenticado" };
         }
 
-        const invitations = await directus.request(
+        const invitations = await directusAdmin.request(
             readItems("workspace_invitations", {
                 filter: {
                     _and: [
@@ -316,7 +323,18 @@ export async function cancelInvitation(invitationId: string, workspaceSlug?: str
             return { error: "No estás autenticado" };
         }
 
-        await directus.request(
+        // Si tenemos el workspaceSlug, verificamos permisos antes
+        if (workspaceSlug) {
+            const { data: workspace } = await (await import("./workspace-actions")).getWorkspaceBySlug(workspaceSlug);
+            if (workspace) {
+                const permissions = await getMyPermissions(workspace.id);
+                if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+                    return { error: "No tienes permiso para cancelar invitaciones" };
+                }
+            }
+        }
+
+        await directusAdmin.request(
             deleteItem("workspace_invitations", invitationId)
         );
 

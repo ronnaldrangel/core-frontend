@@ -1,6 +1,6 @@
 "use server";
 
-import { directus, directusPublic } from "./directus";
+import { directus, directusPublic, directusAdmin } from "./directus";
 import { registerUser as registerUserDirectus, passwordRequest, passwordReset, createDirectus, rest, staticToken, readUsers, readItems } from "@directus/sdk";
 import { auth } from "@/auth";
 
@@ -88,39 +88,31 @@ export async function requestPasswordReset(email: string) {
         const encodedEmail = Buffer.from(email).toString('base64');
         const reset_url = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?e=${encodedEmail}`;
 
-        await directus.request(passwordRequest(email, reset_url));
+        await directusAdmin.request(passwordRequest(email, reset_url));
 
         return { success: true };
     } catch (error: any) {
         console.error("Error requesting password reset:", error);
-        // Por seguridad, muchas veces es mejor no revelar si el email existe o no
-        // Pero aquí daremos un mensaje general si falla la conexión
         return { error: "Ocurrió un error al procesar tu solicitud. Intenta de nuevo más tarde." };
     }
 }
 
 export async function resetPassword(token: string, password: string, email?: string) {
     try {
-        // Si tenemos el email, verificamos si la contraseña ya es la actual
         if (email) {
             try {
                 const { authentication, createDirectus, rest } = await import("@directus/sdk");
                 const tempClient = createDirectus(process.env.NEXT_PUBLIC_DIRECTUS_URL!).with(rest()).with(authentication());
-
-                // Intentamos login con el email y la NUEVA contraseña
                 await tempClient.login(email, password);
-
-                // Si llegamos aquí, el login fue exitoso -> la contraseña ya es la misma
                 return {
                     error: "Esta contraseña ya está en uso. Por favor, verifica bien tus datos al momento de iniciar sesión o elige una contraseña diferente."
                 };
             } catch (loginError) {
-                // El login falló, lo cual es BUENO en este caso (la contraseña es nueva)
-                // Continuamos con el reset normal
+                // Password is new, continue
             }
         }
 
-        await directus.request(passwordReset(token, password));
+        await directusAdmin.request(passwordReset(token, password));
         return { success: true };
     } catch (error: any) {
         console.error("Error resetting password:", error);
@@ -130,19 +122,7 @@ export async function resetPassword(token: string, password: string, email?: str
 
 export async function checkUserStatus(email: string) {
     try {
-        const adminToken = process.env.DIRECTUS_ADMIN_TOKEN;
-        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
-
-        if (!adminToken || !directusUrl) {
-            console.warn("Falta configuración de Admin Token o URL para verificar estado de usuario.");
-            return { error: "Configuración incompleta" };
-        }
-
-        const adminClient = createDirectus(directusUrl)
-            .with(staticToken(adminToken))
-            .with(rest());
-
-        const users = await adminClient.request(
+        const users = await directusAdmin.request(
             readUsers({
                 filter: { email: { _eq: email } },
                 fields: ['status'],
@@ -164,40 +144,20 @@ export async function checkUserStatus(email: string) {
 export async function getUserWorkspaces(): Promise<{ workspaces?: any[], error?: string }> {
     try {
         const session = await auth();
-        if (!session?.user?.email) return { error: "No autorizado" };
+        if (!session?.user?.id) return { error: "No autorizado" };
 
-        const adminToken = process.env.DIRECTUS_ADMIN_TOKEN;
-        const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
+        const userId = session.user.id;
 
-        if (!adminToken || !directusUrl) {
-            return { error: "Configuración incompleta" };
-        }
-
-        const adminClient = createDirectus(directusUrl)
-            .with(staticToken(adminToken))
-            .with(rest());
-
-        // 1. Obtener ID del usuario actual basado en el email de la sesión
-        const users = await adminClient.request(
-            readUsers({
-                filter: { email: { _eq: session.user.email } },
-                fields: ['id'],
-            })
-        );
-
-        if (!users || users.length === 0) return { error: "Usuario no encontrado" };
-        const userId = users[0].id;
-
-        // 2. Buscar workspaces donde el usuario es owner
-        const ownedWorkspaces = await adminClient.request(
+        // 1. Buscar workspaces donde el usuario es owner
+        const ownedWorkspaces = await directusAdmin.request(
             readItems('workspaces', {
                 filter: { owner: { _eq: userId } },
-                fields: ['id', 'name', 'slug', 'color', 'icon', 'logo', 'description', 'members', 'status'],
+                fields: ['id', 'name', 'slug', 'color', 'icon', 'logo', 'description', 'status'],
             })
         );
 
-        // 3. Buscar workspaces donde el usuario es miembro (via workspaces_members)
-        const memberRelations = await adminClient.request(
+        // 2. Buscar workspaces donde el usuario es miembro (via workspaces_members)
+        const memberRelations = await directusAdmin.request(
             readItems('workspaces_members', {
                 filter: { user_id: { _eq: userId } },
                 fields: ['workspace_id.id', 'workspace_id.name', 'workspace_id.slug', 'workspace_id.color', 'workspace_id.icon', 'workspace_id.logo', 'workspace_id.description', 'workspace_id.status'],
@@ -208,9 +168,6 @@ export async function getUserWorkspaces(): Promise<{ workspaces?: any[], error?:
 
         // Combinar y eliminar duplicados
         const allWorkspaces = [...ownedWorkspaces, ...memberWorkspaces].filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-
-        // Si no tiene workspaces, podríamos crear uno por defecto (opcional)
-        // Para este paso, solo devolvemos la lista
 
         return { workspaces: allWorkspaces };
 

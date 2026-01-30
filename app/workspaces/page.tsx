@@ -4,31 +4,29 @@ import { getPendingInvitations } from "@/lib/invitation-actions";
 import { redirect } from "next/navigation";
 import { GlobalNav } from "@/components/global-nav";
 import { WorkspaceSelector } from "@/components/workspace-selector";
+import { directusAdmin } from "@/lib/directus";
+import { readUser } from "@directus/sdk";
 
 export default async function WorkspacesPage() {
     const session = await auth();
 
-    if (!session?.user?.id || !session.access_token) {
+    if (!session?.user?.id) {
         redirect("/login");
     }
 
     // Default to strict false
     let hasPaid = false;
     const isAdmin = session.user.role?.name?.toLowerCase().includes("admin") || false;
-    const directusUrl = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL;
 
     try {
-        const userRes = await fetch(`${directusUrl}/users/me?fields=has_paid`, {
-            headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-            },
-            next: { revalidate: 0 }
-        });
+        const userData = await directusAdmin.request(
+            readUser(session.user.id, {
+                fields: ["has_paid"]
+            })
+        );
 
-        if (userRes.ok) {
-            const userData = await userRes.json();
-            // Strictly check for boolean true. Null or undefined will fail.
-            hasPaid = userData.data.has_paid === true;
+        if (userData) {
+            hasPaid = (userData as any).has_paid === true;
         }
     } catch (error) {
         console.error("Error fetching latest user status:", error);

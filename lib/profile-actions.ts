@@ -1,7 +1,7 @@
 "use server";
 
-import { directus } from "./directus";
-import { updateUser, uploadFiles, readMe } from "@directus/sdk";
+import { directus, directusAdmin } from "./directus";
+import { updateUser, uploadFiles, readUser } from "@directus/sdk";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 
@@ -32,8 +32,8 @@ export async function getCurrentUser() {
             return { error: "No estás autenticado" };
         }
 
-        const user = await directus.request(
-            readMe({
+        const user = await directusAdmin.request(
+            readUser(session.user.id, {
                 fields: ["id", "email", "first_name", "last_name", "avatar", "title", "description", "location"]
             })
         );
@@ -53,7 +53,7 @@ export async function updateProfile(data: UpdateProfileData) {
             return { error: "No estás autenticado" };
         }
 
-        const updatedUser = await directus.request(
+        const updatedUser = await directusAdmin.request(
             updateUser(session.user.id, data)
         );
 
@@ -95,12 +95,12 @@ export async function updateAvatar(formData: FormData) {
         const uploadFormData = new FormData();
         uploadFormData.append("file", file);
 
-        const uploadedFile = await directus.request(
+        const uploadedFile = await directusAdmin.request(
             uploadFiles(uploadFormData)
         );
 
         // Update user avatar
-        await directus.request(
+        await directusAdmin.request(
             updateUser(session.user.id, {
                 avatar: uploadedFile.id
             })
@@ -124,7 +124,7 @@ export async function removeAvatar() {
             return { error: "No estás autenticado" };
         }
 
-        await directus.request(
+        await directusAdmin.request(
             updateUser(session.user.id, {
                 avatar: null
             })
@@ -174,7 +174,7 @@ export async function changePassword(data: ChangePasswordData) {
         }
 
         // Update password
-        await directus.request(
+        await directusAdmin.request(
             updateUser(session.user.id, {
                 password: data.newPassword
             })
