@@ -52,6 +52,7 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname();
     const [productosOpen, setProductosOpen] = useState(false);
+    const [pedidosOpen, setPedidosOpen] = useState(false);
 
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
@@ -83,11 +84,6 @@ export function Sidebar({
             icon: ShoppingCart,
         },
         {
-            title: "Pedidos",
-            href: `/dashboard/${currentWorkspaceId}/orders`,
-            icon: Receipt,
-        },
-        {
             title: "Caja",
             href: `/dashboard/${currentWorkspaceId}/cashbox`,
             icon: Banknote,
@@ -107,6 +103,17 @@ export function Sidebar({
         {
             title: "Mis Categorías",
             href: `/dashboard/${currentWorkspaceId}/categories`,
+        },
+    ];
+
+    const pedidosSubItems = [
+        {
+            title: "Tabla",
+            href: `/dashboard/${currentWorkspaceId}/orders`,
+        },
+        {
+            title: "Kanban",
+            href: `/dashboard/${currentWorkspaceId}/orders/kanban`,
         },
     ];
 
@@ -216,24 +223,73 @@ export function Sidebar({
                     </div>
 
                     {/* Items después de Productos */}
-                    {sidebarItemsAfterProducts.map((item) => {
+                    {sidebarItemsAfterProducts.map((item, index) => {
                         const isActive = pathname === item.href;
 
                         return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onItemClick}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
-                                    isActive
-                                        ? "bg-muted text-primary"
-                                        : "text-muted-foreground"
+                            <div key={item.href} className="space-y-1">
+                                <Link
+                                    href={item.href}
+                                    onClick={onItemClick}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                        isActive
+                                            ? "bg-muted text-primary"
+                                            : "text-muted-foreground"
+                                    )}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    {item.title}
+                                </Link>
+
+                                {/* Insertar Pedidos después de Punto de Venta (que es el primer item en sidebarItemsAfterProducts ahora) */}
+                                {item.title === "Punto de Venta" && (
+                                    <div className="space-y-1">
+                                        <button
+                                            onClick={() => setPedidosOpen(!pedidosOpen)}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
+                                                pathname.includes("/orders")
+                                                    ? "bg-muted text-primary"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            <Receipt className="h-4 w-4" />
+                                            <span className="flex-1 text-left">Pedidos</span>
+                                            <ChevronDown
+                                                className={cn(
+                                                    "h-4 w-4 transition-transform duration-200",
+                                                    pedidosOpen ? "rotate-180" : ""
+                                                )}
+                                            />
+                                        </button>
+
+                                        {/* Sub-items de Pedidos */}
+                                        {pedidosOpen && (
+                                            <div className="ml-4 space-y-1">
+                                                {pedidosSubItems.map((subItem) => {
+                                                    const isActive = pathname === subItem.href;
+                                                    return (
+                                                        <Link
+                                                            key={subItem.href}
+                                                            href={subItem.href}
+                                                            onClick={onItemClick}
+                                                            className={cn(
+                                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                                                isActive
+                                                                    ? "bg-muted text-primary"
+                                                                    : "text-muted-foreground"
+                                                            )}
+                                                        >
+                                                            {subItem.title}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                            >
-                                <item.icon className="h-4 w-4" />
-                                {item.title}
-                            </Link>
+                            </div>
                         );
                     })}
                 </nav>

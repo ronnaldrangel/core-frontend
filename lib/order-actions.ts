@@ -1,7 +1,7 @@
 "use server";
 
 import { directus } from "./directus";
-import { createItem, createItems } from "@directus/sdk";
+import { createItem, createItems, readItems, updateItem, deleteItem, readItem } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
 
 export interface OrderItem {
@@ -103,7 +103,6 @@ export interface OrderStatus {
 
 export async function getOrderStatuses(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
         const statuses = await directus.request(
             readItems("order_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
@@ -119,7 +118,6 @@ export async function getOrderStatuses(workspaceId: string) {
 
 export async function createOrderStatus(data: Partial<OrderStatus>) {
     try {
-        const { createItem } = await import("@directus/sdk");
         const status = await directus.request(
             createItem("order_statuses", data)
         );
@@ -133,7 +131,6 @@ export async function createOrderStatus(data: Partial<OrderStatus>) {
 
 export async function deleteOrderStatus(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
         await directus.request(deleteItem("order_statuses", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
@@ -155,7 +152,6 @@ export interface PaymentStatus {
 
 export async function getPaymentStatuses(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
         const statuses = await directus.request(
             readItems("payment_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
@@ -171,7 +167,6 @@ export async function getPaymentStatuses(workspaceId: string) {
 
 export async function createPaymentStatus(data: Partial<PaymentStatus>) {
     try {
-        const { createItem } = await import("@directus/sdk");
         const status = await directus.request(
             createItem("payment_statuses", data)
         );
@@ -185,7 +180,6 @@ export async function createPaymentStatus(data: Partial<PaymentStatus>) {
 
 export async function deletePaymentStatus(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
         await directus.request(deleteItem("payment_statuses", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
@@ -207,7 +201,6 @@ export interface CourierType {
 
 export async function getCourierTypes(workspaceId: string) {
     try {
-        const { readItems } = await import("@directus/sdk");
         const types = await directus.request(
             readItems("courier_types", {
                 filter: { workspace_id: { _eq: workspaceId } },
@@ -223,7 +216,6 @@ export async function getCourierTypes(workspaceId: string) {
 
 export async function createCourierType(data: Partial<CourierType>) {
     try {
-        const { createItem } = await import("@directus/sdk");
         const type = await directus.request(
             createItem("courier_types", data)
         );
@@ -237,7 +229,6 @@ export async function createCourierType(data: Partial<CourierType>) {
 
 export async function deleteCourierType(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
         await directus.request(deleteItem("courier_types", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
@@ -249,7 +240,6 @@ export async function deleteCourierType(id: string) {
 
 export async function getOrderById(id: string) {
     try {
-        const { readItem } = await import("@directus/sdk");
         const order = await directus.request(
             readItem("orders", id, {
                 fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*"],
@@ -264,7 +254,6 @@ export async function getOrderById(id: string) {
 
 export async function deleteOrder(id: string) {
     try {
-        const { deleteItem } = await import("@directus/sdk");
         await directus.request(deleteItem("orders", id));
         revalidatePath(`/dashboard`);
         return { success: true, error: null };
@@ -276,7 +265,6 @@ export async function deleteOrder(id: string) {
 
 export async function updateOrder(id: string, data: any) {
     try {
-        const { updateItem } = await import("@directus/sdk");
         const order = await directus.request(
             updateItem("orders", id, data)
         );
