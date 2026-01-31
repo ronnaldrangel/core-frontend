@@ -12,7 +12,7 @@ export interface ShalomAgency {
 }
 
 const SHALOM_API_URL = process.env.SHALOM_API_URL || "https://shalom-api.lat/api/agencia-minimal";
-const SHALOM_API_KEY = process.env.SHALOM_API_KEY || "sk-mcho6t74e9yek275qsjqn";
+const SHALOM_API_KEY = process.env.SHALOM_API_KEY;
 
 export async function getShalomAgencies(query?: string): Promise<{ data: ShalomAgency[]; error?: string }> {
     try {
