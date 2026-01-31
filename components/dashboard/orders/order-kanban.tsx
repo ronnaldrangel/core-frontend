@@ -110,7 +110,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
             {orderStatuses.map((status) => (
                 <div
                     key={status.value}
-                    className="flex min-w-[320px] max-w-[320px] flex-col rounded-xl bg-muted/40 p-3"
+                    className="flex min-w-[300px] max-w-[300px] flex-col rounded-xl bg-muted/40 p-3"
                     onDragOver={handleDragOver}
                     onDrop={(e) => handleDrop(e, status.value)}
                 >
@@ -128,90 +128,89 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                 {ordersByStatus[status.value]?.length || 0}
                             </Badge>
                         </div>
-                        <button className="text-muted-foreground hover:text-foreground">
-                            <MoreHorizontal className="h-4 w-4" />
-                        </button>
                     </div>
 
                     {/* Column Content */}
                     <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-none">
-                        {ordersByStatus[status.value]?.map((order) => (
-                            <div
-                                key={order.id}
-                                draggable
-                                onDragStart={(e) => handleDragStart(e, order.id)}
-                                onDragEnd={handleDragEnd}
-                                className={cn(
-                                    "group relative cursor-grab active:cursor-grabbing transition-all duration-200",
-                                    draggedOrderId === order.id ? "scale-95" : "hover:-translate-y-1"
-                                )}
-                            >
-                                <Card className="border-border/50 bg-card shadow-sm group-hover:shadow-md group-hover:border-primary/20">
-                                    <CardContent className="p-4">
-                                        {/* Card Header: ID & Date */}
-                                        <div className="mb-3 flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-primary/70">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
-                                                #{order.id ? order.id.slice(0, 6).toUpperCase() : '------'}
+                        {
+                            ordersByStatus[status.value]?.map((order) => (
+                                <div
+                                    key={order.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, order.id)}
+                                    onDragEnd={handleDragEnd}
+                                    className={cn(
+                                        "group relative cursor-grab active:cursor-grabbing transition-all duration-200",
+                                        draggedOrderId === order.id ? "scale-95" : "hover:-translate-y-1"
+                                    )}
+                                >
+                                    <Card className="border-border/50 bg-card shadow-sm group-hover:shadow-md group-hover:border-primary/20">
+                                        <CardContent className="p-3">
+                                            {/* Card Header: ID & Date */}
+                                            <div className="mb-3 flex items-center justify-between">
+                                                <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-primary/70">
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
+                                                    #{order.id ? order.id.slice(0, 6).toUpperCase() : '------'}
+                                                </div>
+                                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                                                    <Clock className="h-3 w-3" />
+                                                    {(() => {
+                                                        try {
+                                                            return order.fecha_venta ? format(new Date(order.fecha_venta), "dd MMM", { locale: es }) : "S/F";
+                                                        } catch (e) {
+                                                            return "Error Fecha";
+                                                        }
+                                                    })()}
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
-                                                <Clock className="h-3 w-3" />
-                                                {(() => {
-                                                    try {
-                                                        return order.fecha_venta ? format(new Date(order.fecha_venta), "dd MMM", { locale: es }) : "S/F";
-                                                    } catch (e) {
-                                                        return "Error Fecha";
-                                                    }
-                                                })()}
-                                            </div>
-                                        </div>
 
-                                        {/* Client Info */}
-                                        <div className="mb-3 flex items-start gap-3">
-                                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary transition-colors">
-                                                <User className="h-4 w-4" />
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="truncate text-sm font-bold leading-tight group-hover:text-primary transition-colors">
-                                                    {order.cliente_id?.nombre_completo || order.cliente_nombre || "Cliente Mostrador"}
+                                            {/* Client Info */}
+                                            <div className="mb-3 flex items-start gap-3">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary transition-colors">
+                                                    <User className="h-4 w-4" />
                                                 </div>
-                                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 font-medium">
-                                                    <MapPin className="h-3 w-3" />
-                                                    <span className="truncate">{order.courier_provincia_dpto || order.cliente_id?.departamento || "Sin ubicación"}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Summary & Price */}
-                                        <div className="mt-4 flex items-center justify-between pt-3 border-t border-border/40">
-                                            <div className="flex items-center gap-1.5">
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="bg-muted/50 text-[10px] font-bold px-1.5 py-0 h-5"
-                                                >
-                                                    {order.metodo_pago === 'cash' ? 'EFECTIVO' : order.metodo_pago === 'card' ? 'TARJETA' : 'TRANSF.'}
-                                                </Badge>
-                                            </div>
-                                            <div className="flex flex-col items-end">
-                                                <div className="text-sm font-black text-foreground tabular-nums tracking-tight">
-                                                    S/ {Number(order.total).toFixed(2)}
-                                                </div>
-                                                {Number(order.monto_faltante) > 0 && (
-                                                    <div className="text-[9px] font-bold text-red-500 tabular-nums uppercase tracking-tighter">
-                                                        Faltan S/ {Number(order.monto_faltante).toFixed(2)}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="truncate text-sm font-bold leading-tight group-hover:text-primary transition-colors">
+                                                        {order.cliente_id?.nombre_completo || order.cliente_nombre || "Cliente Mostrador"}
                                                     </div>
-                                                )}
+                                                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 font-medium">
+                                                        <MapPin className="h-3 w-3" />
+                                                        <span className="truncate">{order.courier_provincia_dpto || order.cliente_id?.departamento || "Sin ubicación"}</span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        {/* Drag Handle Overlay (optional visual cue) */}
-                                        <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-20 transition-opacity">
-                                            <GripVertical className="h-4 w-4" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        ))}
+                                            {/* Summary & Price */}
+                                            <div className="mt-4 flex items-center justify-between pt-3 border-t border-border/40">
+                                                <div className="flex items-center gap-1.5">
+                                                    <Badge
+                                                        variant="secondary"
+                                                        className="bg-muted/50 text-[10px] font-bold px-1.5 py-0 h-5"
+                                                    >
+                                                        {order.metodo_pago === 'cash' ? 'EFECTIVO' : order.metodo_pago === 'card' ? 'TARJETA' : 'TRANSF.'}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex flex-col items-end">
+                                                    <div className="text-sm font-black text-foreground tabular-nums tracking-tight">
+                                                        S/ {Number(order.total).toFixed(2)}
+                                                    </div>
+                                                    {Number(order.monto_faltante) > 0 && (
+                                                        <div className="text-[9px] font-bold text-red-500 tabular-nums uppercase tracking-tighter">
+                                                            Faltan S/ {Number(order.monto_faltante).toFixed(2)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Drag Handle Overlay (optional visual cue) */}
+                                            <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-20 transition-opacity">
+                                                <GripVertical className="h-4 w-4" />
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            ))
+                        }
 
                         {(!ordersByStatus[status.value] || ordersByStatus[status.value].length === 0) && (
                             <div className="flex h-24 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 text-muted-foreground/40">
@@ -220,8 +219,9 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                             </div>
                         )}
                     </div>
-                </div>
-            ))}
-        </div>
+                </div >
+            ))
+            }
+        </div >
     );
 }
