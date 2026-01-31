@@ -18,6 +18,7 @@ export interface Client {
     distrito: string | null;
     provincia: string | null;
     departamento: string | null;
+    ubicacion: string | null;
     date_created?: string;
 }
 

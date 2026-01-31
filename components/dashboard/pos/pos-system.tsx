@@ -102,6 +102,7 @@ export function POSSystem({
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
     const [clientAddress, setClientAddress] = useState("");
+    const [clientLocation, setClientLocation] = useState("");
     const [clientType, setClientType] = useState("persona"); // Added client type
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [isLookingUpClient, setIsLookingUpClient] = useState(false); // New loading state for lookup
@@ -144,6 +145,7 @@ export function POSSystem({
                 setClientName(client.nombre_completo);
                 setClientPhone(client.telefono || "");
                 setClientType(client.tipo_cliente || "persona");
+                setClientLocation(client.ubicacion || "");
                 setSelectedClientId(client.id);
             } else {
                 // Reset ID if doc changes and not found locally (will be handled by API check on blur)
@@ -278,6 +280,7 @@ export function POSSystem({
         setClientName("");
         setClientPhone("");
         setClientAddress("");
+        setClientLocation("");
         setSelectedClientId(null);
         setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
         setPaymentMethod(paymentMethods[0]?.value || "YAPE");
@@ -380,6 +383,7 @@ export function POSSystem({
                     if (existingClient) {
                         finalClientId = existingClient.id;
                         setClientName(existingClient.nombre_completo);
+                        setClientLocation(existingClient.ubicacion || "");
                         setSelectedClientId(existingClient.id);
                     } else if (clientName) {
                         // Create from DNI + Name
@@ -393,6 +397,7 @@ export function POSSystem({
                             provincia: selectedProv,
                             distrito: selectedDist,
                             direccion: clientAddress,
+                            ubicacion: clientLocation,
                             status: "active"
                         };
                         const { data: newClient, error } = await createClient(newClientData);
@@ -417,6 +422,7 @@ export function POSSystem({
                         provincia: selectedProv,
                         distrito: selectedDist,
                         direccion: clientAddress,
+                        ubicacion: clientLocation,
                         status: "active"
                     };
                     const { data: newClient, error } = await createClient(newClientData);
@@ -466,6 +472,7 @@ export function POSSystem({
                 ajuste_total: Number(adjustment),
                 voucher: voucherIds.length > 0 ? voucherIds.map(id => ({ directus_files_id: id })) : undefined,
                 fecha_entrega: deliveryDate,
+                ubicacion: clientLocation,
             }, orderItems);
 
             if (error) throw new Error(error);
@@ -790,6 +797,17 @@ export function POSSystem({
                                         className="h-10 text-sm font-medium"
                                         value={clientAddress}
                                         onChange={(e) => setClientAddress(e.target.value)}
+                                    />
+                                </div>
+
+                                {/* Ubicacion */}
+                                <div className="space-y-1.5">
+                                    <Label className="text-sm font-medium">Ubicación</Label>
+                                    <Input
+                                        placeholder="Link de Google Maps o referencia..."
+                                        className="h-10 text-sm font-medium"
+                                        value={clientLocation}
+                                        onChange={(e) => setClientLocation(e.target.value)}
                                     />
                                 </div>
                             </div>
