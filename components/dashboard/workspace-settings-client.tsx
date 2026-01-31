@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Mail, Phone, MapPin } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
-import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType } from "@/lib/order-actions";
+import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType, PaymentMethod, createPaymentMethod, deletePaymentMethod } from "@/lib/order-actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn, generateSlug } from "@/lib/utils";
@@ -48,6 +48,7 @@ interface WorkspaceSettingsClientProps {
     initialOrderStatuses: OrderStatus[];
     initialPaymentStatuses: PaymentStatus[];
     initialCourierTypes: CourierType[];
+    initialPaymentMethods: PaymentMethod[];
 }
 
 
@@ -55,7 +56,7 @@ const PRESET_COLORS = [
     "#6366F1", "#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#EC4899", "#8B5CF6", "#14B8A6"
 ];
 
-export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses, initialPaymentStatuses, initialCourierTypes }: WorkspaceSettingsClientProps) {
+export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses, initialPaymentStatuses, initialCourierTypes, initialPaymentMethods }: WorkspaceSettingsClientProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isDeleting, setIsDeleting] = useState(false);
@@ -90,6 +91,17 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
     const [courierTypes, setCourierTypes] = useState<CourierType[]>(initialCourierTypes);
 
     const [newCourierType, setNewCourierType] = useState({
+        name: "",
+        value: "",
+        color: PRESET_COLORS[0]
+    });
+
+    // Payment Method State
+    const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState(false);
+    const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] = useState(false);
+    const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(initialPaymentMethods);
+
+    const [newPaymentMethod, setNewPaymentMethod] = useState({
         name: "",
         value: "",
         color: PRESET_COLORS[0]
@@ -257,6 +269,55 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
             }
         } catch (error) {
             toast.error("Error al eliminar el tipo de courier");
+        }
+    };
+
+    const handleAddPaymentMethod = async () => {
+        if (!newPaymentMethod.name || !newPaymentMethod.value) {
+            toast.error("Nombre y valor son obligatorios");
+            return;
+        }
+
+        const exists = paymentMethods.some(method => method.value === newPaymentMethod.value);
+        if (exists) {
+            toast.error("Este método de pago ya existe");
+            return;
+        }
+
+        setIsAddingPaymentMethod(true);
+        try {
+            const result = await createPaymentMethod({
+                ...newPaymentMethod,
+                workspace_id: workspace.id,
+                sort: paymentMethods.length + 1
+            });
+
+            if (result.error) {
+                toast.error(result.error);
+            } else if (result.data) {
+                setPaymentMethods(prev => [...prev, result.data as PaymentMethod]);
+                setNewPaymentMethod({ name: "", value: "", color: PRESET_COLORS[0] });
+                toast.success("Método de pago creado");
+                setIsPaymentMethodModalOpen(false);
+            }
+        } catch (error) {
+            toast.error("Error al crear el método de pago");
+        } finally {
+            setIsAddingPaymentMethod(false);
+        }
+    };
+
+    const handleDeletePaymentMethod = async (id: string) => {
+        try {
+            const result = await deletePaymentMethod(id);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                setPaymentMethods(prev => prev.filter(m => m.id !== id));
+                toast.success("Método de pago eliminado");
+            }
+        } catch (error) {
+            toast.error("Error al eliminar el método de pago");
         }
     };
 
@@ -803,136 +864,270 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 </Card>
             </div>
 
-            {/* Courier Types Settings */}
-            <Card className="mt-6">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Truck className="h-5 w-5 text-muted-foreground" /> Tipos de Courier
-                        </CardTitle>
-                        <CardDescription>
-                            Define las agencias de transporte que utilizas.
-                        </CardDescription>
-                    </div>
-                    {canEdit && (
-                        <Dialog open={isCourierModalOpen} onOpenChange={setIsCourierModalOpen}>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Nuevo Courier
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Agregar Nuevo Tipo de Courier</DialogTitle>
-                                    <DialogDescription>
-                                        Define un nombre para la agencia de transporte.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label>Nombre del Courier / Agencia</Label>
-                                        <Input
-                                            placeholder="Ej: Olva Courier"
-                                            value={newCourierType.name}
-                                            onChange={(e) => {
-                                                const name = e.target.value;
-                                                setNewCourierType(prev => ({
-                                                    ...prev,
-                                                    name,
-                                                    value: generateSlug(name)
-                                                }));
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Color de Referencia</Label>
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="h-10 w-10 rounded-md border shadow-sm"
-                                                style={{ backgroundColor: newCourierType.color }}
+            {/* Courier & Payment Methods Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                {/* Courier Types Settings */}
+                <Card className="flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Truck className="h-5 w-5 text-muted-foreground" /> Tipos de Courier
+                            </CardTitle>
+                            <CardDescription>
+                                Define las agencias de transporte que utilizas.
+                            </CardDescription>
+                        </div>
+                        {canEdit && (
+                            <Dialog open={isCourierModalOpen} onOpenChange={setIsCourierModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Nuevo Courier
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar Nuevo Tipo de Courier</DialogTitle>
+                                        <DialogDescription>
+                                            Define un nombre para la agencia de transporte.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label>Nombre del Courier / Agencia</Label>
+                                            <Input
+                                                placeholder="Ej: Olva Courier"
+                                                value={newCourierType.name}
+                                                onChange={(e) => {
+                                                    const name = e.target.value;
+                                                    setNewCourierType(prev => ({
+                                                        ...prev,
+                                                        name,
+                                                        value: generateSlug(name)
+                                                    }));
+                                                }}
                                             />
-                                            <div className="flex flex-wrap gap-2">
-                                                {PRESET_COLORS.map(c => (
-                                                    <button
-                                                        key={c}
-                                                        type="button"
-                                                        className={cn(
-                                                            "h-7 w-7 rounded-full border transition-transform hover:scale-110",
-                                                            newCourierType.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
-                                                        )}
-                                                        style={{ backgroundColor: c }}
-                                                        onClick={() => setNewCourierType(prev => ({ ...prev, color: c }))}
-                                                    />
-                                                ))}
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Color de Referencia</Label>
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="h-10 w-10 rounded-md border shadow-sm"
+                                                    style={{ backgroundColor: newCourierType.color }}
+                                                />
+                                                <div className="flex flex-wrap gap-2">
+                                                    {PRESET_COLORS.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className={cn(
+                                                                "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                                newCourierType.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                            )}
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => setNewCourierType(prev => ({ ...prev, color: c }))}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsCourierModalOpen(false)}>Cancelar</Button>
-                                    <Button onClick={handleAddCourierType} disabled={isAddingCourierType}>
-                                        {isAddingCourierType ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                                        Crear Courier
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                    <TableHead>Agencia / Courier</TableHead>
-                                    <TableHead className="text-right">Acción</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {courierTypes.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
-                                            No hay tipos de courier configurados.
-                                        </TableCell>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsCourierModalOpen(false)}>Cancelar</Button>
+                                        <Button onClick={handleAddCourierType} disabled={isAddingCourierType}>
+                                            {isAddingCourierType ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                            Crear Courier
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Agencia / Courier</TableHead>
+                                        <TableHead className="text-right">Acción</TableHead>
                                     </TableRow>
-                                ) : (
-                                    courierTypes.map((type) => (
-                                        <TableRow key={type.id} className="group transition-colors">
-                                            <TableCell className="font-medium p-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div
-                                                        className="h-3 w-3 rounded-full flex-shrink-0"
-                                                        style={{ backgroundColor: type.color }}
-                                                    />
-                                                    <div className="flex flex-col">
-                                                        <span>{type.name}</span>
-                                                        <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
-                                                            {type.value}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {canEdit && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                                                        onClick={() => handleDeleteCourierType(type.id)}
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                )}
+                                </TableHeader>
+                                <TableBody>
+                                    {courierTypes.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
+                                                No hay tipos de courier configurados.
                                             </TableCell>
                                         </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                    ) : (
+                                        courierTypes.map((type) => (
+                                            <TableRow key={type.id} className="group transition-colors">
+                                                <TableCell className="font-medium p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="h-3 w-3 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: type.color }}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{type.name}</span>
+                                                            <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
+                                                                {type.value}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {canEdit && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDeleteCourierType(type.id)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Payment Methods Settings */}
+                <Card className="flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <CreditCard className="h-5 w-5 text-muted-foreground" /> Métodos de Pago
+                            </CardTitle>
+                            <CardDescription>
+                                Gestiona como recibes el dinero de tus ventas.
+                            </CardDescription>
+                        </div>
+                        {canEdit && (
+                            <Dialog open={isPaymentMethodModalOpen} onOpenChange={setIsPaymentMethodModalOpen}>
+                                <DialogTrigger asChild>
+                                    <Button size="sm" className="gap-2">
+                                        <Plus className="h-4 w-4" />
+                                        Nuevo Método
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Agregar Nuevo Método de Pago</DialogTitle>
+                                        <DialogDescription>
+                                            Define un nombre (Yape, Plin, etc) y color.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <div className="grid gap-2">
+                                            <Label>Nombre del Método</Label>
+                                            <Input
+                                                placeholder="Ej: Yape"
+                                                value={newPaymentMethod.name}
+                                                onChange={(e) => {
+                                                    const name = e.target.value;
+                                                    setNewPaymentMethod(prev => ({
+                                                        ...prev,
+                                                        name,
+                                                        value: generateSlug(name)
+                                                    }));
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label>Color de Referencia</Label>
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="h-10 w-10 rounded-md border shadow-sm"
+                                                    style={{ backgroundColor: newPaymentMethod.color }}
+                                                />
+                                                <div className="flex flex-wrap gap-2">
+                                                    {PRESET_COLORS.map(c => (
+                                                        <button
+                                                            key={c}
+                                                            type="button"
+                                                            className={cn(
+                                                                "h-7 w-7 rounded-full border transition-transform hover:scale-110",
+                                                                newPaymentMethod.color === c ? "ring-2 ring-primary ring-offset-2 scale-110" : "opacity-80"
+                                                            )}
+                                                            style={{ backgroundColor: c }}
+                                                            onClick={() => setNewPaymentMethod(prev => ({ ...prev, color: c }))}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="outline" onClick={() => setIsPaymentMethodModalOpen(false)}>Cancelar</Button>
+                                        <Button onClick={handleAddPaymentMethod} disabled={isAddingPaymentMethod}>
+                                            {isAddingPaymentMethod ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                            Crear Método
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        )}
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                        <div className="rounded-md border overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Método</TableHead>
+                                        <TableHead className="text-right">Acción</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {paymentMethods.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground italic">
+                                                No hay métodos de pago configurados.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        paymentMethods.map((method) => (
+                                            <TableRow key={method.id} className="group transition-colors">
+                                                <TableCell className="font-medium p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="h-3 w-3 rounded-full flex-shrink-0"
+                                                            style={{ backgroundColor: method.color }}
+                                                        />
+                                                        <div className="flex flex-col">
+                                                            <span>{method.name}</span>
+                                                            <span className="text-[9px] text-muted-foreground font-mono uppercase tracking-tighter">
+                                                                {method.value}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {canEdit && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => handleDeletePaymentMethod(method.id)}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
 
 
