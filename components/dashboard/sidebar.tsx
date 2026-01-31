@@ -53,6 +53,7 @@ export function Sidebar({
     const pathname = usePathname();
     const { hasPermission, isLoading } = useRBAC();
     const [productosOpen, setProductosOpen] = useState(false);
+    const [pedidosOpen, setPedidosOpen] = useState(false);
 
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
@@ -88,12 +89,6 @@ export function Sidebar({
             permission: "orders.create",
         },
         {
-            title: "Pedidos",
-            href: `/dashboard/${currentWorkspaceId}/orders`,
-            icon: Receipt,
-            permission: "orders.read",
-        },
-        {
             title: "Caja",
             href: `/dashboard/${currentWorkspaceId}/cashbox`,
             icon: Banknote,
@@ -120,6 +115,19 @@ export function Sidebar({
         },
     ];
 
+    const pedidosSubItems = [
+        {
+            title: "Tabla",
+            href: `/dashboard/${currentWorkspaceId}/orders`,
+            permission: "orders.read",
+        },
+        {
+            title: "Kanban",
+            href: `/dashboard/${currentWorkspaceId}/orders/kanban`,
+            permission: "orders.read",
+        },
+    ];
+
     // Filter items based on permissions
     const visibleBeforeProducts = sidebarItemsBeforeProducts.filter(item =>
         !item.permission || hasPermission(item.permission)
@@ -134,6 +142,12 @@ export function Sidebar({
     );
 
     const hasProductsAccess = visibleProductsSubItems.length > 0;
+
+    const visiblePedidosSubItems = pedidosSubItems.filter(item =>
+        !item.permission || hasPermission(item.permission)
+    );
+
+    const hasPedidosAccess = visiblePedidosSubItems.length > 0;
 
     const content = (
         <div className="flex h-full max-h-screen flex-col gap-2">
@@ -247,24 +261,73 @@ export function Sidebar({
                     )}
 
                     {/* Items después de Productos */}
-                    {visibleAfterProducts.map((item) => {
+                    {visibleAfterProducts.map((item, index) => {
                         const isActive = pathname === item.href;
 
                         return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                onClick={onItemClick}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
-                                    isActive
-                                        ? "bg-muted text-primary"
-                                        : "text-muted-foreground"
+                            <div key={item.href} className="space-y-1">
+                                <Link
+                                    href={item.href}
+                                    onClick={onItemClick}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                        isActive
+                                            ? "bg-muted text-primary"
+                                            : "text-muted-foreground"
+                                    )}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    {item.title}
+                                </Link>
+
+                                {/* Insertar Pedidos Dropdown después de Punto de Venta */}
+                                {item.title === "Punto de Venta" && hasPedidosAccess && (
+                                    <div className="space-y-1">
+                                        <button
+                                            onClick={() => setPedidosOpen(!pedidosOpen)}
+                                            className={cn(
+                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
+                                                pathname.includes("/orders")
+                                                    ? "bg-muted text-primary"
+                                                    : "text-muted-foreground"
+                                            )}
+                                        >
+                                            <Receipt className="h-4 w-4" />
+                                            <span className="flex-1 text-left">Pedidos</span>
+                                            <ChevronDown
+                                                className={cn(
+                                                    "h-4 w-4 transition-transform duration-200",
+                                                    pedidosOpen ? "rotate-180" : ""
+                                                )}
+                                            />
+                                        </button>
+
+                                        {/* Sub-items de Pedidos */}
+                                        {pedidosOpen && (
+                                            <div className="ml-4 space-y-1">
+                                                {visiblePedidosSubItems.map((subItem) => {
+                                                    const isActive = pathname === subItem.href;
+                                                    return (
+                                                        <Link
+                                                            key={subItem.href}
+                                                            href={subItem.href}
+                                                            onClick={onItemClick}
+                                                            className={cn(
+                                                                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                                                isActive
+                                                                    ? "bg-muted text-primary"
+                                                                    : "text-muted-foreground"
+                                                            )}
+                                                        >
+                                                            {subItem.title}
+                                                        </Link>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 )}
-                            >
-                                <item.icon className="h-4 w-4" />
-                                {item.title}
-                            </Link>
+                            </div>
                         );
                     })}
                 </nav>
