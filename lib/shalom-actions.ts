@@ -11,8 +11,8 @@ export interface ShalomAgency {
     lugar_over?: string;
 }
 
-const SHALOM_API_URL = process.env.SHALOM_API_URL || "https://api.shalom.pe/api/agencia-minimal";
-const SHALOM_API_KEY = process.env.SHALOM_API_KEY;
+const SHALOM_API_URL = process.env.SHALOM_API_URL || "https://shalom-api.lat/api/agencia-minimal";
+const SHALOM_API_KEY = process.env.SHALOM_API_KEY || "sk-mcho6t74e9yek275qsjqn";
 
 export async function getShalomAgencies(query?: string): Promise<{ data: ShalomAgency[]; error?: string }> {
     try {
@@ -79,13 +79,17 @@ export async function getShalomAgencies(query?: string): Promise<{ data: ShalomA
 
         return { data: agencies };
     } catch (error: any) {
-        console.error("Error fetching Shalom agencies:", error);
+        console.error("Error detallado al conectar con Shalom:", {
+            message: error.message,
+            stack: error.stack,
+            cause: error.cause
+        });
 
         // Mensaje amigable para el error de red o DNS
-        if (error.message.includes("fetch failed")) {
+        if (error.message?.includes("fetch failed") || error.code === 'ENOTFOUND') {
             return {
                 data: [],
-                error: "Error de conexión con Shalom. Verifique la URL de la API o la conexión a internet."
+                error: `Error de conexión con Shalom (${error.message}). Verifique la URL de la API o la conexión a internet de su servidor.`
             };
         }
 
