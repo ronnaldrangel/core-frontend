@@ -62,6 +62,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { ShalomAgencySelect } from "@/components/dashboard/shalom/agency-select";
 
 interface CartesianItem extends Product {
     quantity: number;
@@ -1047,12 +1048,22 @@ export function POSSystem({
                                     <div className="grid grid-cols-1 gap-4">
                                         <div className="space-y-1.5">
                                             <Label className="text-sm font-medium">Destino / Agencia (Referencia)</Label>
-                                            <Input
-                                                className="h-10 text-sm"
-                                                placeholder="Ej: Agencia Shalom Av. Grau"
-                                                value={destination}
-                                                onChange={(e) => setDestination(e.target.value)}
-                                            />
+                                            {courier === "SHALOM" ? (
+                                                <ShalomAgencySelect
+                                                    value={destination}
+                                                    onValueChange={setDestination}
+                                                    externalDept={selectedDept}
+                                                    externalProv={selectedProv}
+                                                    externalDist={selectedDist}
+                                                />
+                                            ) : (
+                                                <Input
+                                                    className="h-10 text-sm"
+                                                    placeholder="Ej: Agencia Shalom Av. Grau"
+                                                    value={destination}
+                                                    onChange={(e) => setDestination(e.target.value)}
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
