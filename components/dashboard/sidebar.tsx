@@ -52,8 +52,8 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname();
     const { hasPermission, isLoading } = useRBAC();
-    const [productosOpen, setProductosOpen] = useState(false);
-    const [pedidosOpen, setPedidosOpen] = useState(false);
+    const [productosOpen, setProductosOpen] = useState(pathname.includes("/products") || pathname.includes("/categories"));
+    const [pedidosOpen, setPedidosOpen] = useState(pathname.includes("/orders"));
 
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
@@ -124,6 +124,11 @@ export function Sidebar({
         {
             title: "Kanban",
             href: `/dashboard/${currentWorkspaceId}/orders/kanban`,
+            permission: "orders.read",
+        },
+        {
+            title: "Analytics",
+            href: `/dashboard/${currentWorkspaceId}/orders/analytics`,
             permission: "orders.read",
         },
     ];

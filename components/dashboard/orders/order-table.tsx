@@ -371,18 +371,28 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
     }, [localOrders, searchQuery, datePreset, dateFrom, dateTo, selectedDepartment, selectedCourier, selectedOrderStatus]);
 
     const stats = useMemo(() => {
+        const counts: Record<string, number> = {};
+        orderStatuses.forEach(s => { counts[s.value] = 0; });
+
         return filteredOrders.reduce((acc, order) => {
             const total = Number(order.total) || 0;
             const shipping = order.tipo_cobro_envio === 'destino' ? 0 : (Number(order.costo_envio) || 0);
             const faltante = Number(order.monto_faltante) || 0;
+            const adelanto = Number(order.monto_adelanto) || 0;
+            const statusValue = order.estado_pedido;
 
             acc.neto += (total - shipping);
             acc.faltante += faltante;
+            acc.adelantos += adelanto;
             acc.ventas += 1;
 
+            if (statusValue !== undefined && statusValue !== null) {
+                acc.counts[statusValue] = (acc.counts[statusValue] || 0) + 1;
+            }
+
             return acc;
-        }, { neto: 0, faltante: 0, ventas: 0 });
-    }, [filteredOrders]);
+        }, { neto: 0, faltante: 0, adelantos: 0, ventas: 0, counts });
+    }, [filteredOrders, orderStatuses]);
 
     const handleDelete = async () => {
         if (!orderToDelete) return;
@@ -434,48 +444,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
     return (
         <div className="space-y-4">
-            {/* Estadísticas Rápidas */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Ingreso Neto</CardTitle>
-                        <Wallet className="h-4 w-4" style={{ color: themeColor }} />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tracking-tight">S/ {stats.neto.toFixed(2)}</div>
-                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
-                            (Total - Envíos)
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Abono Faltante</CardTitle>
-                        <AlertCircle className="h-4 w-4" style={{ color: themeColor }} />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tracking-tight text-foreground">S/ {stats.faltante.toFixed(2)}</div>
-                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
-                            Pendiente por cobrar
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Ventas</CardTitle>
-                        <ShoppingBag className="h-4 w-4" style={{ color: themeColor }} />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold tracking-tight">{stats.ventas}</div>
-                        <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider font-medium opacity-60">
-                            Órdenes registradas
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
             {/* Filtros y Buscador - Una sola fila */}
             <div className="flex flex-wrap items-center gap-3 mb-6">
                 {/* Buscador */}
@@ -682,13 +650,13 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                         }
                                                     }}
                                                 >
-                                                    <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent hover:bg-muted/50 focus:ring-1">
+                                                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
                                                         <div className="flex items-center gap-2">
                                                             <div
                                                                 className="h-2 w-2 rounded-full flex-shrink-0"
                                                                 style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
                                                             />
-                                                            <span className="text-xs font-semibold truncate">
+                                                            <span className="text-sm font-medium truncate">
                                                                 {getStatusName(order.estado_pedido, 'order')}
                                                             </span>
                                                         </div>
@@ -725,13 +693,13 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                         }
                                                     }}
                                                 >
-                                                    <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent hover:bg-muted/50 focus:ring-1">
+                                                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
                                                         <div className="flex items-center gap-2">
                                                             <div
                                                                 className="h-2 w-2 rounded-full flex-shrink-0"
                                                                 style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
                                                             />
-                                                            <span className="text-xs font-semibold truncate">
+                                                            <span className="text-sm font-medium truncate">
                                                                 {getStatusName(order.estado_pago, 'payment')}
                                                             </span>
                                                         </div>
@@ -767,52 +735,53 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                             </TableCell>
 
                                             {/* Acciones */}
-                                            <TableCell className="px-4 py-4 text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                        >
-                                                            <MoreVertical className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-48">
-                                                        <DropdownMenuItem onClick={() => toggleRow(order.id)}>
-                                                            {isExpanded ? (
-                                                                <>
-                                                                    <EyeOff className="h-4 w-4 mr-2" />
-                                                                    Ocultar detalles
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <Eye className="h-4 w-4 mr-2" />
-                                                                    Ver detalles
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => window.open(`/ticket/${order.id}`, '_blank')}>
-                                                            <Receipt className="h-4 w-4 mr-2" />
-                                                            Boleta Térmica
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}>
-                                                            <FileText className="h-4 w-4 mr-2" />
-                                                            Guía de Envío
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem
-                                                            onClick={() => setOrderToDelete(order.id)}
-                                                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Eliminar
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                            <TableCell className="px-4 py-4">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => toggleRow(order.id)}
+                                                        className={cn(
+                                                            "h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all",
+                                                            isExpanded && "text-primary bg-primary/10"
+                                                        )}
+                                                        title={isExpanded ? "Ocultar detalles" : "Ver detalles"}
+                                                    >
+                                                        {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </Button>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
+                                                            >
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-48">
+                                                            <DropdownMenuItem onClick={() => window.open(`/ticket/${order.id}`, '_blank')}>
+                                                                <Receipt className="h-4 w-4 mr-2" />
+                                                                Boleta Térmica
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}>
+                                                                <FileText className="h-4 w-4 mr-2" />
+                                                                Guía de Envío
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem
+                                                                onClick={() => setOrderToDelete(order.id)}
+                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                            >
+                                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                                Eliminar
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
+
                                         {isExpanded && (
                                             <TableRow className="bg-muted/20">
                                                 <TableCell colSpan={8} className="p-6">
@@ -912,182 +881,192 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                         </div>
 
                                                         {/* Resumen de Operación */}
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase opacity-70">
-                                                                <Receipt className="h-4 w-4 text-primary" /> Resumen de Operación
-                                                            </div>
-                                                            <div className="bg-card p-5 rounded-lg border border-border/50 shadow-sm space-y-4">
-                                                                <div className="space-y-3">
-                                                                    <div className="flex justify-between items-center text-xs">
-                                                                        <span className="text-muted-foreground font-semibold">Método de Pago:</span>
-                                                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border font-medium">
-                                                                            <CreditCard className="h-3 w-3 text-primary" />
-                                                                            {getPaymentMethodLabel(order.metodo_pago)}
+                                                        <div className="space-y-6">
+                                                            <div className="space-y-4">
+                                                                <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase opacity-70">
+                                                                    <Receipt className="h-4 w-4 text-primary" /> Resumen de Operación
+                                                                </div>
+                                                                <div className="bg-card p-5 rounded-lg border border-border/50 shadow-sm space-y-4">
+                                                                    <div className="space-y-3">
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="text-muted-foreground font-semibold">Método de Pago:</span>
+                                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border font-medium">
+                                                                                <CreditCard className="h-3 w-3 text-primary" />
+                                                                                {getPaymentMethodLabel(order.metodo_pago)}
+                                                                            </div>
+                                                                        </div>
+                                                                        <Separator className="bg-border/40" />
+                                                                        <div className="space-y-1.5">
+                                                                            <div className="flex justify-between text-[11px] font-semibold tracking-tight">
+                                                                                <span className="text-muted-foreground opacity-60">Subtotal de Productos:</span>
+                                                                                <span>S/ {(order.items?.reduce((acc: number, item: any) => acc + Number(item.subtotal), 0) || 0).toFixed(2)}</span>
+                                                                            </div>
+
+                                                                            {Number(order.ajuste_total) !== 0 && (
+                                                                                <div className="flex justify-between text-[11px] font-semibold tracking-tight">
+                                                                                    <span className="text-muted-foreground opacity-60">
+                                                                                        {Number(order.ajuste_total) < 0 ? "Descuento Aplicado:" : "Cargo Adicional:"}
+                                                                                    </span>
+                                                                                    <span className={Number(order.ajuste_total) < 0 ? "text-green-600" : "text-destructive"}>
+                                                                                        {Number(order.ajuste_total) < 0 ? `- S/ ${Math.abs(order.ajuste_total).toFixed(2)}` : `+ S/ ${Number(order.ajuste_total).toFixed(2)}`}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
+
+                                                                            {Number(order.costo_envio) > 0 && (
+                                                                                <div className="flex justify-between text-[11px] font-semibold tracking-tight">
+                                                                                    <span className="text-muted-foreground opacity-60 flex items-center gap-1">
+                                                                                        Envío {order.tipo_cobro_envio === 'destino' ? '(Pago Destino)' : '(Prepagado)'}:
+                                                                                    </span>
+                                                                                    <span className={order.tipo_cobro_envio === 'destino' ? "text-muted-foreground/50 line-through" : ""}>
+                                                                                        S/ {Number(order.costo_envio).toFixed(2)}
+                                                                                    </span>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
                                                                     </div>
-                                                                    <Separator className="bg-border/40" />
-                                                                    <div className="space-y-1.5">
-                                                                        <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                            <span className="text-muted-foreground opacity-60">Subtotal de Productos:</span>
-                                                                            <span>S/ {(order.items?.reduce((acc: number, item: any) => acc + Number(item.subtotal), 0) || 0).toFixed(2)}</span>
-                                                                        </div>
-
-                                                                        {Number(order.ajuste_total) !== 0 && (
-                                                                            <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                                <span className="text-muted-foreground opacity-60">
-                                                                                    {Number(order.ajuste_total) < 0 ? "Descuento Aplicado:" : "Cargo Adicional:"}
-                                                                                </span>
-                                                                                <span className={Number(order.ajuste_total) < 0 ? "text-green-600" : "text-destructive"}>
-                                                                                    {Number(order.ajuste_total) < 0 ? `- S/ ${Math.abs(order.ajuste_total).toFixed(2)}` : `+ S/ ${Number(order.ajuste_total).toFixed(2)}`}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
-
-                                                                        {Number(order.costo_envio) > 0 && (
-                                                                            <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                                <span className="text-muted-foreground opacity-60 flex items-center gap-1">
-                                                                                    Envío {order.tipo_cobro_envio === 'destino' ? '(Pago Destino)' : '(Prepagado)'}:
-                                                                                </span>
-                                                                                <span className={order.tipo_cobro_envio === 'destino' ? "text-muted-foreground/50 line-through" : ""}>
-                                                                                    S/ {Number(order.costo_envio).toFixed(2)}
-                                                                                </span>
-                                                                            </div>
-                                                                        )}
+                                                                    <Separator className="bg-border/60" />
+                                                                    <div className="flex justify-between text-[11px] font-bold tracking-tight pt-1">
+                                                                        <span className="text-muted-foreground opacity-60">Total Final:</span>
+                                                                        <span className="text-foreground">S/ {Number(order.total).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                                                     </div>
-                                                                </div>
-                                                                <Separator className="bg-border/60" />
-                                                                <div className="flex justify-between items-center bg-primary/5 p-3 rounded-lg border border-primary/10">
-                                                                    <span className="text-xs font-semibold tracking-widest text-primary">Total Final</span>
-                                                                    <span className="text-xl font-semibold text-primary tracking-tight tabular-nums">S/ {Number(order.total).toFixed(2)}</span>
-                                                                </div>
 
-                                                                <div className="space-y-3">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="flex-1 bg-green-500/5 p-3 rounded-lg border border-green-500/10 space-y-2">
-                                                                            <Label className="text-[10px] font-semibold tracking-tight text-green-600 opacity-60">Adelantado</Label>
-                                                                            <Input
-                                                                                type="number"
-                                                                                step="0.01"
-                                                                                placeholder="0.00"
-                                                                                value={
-                                                                                    editingAmounts[order.id]?.monto_adelanto !== undefined
-                                                                                        ? editingAmounts[order.id]?.monto_adelanto
-                                                                                        : (order.monto_adelanto && order.monto_adelanto > 0 ? order.monto_adelanto : '')
-                                                                                }
-                                                                                onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
-                                                                                className="h-9 text-sm font-semibold text-green-600 bg-white border-green-500/20 focus:border-green-500 focus:ring-green-500"
-                                                                            />
-                                                                        </div>
-                                                                        <div className="flex-1 bg-red-500/5 p-3 rounded-lg border border-red-500/10 space-y-2">
-                                                                            <Label className="text-[10px] font-semibold tracking-tight text-red-600 opacity-60">Faltante</Label>
-                                                                            <Input
-                                                                                type="number"
-                                                                                step="0.01"
-                                                                                placeholder="0.00"
-                                                                                value={
-                                                                                    editingAmounts[order.id]?.monto_faltante !== undefined
-                                                                                        ? editingAmounts[order.id]?.monto_faltante
-                                                                                        : (order.monto_faltante && order.monto_faltante > 0 ? order.monto_faltante : '')
-                                                                                }
-                                                                                onChange={(e) => handleAmountChange(order.id, 'monto_faltante', e.target.value, Number(order.total))}
-                                                                                className="h-9 text-sm font-semibold text-red-600 bg-white border-red-500/20 focus:border-red-500 focus:ring-red-500"
-                                                                            />
+                                                                    <div className="space-y-3">
+                                                                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 border-y border-dashed border-border/50">
+                                                                            <div className="space-y-2">
+                                                                                <Label className="text-sm font-medium">Adelanto</Label>
+                                                                                <div className="relative">
+                                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">S/</span>
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        step="0.01"
+                                                                                        placeholder="0.00"
+                                                                                        value={
+                                                                                            editingAmounts[order.id]?.monto_adelanto !== undefined
+                                                                                                ? editingAmounts[order.id]?.monto_adelanto
+                                                                                                : (order.monto_adelanto && order.monto_adelanto > 0 ? order.monto_adelanto : '')
+                                                                                        }
+                                                                                        onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
+                                                                                        className="h-10 pl-8 text-sm font-medium"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="space-y-2">
+                                                                                <Label className="text-sm font-medium text-destructive">Faltante</Label>
+                                                                                <div className="relative">
+                                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-destructive">S/</span>
+                                                                                    <Input
+                                                                                        readOnly
+                                                                                        type="number"
+                                                                                        step="0.01"
+                                                                                        placeholder="0.00"
+                                                                                        value={
+                                                                                            editingAmounts[order.id]?.monto_faltante !== undefined
+                                                                                                ? editingAmounts[order.id]?.monto_faltante
+                                                                                                : (order.monto_faltante && order.monto_faltante > 0 ? order.monto_faltante : '')
+                                                                                        }
+                                                                                        className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5"
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
                                                                         {editingAmounts[order.id] && (
                                                                             <Button
                                                                                 onClick={() => handleSaveAmounts(order.id)}
                                                                                 disabled={isSavingAmounts === order.id}
-                                                                                size="sm"
-                                                                                className="h-9 mt-6 px-3 text-xs font-bold"
+                                                                                className="w-full"
                                                                             >
                                                                                 {isSavingAmounts === order.id ? (
-                                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                                                                 ) : (
-                                                                                    "Guardar"
+                                                                                    <span className="flex items-center gap-2">
+                                                                                        <CreditCard className="h-4 w-4" />
+                                                                                        Guardar Pagos
+                                                                                    </span>
                                                                                 )}
                                                                             </Button>
                                                                         )}
                                                                     </div>
-                                                                </div>
 
-                                                                {/* Comprobantes / Vouchers */}
-                                                                <div className="space-y-3 pt-2">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-60">
-                                                                            <ImageIcon className="h-3.5 w-3.5 text-primary" />
-                                                                            Comprobantes de Adelanto
+                                                                    {/* Comprobantes / Vouchers */}
+                                                                    <div className="space-y-3 pt-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-60">
+                                                                                <ImageIcon className="h-3.5 w-3.5 text-primary" />
+                                                                                Comprobantes de Adelanto
+                                                                            </div>
+
+                                                                            <div className="relative">
+                                                                                <Input
+                                                                                    type="file"
+                                                                                    id={`history-voucher-${order.id}`}
+                                                                                    className="hidden"
+                                                                                    accept="image/*"
+                                                                                    onChange={(e) => handleVoucherUpload(e, order)}
+                                                                                    disabled={isUploadingVoucher === order.id}
+                                                                                />
+                                                                                <Label
+                                                                                    htmlFor={`history-voucher-${order.id}`}
+                                                                                    className={cn(
+                                                                                        "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
+                                                                                        isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
+                                                                                    )}
+                                                                                >
+                                                                                    {isUploadingVoucher === order.id ? (
+                                                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                    ) : (
+                                                                                        <Plus className="h-3 w-3" />
+                                                                                    )}
+                                                                                    Subir Más
+                                                                                </Label>
+                                                                            </div>
                                                                         </div>
 
-                                                                        <div className="relative">
-                                                                            <Input
-                                                                                type="file"
-                                                                                id={`history-voucher-${order.id}`}
-                                                                                className="hidden"
-                                                                                accept="image/*"
-                                                                                onChange={(e) => handleVoucherUpload(e, order)}
-                                                                                disabled={isUploadingVoucher === order.id}
-                                                                            />
-                                                                            <Label
-                                                                                htmlFor={`history-voucher-${order.id}`}
-                                                                                className={cn(
-                                                                                    "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
-                                                                                    isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
-                                                                                )}
-                                                                            >
-                                                                                {isUploadingVoucher === order.id ? (
-                                                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                ) : (
-                                                                                    <Plus className="h-3 w-3" />
-                                                                                )}
-                                                                                Subir Más
-                                                                            </Label>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {order.voucher && (Array.isArray(order.voucher) ? order.voucher.length > 0 : !!order.voucher) ? (
-                                                                        <div className="grid grid-cols-3 gap-2">
-                                                                            {(() => {
-                                                                                const vouchers = Array.isArray(order.voucher) ? order.voucher : [order.voucher];
-                                                                                return vouchers.map((v: any, idx: number) => {
-                                                                                    const fileId = typeof v === 'object' ? v.directus_files_id : v;
-                                                                                    if (!fileId) return null;
-                                                                                    return (
-                                                                                        <div key={fileId || idx} className="group relative aspect-square rounded-md overflow-hidden border border-border/50 bg-muted/30 hover:border-primary/50 transition-colors shadow-sm">
-                                                                                            <Image
-                                                                                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}?width=150&height=150&fit=cover`}
-                                                                                                alt={`Voucher ${idx + 1}`}
-                                                                                                fill
-                                                                                                className="object-cover"
-                                                                                            />
-                                                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                                                                                                <a
-                                                                                                    href={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}`}
-                                                                                                    target="_blank"
-                                                                                                    rel="noopener noreferrer"
-                                                                                                    className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-                                                                                                    title="Ver imagen"
-                                                                                                >
-                                                                                                    <ExternalLink className="h-4 w-4 text-white" />
-                                                                                                </a>
-                                                                                                <button
-                                                                                                    onClick={() => handleRemoveVoucher(order, fileId)}
-                                                                                                    className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
-                                                                                                    title="Eliminar comprobante"
-                                                                                                >
-                                                                                                    <X className="h-4 w-4 text-white" />
-                                                                                                </button>
+                                                                        {order.voucher && (Array.isArray(order.voucher) ? order.voucher.length > 0 : !!order.voucher) ? (
+                                                                            <div className="grid grid-cols-3 gap-2">
+                                                                                {(() => {
+                                                                                    const vouchers = Array.isArray(order.voucher) ? order.voucher : [order.voucher];
+                                                                                    return vouchers.map((v: any, idx: number) => {
+                                                                                        const fileId = typeof v === 'object' ? v.directus_files_id : v;
+                                                                                        if (!fileId) return null;
+                                                                                        return (
+                                                                                            <div key={fileId || idx} className="group relative aspect-square rounded-md overflow-hidden border border-border/50 bg-muted/30 hover:border-primary/50 transition-colors shadow-sm">
+                                                                                                <Image
+                                                                                                    src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}?width=150&height=150&fit=cover`}
+                                                                                                    alt={`Voucher ${idx + 1}`}
+                                                                                                    fill
+                                                                                                    className="object-cover"
+                                                                                                />
+                                                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                                                                                                    <a
+                                                                                                        href={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}`}
+                                                                                                        target="_blank"
+                                                                                                        rel="noopener noreferrer"
+                                                                                                        className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+                                                                                                        title="Ver imagen"
+                                                                                                    >
+                                                                                                        <ExternalLink className="h-4 w-4 text-white" />
+                                                                                                    </a>
+                                                                                                    <button
+                                                                                                        onClick={() => handleRemoveVoucher(order, fileId)}
+                                                                                                        className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
+                                                                                                        title="Eliminar comprobante"
+                                                                                                    >
+                                                                                                        <X className="h-4 w-4 text-white" />
+                                                                                                    </button>
+                                                                                                </div>
                                                                                             </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                });
-                                                                            })()}
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="flex flex-col items-center justify-center py-6 border rounded-md border-dashed border-muted-foreground/20 bg-muted/5">
-                                                                            <Camera className="h-6 w-6 text-muted-foreground/20 mb-2" />
-                                                                            <p className="text-[10px] text-muted-foreground uppercase font-bold opacity-40">Sin comprobantes</p>
-                                                                        </div>
-                                                                    )}
+                                                                                        );
+                                                                                    });
+                                                                                })()}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="flex flex-col items-center justify-center py-6 border rounded-md border-dashed border-muted-foreground/20 bg-muted/5">
+                                                                                <Camera className="h-6 w-6 text-muted-foreground/20 mb-2" />
+                                                                                <p className="text-[10px] text-muted-foreground uppercase font-bold opacity-40">Sin comprobantes</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1101,7 +1080,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                         )}
                     </TableBody>
                 </Table>
-            </div >
+            </div>
 
             <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
                 <AlertDialogContent>
@@ -1123,6 +1102,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div >
+        </div>
     );
 }

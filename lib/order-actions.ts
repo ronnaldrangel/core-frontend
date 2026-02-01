@@ -93,6 +93,36 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
 
         await directusAdmin.request(createItems("order_items", itemsWithOrderId));
 
+        // 3. Reducir Stock de Productos
+        for (const item of items) {
+            try {
+                const product = await directusAdmin.request(readItem("products", item.product_id, {
+                    fields: ["id", "stock", "variantes_producto"]
+                })) as any;
+
+                if (product) {
+                    const updateData: any = {};
+
+                    if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
+                        const updatedVariantes = product.variantes_producto.map((v: any) => {
+                            if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
+                                return { ...v, stock: (Number(v.stock) || 0) - item.cantidad };
+                            }
+                            return v;
+                        });
+                        updateData.variantes_producto = updatedVariantes;
+                    }
+
+                    // Siempre intentamos reducir el stock base si existe
+                    updateData.stock = (Number(product.stock) || 0) - item.cantidad;
+
+                    await directusAdmin.request(updateItem("products", product.id, updateData));
+                }
+            } catch (stockError) {
+                console.error(`Error actualizando stock para producto ${item.product_id}:`, stockError);
+            }
+        }
+
         revalidatePath(`/dashboard`);
         return { data: order, error: null };
     } catch (error: any) {

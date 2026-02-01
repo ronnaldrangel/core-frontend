@@ -34,7 +34,7 @@ export default async function KanbanPage({ params }: KanbanPageProps) {
         const orderStatuses = orderStatusesResult?.data || [];
 
         return (
-            <div className="space-y-6 flex flex-col h-[calc(100vh-140px)]">
+            <div className="space-y-6">
                 <div className="flex-shrink-0">
                     <h1 className="text-3xl font-bold tracking-tight">Kanban de Pedidos</h1>
                     <p className="text-muted-foreground">
@@ -42,13 +42,14 @@ export default async function KanbanPage({ params }: KanbanPageProps) {
                     </p>
                 </div>
 
-                <div className="flex-1 min-h-0">
+                <div className="h-[600px] min-h-0">
                     <OrderKanban
                         orders={orders}
                         orderStatuses={orderStatuses}
                         themeColor={workspace.color || undefined}
                     />
                 </div>
+
             </div>
         );
     } catch (error) {
