@@ -1070,9 +1070,6 @@ export function POSSystem({
                                                 <ShalomAgencySelect
                                                     value={destination}
                                                     onValueChange={setDestination}
-                                                    externalDept={selectedDept}
-                                                    externalProv={selectedProv}
-                                                    externalDist={selectedDist}
                                                 />
                                             ) : (
                                                 <Input

@@ -80,37 +80,15 @@ export function ShalomAgencySelect({
 
         let filtered = [...allAgencies];
 
-        // Apply external filters from POS system
-        if (externalDept && externalDept !== "all") {
-            // Shalom API often uses uppercase for departments
-            const deptUpper = externalDept.toUpperCase();
-            filtered = filtered.filter(a =>
-                (a.departamento && a.departamento.toUpperCase() === deptUpper) ||
-                (a.nombre && a.nombre.toUpperCase().includes(deptUpper))
-            );
-        }
-
-        if (externalProv && externalProv !== "all") {
-            const provUpper = externalProv.toUpperCase();
-            filtered = filtered.filter(a =>
-                (a.provincia && a.provincia.toUpperCase() === provUpper) ||
-                (a.nombre && a.nombre.toUpperCase().includes(provUpper))
-            );
-        }
-
-        if (externalDist && externalDist !== "all") {
-            const distUpper = externalDist.toUpperCase();
-            filtered = filtered.filter(a =>
-                a.distrito && a.distrito.toUpperCase() === distUpper
-            );
-        }
-
-        // Apply local search in modal
+        // Aplicar búsqueda local en el modal (incluye nombre, dirección, departamento, provincia y distrito)
         if (search) {
             const lowSearch = search.toLowerCase();
             filtered = filtered.filter(a =>
                 a.nombre.toLowerCase().includes(lowSearch) ||
-                a.direccion.toLowerCase().includes(lowSearch)
+                a.direccion.toLowerCase().includes(lowSearch) ||
+                (a.departamento && a.departamento.toLowerCase().includes(lowSearch)) ||
+                (a.provincia && a.provincia.toLowerCase().includes(lowSearch)) ||
+                (a.distrito && a.distrito.toLowerCase().includes(lowSearch))
             );
         }
 
@@ -263,7 +241,7 @@ export function ShalomAgencySelect({
                 </div>
                 <div className="p-4 bg-muted/10 border-t flex items-center justify-between">
                     <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-widest">
-                        Filtros de ubicación sincronizados con el cliente
+                        Búsqueda global habilitada: busca por nombre de agencia o ciudad
                     </p>
                 </div>
             </DialogContent>
