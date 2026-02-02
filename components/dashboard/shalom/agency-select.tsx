@@ -80,12 +80,10 @@ export function ShalomAgencySelect({
 
         let filtered = [...allAgencies];
 
-        // Aplicar búsqueda local en el modal (incluye nombre, dirección, departamento, provincia y distrito)
+        // Aplicar búsqueda local en el modal (SOLO departamento, provincia y distrito)
         if (search) {
             const lowSearch = search.toLowerCase();
             filtered = filtered.filter(a =>
-                a.nombre.toLowerCase().includes(lowSearch) ||
-                a.direccion.toLowerCase().includes(lowSearch) ||
                 (a.departamento && a.departamento.toLowerCase().includes(lowSearch)) ||
                 (a.provincia && a.provincia.toLowerCase().includes(lowSearch)) ||
                 (a.distrito && a.distrito.toLowerCase().includes(lowSearch))
@@ -136,7 +134,7 @@ export function ShalomAgencySelect({
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Filtrar por nombre o dirección..."
+                            placeholder="Buscar por Ciudad, Departamento o Distrito..."
                             className="pl-9 bg-background h-10 shadow-sm border-primary/20 focus-visible:ring-primary"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -241,7 +239,7 @@ export function ShalomAgencySelect({
                 </div>
                 <div className="p-4 bg-muted/10 border-t flex items-center justify-between">
                     <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-widest">
-                        Búsqueda global habilitada: busca por nombre de agencia o ciudad
+                        Búsqueda por ubicación: escribe el departamento o ciudad para filtrar agencias
                     </p>
                 </div>
             </DialogContent>
