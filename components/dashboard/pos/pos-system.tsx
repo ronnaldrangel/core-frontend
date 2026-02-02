@@ -282,7 +282,16 @@ export function POSSystem({
     };
 
     const subtotal = useMemo(() => {
-        return cart.reduce((sum, item) => sum + (Number(item.precio_venta || 0) * item.quantity), 0);
+        return cart.reduce((sum, item) => {
+            const price = Number(item.precio_venta || 0);
+            const p2 = item.pack2 ? Number(item.pack2) : null;
+            const p3 = item.pack3 ? Number(item.pack3) : null;
+
+            if (item.quantity === 2 && p2) return sum + p2;
+            if (item.quantity === 3 && p3) return sum + p3;
+
+            return sum + (price * item.quantity);
+        }, 0);
     }, [cart]);
 
     const totalShipping = configureShipping && shippingType === "adicional" ? Number(shippingCost) : 0;
@@ -659,6 +668,18 @@ export function POSSystem({
                                             <p className="text-[10px] text-muted-foreground line-clamp-1 italic mt-1">
                                                 {product.descripcion_corta || "Sin descripción corta"}
                                             </p>
+                                            <div className="flex gap-1 mt-2">
+                                                {product.pack2 && (
+                                                    <div className="text-[8px] bg-green-500/10 text-green-600 px-1 border border-green-500/20 rounded font-bold">
+                                                        P2: S/{product.pack2}
+                                                    </div>
+                                                )}
+                                                {product.pack3 && (
+                                                    <div className="text-[8px] bg-blue-500/10 text-blue-600 px-1 border border-blue-500/20 rounded font-bold">
+                                                        P3: S/{product.pack3}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -1179,7 +1200,27 @@ export function POSSystem({
                                                 <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
                                                     <div className="flex justify-between items-start gap-2">
                                                         <h4 className="text-[11px] font-black uppercase truncate leading-tight flex-1 text-foreground/90">{item.nombre}</h4>
-                                                        <div className="font-black text-xs text-primary tabular-nums">S/ {Number(item.precio_venta).toFixed(2)}</div>
+                                                        <div className="flex flex-col items-end">
+                                                            {((item.quantity === 2 && item.pack2) || (item.quantity === 3 && item.pack3)) ? (
+                                                                <>
+                                                                    <div className="text-[10px] text-muted-foreground line-through opacity-50">S/ {(Number(item.precio_venta) * item.quantity).toFixed(2)}</div>
+                                                                    <div className={cn(
+                                                                        "font-black text-xs tabular-nums",
+                                                                        item.quantity === 2 ? "text-green-600" : "text-blue-600"
+                                                                    )}>
+                                                                        S/ {item.quantity === 2 ? Number(item.pack2).toFixed(2) : Number(item.pack3).toFixed(2)}
+                                                                    </div>
+                                                                    <Badge className={cn(
+                                                                        "text-[8px] h-3 px-1 mt-0.5",
+                                                                        item.quantity === 2 ? "bg-green-600 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-600"
+                                                                    )}>
+                                                                        PACK {item.quantity}
+                                                                    </Badge>
+                                                                </>
+                                                            ) : (
+                                                                <div className="font-black text-xs text-primary tabular-nums">S/ {(Number(item.precio_venta) * item.quantity).toFixed(2)}</div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-auto">
                                                         <div className="flex items-center bg-background rounded-md border border-border/60 h-7 overflow-hidden">
