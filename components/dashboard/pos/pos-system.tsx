@@ -134,6 +134,60 @@ export function POSSystem({
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
+    // --- Audio Feedback ---
+    const playSound = (type: 'add' | 'remove' | 'success') => {
+        try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'add') {
+                // Sonido tipo "Scanner de Barcode" (Beep corto y seco)
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(2500, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'remove') {
+                // Click mecánico simple
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.03);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.03);
+            } else if (type === 'success') {
+                // Sonido tipo "Ding!" de Caja Registradora clásica
+                const bell = audioCtx.createOscillator();
+                const bellGain = audioCtx.createGain();
+                bell.connect(bellGain);
+                bellGain.connect(audioCtx.destination);
+
+                bell.type = 'sine';
+                bell.frequency.setValueAtTime(2200, audioCtx.currentTime);
+                bellGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                bellGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+                bell.start();
+                bell.stop(audioCtx.currentTime + 0.5);
+
+                // Nota secundaria para dar cuerpo al "Ding"
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.4);
+            }
+        } catch (e) {
+            console.error("Audio no compatible", e);
+        }
+    };
+
     // --- Logical Handling ---
 
     // Handle Client Auto-fill from Local Data
@@ -251,6 +305,7 @@ export function POSSystem({
             return;
         }
 
+        playSound('add');
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
@@ -263,6 +318,9 @@ export function POSSystem({
     };
 
     const updateQuantity = (id: string, delta: number) => {
+        if (delta > 0) playSound('add');
+        else playSound('remove');
+
         setCart(prev => prev.map(item => {
             if (item.id === id) {
                 const newQty = Math.max(0, item.quantity + delta);
@@ -501,6 +559,7 @@ export function POSSystem({
 
             if (error) throw new Error(error);
 
+            playSound('success');
             // Show Success Dialog instead of basic toast
             setLastOrder(order as Order);
             resetPOS();
