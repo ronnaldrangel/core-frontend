@@ -85,9 +85,10 @@ export async function createProduct(data: Partial<Product>) {
         );
         revalidatePath(`/dashboard`);
         return { data: product as Product, error: null };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error creating product:", error);
-        return { data: null, error: "Error al crear el producto" };
+        const msg = error.errors?.[0]?.message || error.message || "Error al crear el producto";
+        return { data: null, error: String(msg) };
     }
 }
 

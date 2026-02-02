@@ -210,6 +210,13 @@ export function POSSystem({
         return prov ? DISTRITOS.filter(d => d.provincia_id === prov.id) : [];
     }, [selectedDept, selectedProv]);
 
+    const cartQuantities = useMemo(() => {
+        return cart.reduce((acc, item) => {
+            acc[item.id] = item.quantity;
+            return acc;
+        }, {} as Record<string, number>);
+    }, [cart]);
+
     const filteredProducts = useMemo(() => {
         let result = products.filter(p =>
             p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,10 +239,18 @@ export function POSSystem({
     }, [products, searchTerm, showOutOfStock, sortBy]);
 
     const addToCart = (product: Product) => {
+        const currentQty = cartQuantities[product.id] || 0;
+
         if (product.stock <= 0) {
             toast.error("Producto agotado");
             return;
         }
+
+        if (currentQty >= product.stock) {
+            toast.warning(`Solo hay ${product.stock} unidades en stock`);
+            return;
+        }
+
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
@@ -568,15 +583,16 @@ export function POSSystem({
 
                 {/* Products Grid */}
                 <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 p-4 pb-10">
                         {filteredProducts.map((product) => {
                             const isOutOfStock = product.stock <= 0;
                             return (
                                 <Card
                                     key={product.id}
                                     className={cn(
-                                        "overflow-hidden cursor-pointer hover:shadow-md transition-all border-none bg-muted/5 flex flex-col group",
-                                        isOutOfStock && "opacity-80"
+                                        "overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-200 border border-muted/20 bg-card flex flex-col group active:scale-[0.98] select-none relative",
+                                        isOutOfStock && "opacity-60 grayscale-[0.5]",
+                                        cartQuantities[product.id] > 0 && "ring-2 ring-primary ring-offset-1 ring-offset-background border-primary/20 shadow-lg shadow-primary/5"
                                     )}
                                     onClick={() => addToCart(product)}
                                 >
@@ -603,6 +619,25 @@ export function POSSystem({
                                         <div className="absolute bottom-2 left-2 bg-primary text-primary-foreground px-2 py-0.5 rounded text-xs font-bold shadow-md">
                                             S/ {Number(product.precio_venta).toFixed(2)}
                                         </div>
+
+                                        {/* CART QUANTITY Badge & Controls */}
+                                        {cartQuantities[product.id] > 0 && (
+                                            <>
+                                                <div className="absolute top-2 left-2 bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg animate-in zoom-in-50 duration-200 ring-2 ring-background z-20">
+                                                    {cartQuantities[product.id]}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateQuantity(product.id, -1);
+                                                    }}
+                                                    className="absolute top-2 right-2 bg-destructive text-destructive-foreground h-7 w-7 rounded-full flex items-center justify-center shadow-lg hover:bg-destructive hover:scale-110 active:scale-90 transition-all z-20 animate-in slide-in-from-top-2 duration-200"
+                                                    title="Quitar uno"
+                                                >
+                                                    <Minus className="h-4 w-4" />
+                                                </button>
+                                            </>
+                                        )}
 
                                         {/* Out of stock overlay */}
                                         {isOutOfStock && (
