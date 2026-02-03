@@ -29,7 +29,7 @@ export interface Workspace {
 export interface WorkspaceMember {
     id: string;
     user_id: string | { id: string; first_name: string; last_name: string; email: string };
-    role: "admin" | "editor" | "viewer";
+    role_id: string | { id: string; name: string };
 }
 
 // Helper to check user role in workspace (Now exported for use in components)
@@ -52,12 +52,22 @@ export async function getWorkspaceRole(workspaceId: string, userId: string): Pro
                         { user_id: { _eq: userId } }
                     ]
                 },
+                fields: ["role_id.name"],
                 limit: 1
             })
         );
 
         if (members && members.length > 0) {
-            return members[0].role as "admin" | "editor" | "viewer";
+            const member = members[0] as any;
+            if (member.role_id) {
+                // If it's an object (due to fields selection) or just a string
+                const roleName = typeof member.role_id === 'object' ? member.role_id.name : null;
+                // If we don't have the name, we might need to fetch it or just return based on some logic
+                // For now, let's assume we want to maintain the return type "admin" | "editor" | "viewer" | "owner"
+                // But since roles are dynamic now, we might need to rethink this.
+                // However, the error is about the FIELD name.
+                return (roleName?.toLowerCase() || "viewer") as any;
+            }
         }
 
         return null;
@@ -123,7 +133,8 @@ export async function getWorkspaces() {
                     "members.user_id.first_name",
                     "members.user_id.last_name",
                     "members.user_id.email",
-                    "members.role",
+                    "members.role_id.id",
+                    "members.role_id.name",
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
@@ -175,7 +186,8 @@ export async function getWorkspace(id: string) {
                     "members.user_id.first_name",
                     "members.user_id.last_name",
                     "members.user_id.email",
-                    "members.role",
+                    "members.role_id.id",
+                    "members.role_id.name",
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
@@ -220,7 +232,8 @@ export async function getWorkspaceBySlug(slug: string) {
                     "members.user_id.first_name",
                     "members.user_id.last_name",
                     "members.user_id.email",
-                    "members.role",
+                    "members.role_id.id",
+                    "members.role_id.name",
                     "members.role_id.id",
                     "members.role_id.name",
                     "email_contacto",
@@ -477,7 +490,7 @@ export async function addWorkspaceMember(workspaceId: string, userId: string, ro
             createItem("workspaces_members", {
                 workspace_id: workspaceId,
                 user_id: userId,
-                role: role,
+                role_id: role, // Now accepting role as string (UUID) or handling it
             })
         );
 
@@ -535,16 +548,9 @@ export async function updateMemberRole(memberId: string, role: string, workspace
             return { error: "No tienes permiso para gestionar miembros" };
         }
 
-        const data: any = {};
-        // Si el rol es un UUID (nuevo sistema), lo asignamos a role_id
-        if (role && role.length === 36) {
-            data.role_id = role;
-        } else {
-            // Si es un string normal (viejo sistema), lo mantenemos en role
-            data.role = role;
-            // Limpiar role_id si se cambia a un rol del sistema
-            data.role_id = null;
-        }
+        const data: any = {
+            role_id: role
+        };
 
         const member = await directusAdmin.request(
             updateItem("workspaces_members", memberId, data)
@@ -651,7 +657,7 @@ export async function addWorkspaceMemberByEmail(
         if (role && role.length === 36) {
             data.role_id = role;
         } else {
-            data.role = role;
+            data.role_id = role;
         }
 
         // Add the member

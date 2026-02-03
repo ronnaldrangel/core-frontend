@@ -368,7 +368,9 @@ export function MembersClient({
                                 {/* Other Members */}
                                 {members.map((member) => {
                                     const info = getMemberInfo(member);
-                                    const roleInfo = roleLabels[member.role as keyof typeof roleLabels] || roleLabels.viewer;
+                                    const roleName = typeof member.role_id === 'object' ? member.role_id.name : 'viewer';
+                                    const normalizedRole = roleName.toLowerCase().includes('admin') ? 'admin' : roleName.toLowerCase().includes('editor') ? 'editor' : 'viewer';
+                                    const roleInfo = roleLabels[normalizedRole] || roleLabels.viewer;
                                     const RoleIcon = roleInfo.icon;
                                     const isCurrentUser = info.id === currentUserId;
 
@@ -395,14 +397,14 @@ export function MembersClient({
                                             <td className="px-4 py-3">
                                                 <div className={cn(
                                                     "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border",
-                                                    (member.role_id?.name || member.role).toLowerCase().includes('admin') ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
-                                                        (member.role_id?.name || member.role).toLowerCase().includes('editor') ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
+                                                    (member.role_id?.name || 'viewer').toLowerCase().includes('admin') ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
+                                                        (member.role_id?.name || 'viewer').toLowerCase().includes('editor') ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
                                                             "bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800"
                                                 )}>
-                                                    {((member.role_id?.name || member.role).toLowerCase().includes('admin')) ? <Shield className="h-3.5 w-3.5" /> :
-                                                        ((member.role_id?.name || member.role).toLowerCase().includes('editor')) ? <Edit className="h-3.5 w-3.5" /> :
+                                                    {((member.role_id?.name || 'viewer').toLowerCase().includes('admin')) ? <Shield className="h-3.5 w-3.5" /> :
+                                                        ((member.role_id?.name || 'viewer').toLowerCase().includes('editor')) ? <Edit className="h-3.5 w-3.5" /> :
                                                             <Eye className="h-3.5 w-3.5" />}
-                                                    {member.role_id?.name || roleLabels[member.role as keyof typeof roleLabels]?.label || member.role}
+                                                    {member.role_id?.name || 'Visualizador'}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
@@ -417,7 +419,7 @@ export function MembersClient({
                                                             <DropdownMenuItem
                                                                 onClick={() => {
                                                                     setMemberToEdit(member);
-                                                                    setEditRole(member.role_id?.id || member.role);
+                                                                    setEditRole(member.role_id?.id || member.role_id);
                                                                 }}
                                                                 className="cursor-pointer"
                                                             >

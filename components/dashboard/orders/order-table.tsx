@@ -207,23 +207,17 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
     const handleAmountChange = (orderId: string, field: 'monto_adelanto' | 'monto_faltante', value: string, orderTotal: number) => {
         const numValue = value === '' ? 0 : parseFloat(value);
 
-        // Validate: neither field can exceed the total
-        const validatedValue = Math.min(numValue, orderTotal);
-
-        // Calculate the complementary field automatically
         let adelanto: string;
         let faltante: string;
 
         if (field === 'monto_adelanto') {
-            adelanto = validatedValue.toString();
-            // Faltante = Total - Adelanto
-            const calculatedFaltante = Math.max(0, orderTotal - validatedValue);
-            faltante = calculatedFaltante.toString();
+            adelanto = value;
+            const calculatedFaltante = Math.max(0, orderTotal - numValue);
+            faltante = calculatedFaltante.toFixed(2);
         } else {
-            faltante = validatedValue.toString();
-            // Adelanto = Total - Faltante
-            const calculatedAdelanto = Math.max(0, orderTotal - validatedValue);
-            adelanto = calculatedAdelanto.toString();
+            faltante = value;
+            const calculatedAdelanto = Math.max(0, orderTotal - numValue);
+            adelanto = calculatedAdelanto.toFixed(2);
         }
 
         setEditingAmounts(prev => ({
@@ -814,14 +808,22 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                             <div className="bg-card p-5 rounded-lg border border-border/50 shadow-sm space-y-4">
                                                                 <div className="space-y-2">
                                                                     <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Contacto Cliente</p>
-                                                                    <div className="flex flex-col gap-1.5">
-                                                                        <div className="flex items-center gap-2 text-xs">
-                                                                            <Phone className="h-3 w-3 text-primary/70" />
-                                                                            <span>{order.cliente_id?.telefono || "Sin teléfono"}</span>
+                                                                    <div className="space-y-2">
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="text-muted-foreground">{order.cliente_id?.tipo_cliente === 'empresa' ? 'RUC:' : 'DNI/RUC:'}</span>
+                                                                            <span className="font-semibold">{order.cliente_id?.documento_identificacion || "-"}</span>
                                                                         </div>
-                                                                        <div className="flex items-center gap-2 text-xs">
-                                                                            <Mail className="h-3 w-3 text-primary/70" />
-                                                                            <span className="truncate">{order.cliente_id?.email || "Sin email"}</span>
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="text-muted-foreground">Tipo:</span>
+                                                                            <span className="font-semibold capitalize">{order.cliente_id?.tipo_cliente || "-"}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="text-muted-foreground">Nombre Completo:</span>
+                                                                            <span className="font-semibold text-right max-w-[180px] truncate">{order.cliente_id?.nombre_completo || "-"}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center text-xs">
+                                                                            <span className="text-muted-foreground">Teléfono:</span>
+                                                                            <span className="font-semibold">{order.cliente_id?.telefono || "-"}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -846,6 +848,59 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                     <div className="flex justify-between items-start text-xs">
                                                                                         <span className="text-muted-foreground">Destino:</span>
                                                                                         <span className="font-semibold text-right max-w-[140px]">{order.courier_destino_agencia}</span>
+                                                                                    </div>
+                                                                                )}
+
+                                                                                {(order.departamento || order.provincia || order.distrito || order.direccion || order.ubicacion) && (
+                                                                                    <div className="pt-3 space-y-2 border-t border-border/30">
+                                                                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Localización del Pedido</p>
+                                                                                        <div className="space-y-2">
+                                                                                            {order.departamento && (
+                                                                                                <div className="flex justify-between items-center text-xs">
+                                                                                                    <span className="text-muted-foreground">Departamento:</span>
+                                                                                                    <span className="font-semibold">{order.departamento}</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {order.provincia && (
+                                                                                                <div className="flex justify-between items-center text-xs">
+                                                                                                    <span className="text-muted-foreground">Provincia:</span>
+                                                                                                    <span className="font-semibold">{order.provincia}</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {order.distrito && (
+                                                                                                <div className="flex justify-between items-center text-xs">
+                                                                                                    <span className="text-muted-foreground">Distrito:</span>
+                                                                                                    <span className="font-semibold">{order.distrito}</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {order.direccion && (
+                                                                                                <div className="flex flex-col gap-1 text-xs">
+                                                                                                    <span className="text-muted-foreground">Dirección:</span>
+                                                                                                    <span className="font-semibold bg-muted/30 p-2 rounded border border-border/20">{order.direccion}</span>
+                                                                                                </div>
+                                                                                            )}
+                                                                                            {order.ubicacion && (
+                                                                                                <div className="flex flex-col gap-2 pt-1">
+                                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                                        <span className="text-muted-foreground italic">Ubicación GPS / Referencia:</span>
+                                                                                                    </div>
+                                                                                                    <Button
+                                                                                                        variant="outline"
+                                                                                                        size="sm"
+                                                                                                        className="w-full h-8 text-[10px] uppercase font-bold gap-2"
+                                                                                                        onClick={() => {
+                                                                                                            const url = order.ubicacion.startsWith('http')
+                                                                                                                ? order.ubicacion
+                                                                                                                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.ubicacion)}`;
+                                                                                                            window.open(url, '_blank');
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <MapPin className="h-3 w-3" />
+                                                                                                        Ver Mapa
+                                                                                                    </Button>
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </div>
                                                                                 )}
                                                                             </div>
@@ -943,8 +998,8 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                         placeholder="0.00"
                                                                                         value={
                                                                                             editingAmounts[order.id]?.monto_adelanto !== undefined
-                                                                                                ? editingAmounts[order.id]?.monto_adelanto
-                                                                                                : (order.monto_adelanto && order.monto_adelanto > 0 ? order.monto_adelanto : '')
+                                                                                                ? (editingAmounts[order.id]?.monto_adelanto === '0' || editingAmounts[order.id]?.monto_adelanto === '0.00' ? '' : editingAmounts[order.id]?.monto_adelanto)
+                                                                                                : (order.monto_adelanto && Number(order.monto_adelanto) > 0 ? Number(order.monto_adelanto).toFixed(2) : '')
                                                                                         }
                                                                                         onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
                                                                                         className="h-10 pl-8 text-sm font-medium"
@@ -963,9 +1018,9 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                         value={
                                                                                             editingAmounts[order.id]?.monto_faltante !== undefined
                                                                                                 ? editingAmounts[order.id]?.monto_faltante
-                                                                                                : (order.monto_faltante && order.monto_faltante > 0 ? order.monto_faltante : '')
+                                                                                                : (order.monto_faltante && order.monto_faltante > 0 ? Number(order.monto_faltante).toFixed(2) : '')
                                                                                         }
-                                                                                        className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5"
+                                                                                        className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5 cursor-default"
                                                                                     />
                                                                                 </div>
                                                                             </div>

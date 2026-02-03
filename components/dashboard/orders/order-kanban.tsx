@@ -12,7 +12,8 @@ import {
     GripVertical,
     Package,
     Calendar,
-    Wallet
+    Wallet,
+    CreditCard
 } from "lucide-react";
 import { OrderStatus, updateOrder } from "@/lib/order-actions";
 import { toast } from "sonner";
@@ -27,6 +28,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
+import { Truck, Receipt, Info, MapPin as MapPinIcon, ExternalLink, Phone, Mail, Search, Plus, Image as ImageIcon, Loader2, X, Camera } from "lucide-react";
+import { uploadFile } from "@/lib/product-actions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import Image from "next/image";
 
 interface OrderKanbanProps {
     orders: any[];
@@ -39,7 +53,150 @@ type DatePreset = "today" | "yesterday" | "7days";
 export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: OrderKanbanProps) {
     const [localOrders, setLocalOrders] = useState(orders);
     const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
+    const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
     const [datePreset, setDatePreset] = useState<DatePreset>("today");
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [isUploadingVoucher, setIsUploadingVoucher] = useState<string | null>(null);
+    const [editingAmounts, setEditingAmounts] = useState<Record<string, { monto_adelanto?: string; monto_faltante?: string }>>({});
+    const [isSavingAmounts, setIsSavingAmounts] = useState<string | null>(null);
+
+    // Get Directus URL for images
+    const directusUrl = process.env.NEXT_PUBLIC_DIRECTUS_URL || "https://directus.pachistore.site";
+
+    const handleAmountChange = (orderId: string, value: string, orderTotal: number) => {
+        const numValue = value === '' ? 0 : parseFloat(value);
+
+        // POS logic: Allow exceeding total, Faltante just becomes 0
+        const adelanto = value; // Keep as typed to allow editing decimals naturally
+        const calculatedFaltante = Math.max(0, orderTotal - numValue);
+        const faltante = calculatedFaltante.toFixed(2);
+
+        setEditingAmounts(prev => ({
+            ...prev,
+            [orderId]: {
+                monto_adelanto: adelanto,
+                monto_faltante: faltante
+            }
+        }));
+    };
+
+    const handleSaveAmounts = async (orderId: string) => {
+        const editingData = editingAmounts[orderId];
+        if (!editingData) return;
+
+        const changes = {
+            monto_adelanto: editingData.monto_adelanto ? parseFloat(editingData.monto_adelanto) : 0,
+            monto_faltante: editingData.monto_faltante ? parseFloat(editingData.monto_faltante) : 0
+        };
+
+        try {
+            setIsSavingAmounts(orderId);
+            const result = await updateOrder(orderId, changes);
+
+            if (result.data) {
+                toast.success("Montos actualizados");
+                setLocalOrders(prev => prev.map(order =>
+                    order.id === orderId ? { ...order, ...changes } : order
+                ));
+                if (selectedOrder?.id === orderId) {
+                    setSelectedOrder((prev: any) => ({ ...prev, ...changes }));
+                }
+                setEditingAmounts(prev => {
+                    const updated = { ...prev };
+                    delete updated[orderId];
+                    return updated;
+                });
+            } else {
+                toast.error(result.error || "Error al actualizar");
+            }
+        } catch (error) {
+            toast.error("Error al actualizar");
+        } finally {
+            setIsSavingAmounts(null);
+        }
+    };
+
+    const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>, order: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsUploadingVoucher(order.id);
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const uploadResult = await uploadFile(formData);
+            if (uploadResult.error || !uploadResult.data) {
+                toast.error(`Error al subir imagen: ${uploadResult.error}`);
+                return;
+            }
+
+            const newVoucherId = (uploadResult.data as any).id;
+            const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
+            const junctionItems = currentVouchers.map((v: any) => ({
+                directus_files_id: typeof v === 'object' ? v.directus_files_id : v
+            }));
+
+            junctionItems.push({ directus_files_id: newVoucherId });
+
+            const updateResult = await updateOrder(order.id, {
+                voucher: junctionItems
+            });
+
+            if (updateResult.error) {
+                toast.error(`Error al actualizar la orden: ${updateResult.error}`);
+            } else {
+                toast.success("Comprobante agregado");
+                // Local state update
+                const newVoucherObj = { directus_files_id: newVoucherId };
+                const updatedVouchers = [...currentVouchers, newVoucherObj];
+
+                setLocalOrders(prev => prev.map(o =>
+                    o.id === order.id ? { ...o, voucher: updatedVouchers } : o
+                ));
+                if (selectedOrder?.id === order.id) {
+                    setSelectedOrder((prev: any) => ({ ...prev, voucher: updatedVouchers }));
+                }
+            }
+        } catch (error) {
+            toast.error("Error al procesar la subida");
+        } finally {
+            setIsUploadingVoucher(null);
+            if (e.target) e.target.value = "";
+        }
+    };
+
+    const handleRemoveVoucher = async (order: any, fileId: string) => {
+        try {
+            const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
+            const junctionItems = currentVouchers
+                .map((v: any) => ({
+                    directus_files_id: typeof v === 'object' ? v.directus_files_id : v
+                }))
+                .filter((v: any) => v.directus_files_id !== fileId);
+
+            const result = await updateOrder(order.id, {
+                voucher: junctionItems
+            });
+
+            if (result.error) {
+                toast.error(`Error al eliminar: ${result.error}`);
+            } else {
+                toast.success("Comprobante eliminado");
+                const updatedVouchers = currentVouchers.filter((v: any) =>
+                    (typeof v === 'object' ? v.directus_files_id : v) !== fileId
+                );
+                setLocalOrders(prev => prev.map(o =>
+                    o.id === order.id ? { ...o, voucher: updatedVouchers } : o
+                ));
+                if (selectedOrder?.id === order.id) {
+                    setSelectedOrder((prev: any) => ({ ...prev, voucher: updatedVouchers }));
+                }
+            }
+        } catch (error) {
+            toast.error("Error al eliminar");
+        }
+    };
 
     // Sync local orders when props change
     useEffect(() => {
@@ -111,12 +268,18 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
         }
     };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault(); // Required to allow drop
+    const handleDragOver = (e: React.DragEvent, statusValue: string) => {
+        e.preventDefault();
+        setDragOverColumn(statusValue);
+    };
+
+    const handleDragLeave = () => {
+        setDragOverColumn(null);
     };
 
     const handleDrop = async (e: React.DragEvent, newStatus: string) => {
         e.preventDefault();
+        setDragOverColumn(null);
         const orderId = e.dataTransfer.getData("orderId");
 
         if (!orderId) return;
@@ -166,8 +329,16 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                 {orderStatuses.map((status) => (
                     <div
                         key={status.value}
-                        className="flex min-w-[300px] max-w-[300px] flex-col rounded-xl p-3"
-                        onDragOver={handleDragOver}
+                        className={cn(
+                            "flex min-w-[300px] max-w-[300px] flex-col rounded-xl p-4 border transition-all duration-200 shadow-sm",
+                            dragOverColumn === status.value ? "ring-2 ring-primary/20 scale-[1.01]" : "border-border/50"
+                        )}
+                        style={{
+                            backgroundColor: dragOverColumn === status.value ? `${status.color}25` : `${status.color}08`,
+                            borderColor: dragOverColumn === status.value ? status.color : `${status.color}20`
+                        }}
+                        onDragOver={(e) => handleDragOver(e, status.value)}
+                        onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, status.value)}
                     >
                         {/* Column Header */}
@@ -200,13 +371,16 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                             draggedOrderId === order.id ? "scale-95" : "hover:-translate-y-1"
                                         )}
                                     >
-                                        <Card className="border-border/50 bg-card shadow-sm group-hover:shadow-md group-hover:border-primary/20">
+                                        <Card
+                                            className="border-border/50 bg-card shadow-sm group-hover:shadow-md group-hover:border-primary/20"
+                                            onClick={() => setSelectedOrder(order)}
+                                        >
                                             <CardContent className="p-3">
                                                 {/* Card Header: ID & Date */}
                                                 <div className="mb-3 flex items-center justify-between">
                                                     <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold text-primary/70">
                                                         <div className="h-1.5 w-1.5 rounded-full bg-primary/40" />
-                                                        #{order.id ? order.id.slice(0, 6).toUpperCase() : '------'}
+                                                        #{order.numero_correlativo || (order.id ? order.id.slice(0, 6).toUpperCase() : '------')}
                                                     </div>
                                                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
                                                         <Clock className="h-3 w-3" />
@@ -258,10 +432,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                                     </div>
                                                 </div>
 
-                                                {/* Drag Handle Overlay (optional visual cue) */}
-                                                <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-20 transition-opacity">
-                                                    <GripVertical className="h-4 w-4" />
-                                                </div>
+
                                             </CardContent>
                                         </Card>
                                     </div>
@@ -279,6 +450,254 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                 ))
                 }
             </div>
+
+            {/* Detail Sheet */}
+            <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+                <SheetContent className="sm:max-w-[450px] overflow-y-auto w-full bg-[#121212] border-border/10 text-white p-6">
+                    <div className="flex flex-col gap-10 h-full">
+                        {/* 0. Identificación del Cliente - Clean Style */}
+                        <div className="space-y-1 pt-2">
+                            <h2 className="text-xl font-semibold text-white">
+                                {selectedOrder?.cliente_id?.nombre_completo || "---"}
+                            </h2>
+                            <div className="flex items-center gap-2 text-white/50 text-sm">
+                                <User className="h-3.5 w-3.5" />
+                                {selectedOrder?.cliente_id?.documento_identificacion || "---"}
+                            </div>
+                        </div>
+
+                        {/* 1. Detalle de Productos */}
+                        <div className="space-y-6">
+                            <header className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.2em] text-white/40 mb-4">
+                                <Package className="h-4 w-4" />
+                                Detalle de Productos
+                            </header>
+
+                            <div className="space-y-2">
+                                {selectedOrder?.items?.map((item: any, idx: number) => (
+                                    <div key={idx} className="group relative bg-[#1A1A1A] hover:bg-[#222] transition-colors rounded-lg p-4 border border-white/[0.03]">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <div className="text-[14px] font-medium text-white mb-0.5 tracking-tight">
+                                                    {item.product_id?.nombre || "Producto desconocido"}
+                                                </div>
+                                                <div className="text-[10px] font-normal text-white/40 uppercase tracking-wider">
+                                                    Cant: {item.cantidad} x S/ {Number(item.precio_unitario).toFixed(2)}
+                                                </div>
+                                            </div>
+                                            <div className="text-[14px] font-medium text-white tabular-nums">
+                                                S/ {Number(item.subtotal || (item.cantidad * item.precio_unitario)).toFixed(2)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {(!selectedOrder?.items || selectedOrder.items.length === 0) && (
+                                    <div className="flex flex-col items-center justify-center py-12 rounded-xl border border-dashed border-white/10 bg-white/[0.02]">
+                                        <Package className="h-8 w-8 text-white/10 mb-2" />
+                                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">Sin productos</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* 2. Logística y Envío */}
+                        <div className="space-y-6">
+                            <header className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.2em] text-white/40 mb-4">
+                                <Truck className="h-4 w-4" />
+                                Logística y Envío
+                            </header>
+
+                            <div className="space-y-4 rounded-lg bg-[#1A1A1A]/50 p-5 border border-white/[0.03]">
+                                <div className="space-y-4">
+                                    <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Datos del Courier</div>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-start text-[11px]">
+                                            <span className="font-normal text-white/40 uppercase">Agencia:</span>
+                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_nombre || "---"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-start text-[11px]">
+                                            <span className="font-normal text-white/40 uppercase">Departamento:</span>
+                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_provincia_dpto || "---"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-start text-[11px]">
+                                            <span className="font-normal text-white/40 uppercase">Destino:</span>
+                                            <span className="font-medium text-white uppercase text-right max-w-[180px]">
+                                                {selectedOrder?.courier_destino_agencia || "---"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-white/5 my-4" />
+
+                                <div className="space-y-3">
+                                    <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Seguimiento</div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 flex-1 rounded bg-white/[0.03] border border-white/5 flex items-center px-3 text-[10px] font-mono text-white/40">
+                                            {selectedOrder?.courier_codigo || "Esperando guía..."}
+                                        </div>
+                                        {selectedOrder?.ubicacion && (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" asChild>
+                                                <a href={selectedOrder.ubicacion} target="_blank" rel="noopener noreferrer">
+                                                    <MapPinIcon className="h-4 w-4 text-white/60" />
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 3. Resumen de Operación */}
+                        <div className="space-y-6 pb-10">
+                            <header className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-[0.2em] text-white/40 mb-4">
+                                <Package className="h-4 w-4" />
+                                Resumen de Operación
+                            </header>
+
+                            <div className="space-y-6">
+
+                                <div className="flex justify-between items-center text-xs font-normal">
+                                    <span className="text-white/60">Método de Pago:</span>
+                                    <Badge variant="outline" className="bg-[#1A1A1A] border-white/10 text-white font-medium text-[10px] px-3 py-1 gap-2">
+                                        <Wallet className="h-3 w-3" />
+                                        {selectedOrder?.metodo_pago?.toUpperCase()}
+                                    </Badge>
+                                </div>
+
+                                <div className="space-y-2.5 pt-4 border-t border-white/5">
+                                    <div className="flex justify-between text-[11px] font-medium">
+                                        <span className="text-white/30 uppercase tracking-wider">Subtotal Productos:</span>
+                                        <span className="text-white/80 tabular-nums">S/ {Number(selectedOrder?.total - (selectedOrder?.costo_envio || 0)).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[11px] font-medium">
+                                        <span className="text-white/30 uppercase tracking-wider">Cargo Adicional:</span>
+                                        <span className="text-red-500 tabular-nums">+ S/ {Number(selectedOrder?.costo_envio || 0).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-4">
+                                        <span className="text-xs font-medium text-white/60 uppercase tracking-[0.2em]">Total Final:</span>
+                                        <span className="text-xl font-medium tabular-nums text-white tracking-tighter">S/ {Number(selectedOrder?.total).toFixed(2)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 border-y border-dashed border-white/10">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-white/70">Adelanto</Label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/30">S/</span>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="h-10 bg-[#1A1A1A] border-white/10 text-white pl-8 text-sm font-medium rounded-lg focus:ring-primary/20"
+                                                value={
+                                                    editingAmounts[selectedOrder?.id]?.monto_adelanto !== undefined
+                                                        ? (editingAmounts[selectedOrder?.id]?.monto_adelanto === '0' || editingAmounts[selectedOrder?.id]?.monto_adelanto === '0.00' ? '' : editingAmounts[selectedOrder?.id]?.monto_adelanto)
+                                                        : (selectedOrder?.monto_adelanto && Number(selectedOrder.monto_adelanto) > 0 ? Number(selectedOrder.monto_adelanto).toFixed(2) : '')
+                                                }
+                                                onChange={(e) => handleAmountChange(selectedOrder.id, e.target.value, selectedOrder.total)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-medium text-destructive/70">Faltante</Label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-destructive/50">S/</span>
+                                            <Input
+                                                readOnly
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="0.00"
+                                                className="h-10 bg-destructive/5 border-destructive/10 text-destructive pl-8 text-sm font-medium text-right rounded-lg cursor-default"
+                                                value={editingAmounts[selectedOrder?.id]?.monto_faltante ?? (selectedOrder?.monto_faltante ? Number(selectedOrder.monto_faltante).toFixed(2) : '0.00')}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {editingAmounts[selectedOrder?.id] && (
+                                    <Button
+                                        className="w-full h-9 bg-zinc-200 text-zinc-900 hover:bg-zinc-300 rounded-xl text-sm font-medium transition-all shadow-sm gap-2"
+                                        onClick={() => handleSaveAmounts(selectedOrder.id)}
+                                        disabled={isSavingAmounts === selectedOrder.id}
+                                    >
+                                        {isSavingAmounts === selectedOrder.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <>
+                                                <CreditCard className="h-4 w-4" />
+                                                Guardar Pagos
+                                            </>
+                                        )}
+                                    </Button>
+                                )}
+
+                                <div className="space-y-4 pt-8">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
+                                            <ImageIcon className="h-3.5 w-3.5" />
+                                            Comprobantes de Adelanto
+                                        </div>
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                id="voucher-upload-kanban"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={(e) => handleVoucherUpload(e, selectedOrder)}
+                                                disabled={isUploadingVoucher === selectedOrder?.id}
+                                            />
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-[9px] font-bold uppercase tracking-wider bg-transparent border-dashed border-white/20 hover:bg-white/5 hover:border-white/40 rounded-lg px-3"
+                                                onClick={() => document.getElementById('voucher-upload-kanban')?.click()}
+                                                disabled={isUploadingVoucher === selectedOrder?.id}
+                                            >
+                                                {isUploadingVoucher === selectedOrder?.id ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                                                ) : (
+                                                    <Plus className="h-3 w-3 mr-1.5" />
+                                                )}
+                                                Subir Más
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {selectedOrder?.voucher && selectedOrder.voucher.length > 0 ? (
+                                            selectedOrder.voucher.map((v: any, idx: number) => {
+                                                const fileId = typeof v === 'object' ? v.directus_files_id : v;
+                                                return (
+                                                    <div key={idx} className="relative aspect-[4/3] rounded-xl overflow-hidden border border-white/10 group">
+                                                        <Image
+                                                            src={`${directusUrl}/assets/${fileId}`}
+                                                            alt="Comprobante"
+                                                            fill
+                                                            className="object-cover transition-transform group-hover:scale-105"
+                                                        />
+                                                        <button
+                                                            onClick={() => handleRemoveVoucher(selectedOrder, fileId)}
+                                                            className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                                        >
+                                                            <X className="h-3 w-3 text-white" />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })
+                                        ) : (
+                                            <div className="col-span-2 aspect-[3/1] rounded-xl border border-dashed border-white/[0.08] bg-white/[0.01] flex flex-col items-center justify-center gap-2.5 transition-colors hover:bg-white/[0.02]">
+                                                <Camera className="h-5 w-5 text-white/10" />
+                                                <span className="text-[9px] font-medium text-white/20 uppercase tracking-[0.2em]">Sin Comprobantes</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

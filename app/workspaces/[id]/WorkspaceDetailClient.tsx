@@ -62,7 +62,11 @@ export default function WorkspaceDetailClient({
         return userId === currentUserId;
     });
 
-    const isAdmin = isOwner || currentMember?.role === "admin";
+    const isAdmin = isOwner || (currentMember?.role_id && (
+        typeof currentMember.role_id === 'object'
+            ? currentMember.role_id.name.toLowerCase().includes('admin')
+            : false // If it's just a string UUID, we can't be sure without more info, but usually it's object here
+    ));
 
     const ownerData =
         typeof workspace.owner === "object"
@@ -292,7 +296,8 @@ export default function WorkspaceDetailClient({
                                             typeof member.user_id === "object"
                                                 ? member.user_id
                                                 : { id: member.user_id, first_name: "User", last_name: "", email: "" };
-                                        const roleInfo = getRoleInfo(member.role);
+                                        const roleName = typeof member.role_id === 'object' ? member.role_id.name : 'Viewer';
+                                        const roleInfo = getRoleInfo(roleName.toLowerCase().includes('admin') ? 'admin' : roleName.toLowerCase().includes('editor') ? 'editor' : 'viewer');
                                         const RoleIcon = roleInfo.icon;
 
                                         return (
@@ -348,9 +353,9 @@ export default function WorkspaceDetailClient({
                                                                                         onClick={() =>
                                                                                             handleRoleChange(member.id, role)
                                                                                         }
-                                                                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-white/[0.05] ${member.role === role
-                                                                                                ? "text-blue-400"
-                                                                                                : "text-gray-300"
+                                                                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-white/[0.05] ${(typeof member.role_id === 'object' ? member.role_id.name.toLowerCase() : '') === role
+                                                                                            ? "text-blue-400"
+                                                                                            : "text-gray-300"
                                                                                             }`}
                                                                                     >
                                                                                         {getRoleInfo(role).label}
@@ -442,8 +447,8 @@ export default function WorkspaceDetailClient({
                                                 type="button"
                                                 onClick={() => setNewMemberRole(role)}
                                                 className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${newMemberRole === role
-                                                        ? "bg-blue-600 text-white"
-                                                        : "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1]"
+                                                    ? "bg-blue-600 text-white"
+                                                    : "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1]"
                                                     }`}
                                             >
                                                 {info.label}

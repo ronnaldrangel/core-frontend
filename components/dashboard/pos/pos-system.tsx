@@ -54,7 +54,6 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { es } from "date-fns/locale";
-import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
 import {
     Dialog,
     DialogContent,
@@ -79,6 +78,8 @@ interface POSSystemProps {
     paymentMethods: PaymentMethod[];
 }
 
+import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
+
 export function POSSystem({
     products,
     clients,
@@ -101,8 +102,6 @@ export function POSSystem({
     const [clientDoc, setClientDoc] = useState("");
     const [clientName, setClientName] = useState("");
     const [clientPhone, setClientPhone] = useState("");
-    const [clientAddress, setClientAddress] = useState("");
-    const [clientLocation, setClientLocation] = useState("");
     const [clientType, setClientType] = useState("persona"); // Added client type
     const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
     const [isLookingUpClient, setIsLookingUpClient] = useState(false); // New loading state for lookup
@@ -120,9 +119,6 @@ export function POSSystem({
     const [configureShipping, setConfigureShipping] = useState(true);
     const [shippingType, setShippingType] = useState("adicional"); // adicional | incluido
     const [shippingCost, setShippingCost] = useState(0);
-    const [selectedDept, setSelectedDept] = useState("LIMA");
-    const [selectedProv, setSelectedProv] = useState("LIMA");
-    const [selectedDist, setSelectedDist] = useState("LIMA");
     const [courier, setCourier] = useState(courierTypes[0]?.value || "SHALOM");
     const [destination, setDestination] = useState("");
     const [courierOrder, setCourierOrder] = useState("");
@@ -131,10 +127,29 @@ export function POSSystem({
     const [voucherIds, setVoucherIds] = useState<string[]>([]);
     const [isUploadingVoucher, setIsUploadingVoucher] = useState(false);
 
+    // Order Shipping Address (saved in orders collection)
+    const [orderDept, setOrderDept] = useState("LIMA");
+    const [orderProv, setOrderProv] = useState("LIMA");
+    const [orderDist, setOrderDist] = useState("LIMA");
+    const [orderAddress, setOrderAddress] = useState("");
+    const [orderLocation, setOrderLocation] = useState("");
+
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
     // --- Logical Handling ---
+
+    const availableProvinces = useMemo(() => {
+        const dept = DEPARTAMENTOS.find(d => d.nombre === orderDept);
+        if (!dept) return [];
+        return PROVINCIAS.filter(p => p.departamento_id === dept.id);
+    }, [orderDept]);
+
+    const availableDistricts = useMemo(() => {
+        const prov = availableProvinces.find(p => p.nombre === orderProv);
+        if (!prov) return [];
+        return DISTRITOS.filter(d => d.provincia_id === prov.id);
+    }, [orderProv, availableProvinces]);
 
     // Handle Client Auto-fill from Local Data
     useEffect(() => {
@@ -145,7 +160,6 @@ export function POSSystem({
                 setClientName(client.nombre_completo);
                 setClientPhone(client.telefono || "");
                 setClientType(client.tipo_cliente || "persona");
-                setClientLocation(client.ubicacion || "");
                 setSelectedClientId(client.id);
             } else {
                 // Reset ID if doc changes and not found locally (will be handled by API check on blur)
@@ -198,17 +212,6 @@ export function POSSystem({
             }
         }
     };
-
-    // Cascading Selects Data
-    const availableProvincias = useMemo(() => {
-        const dept = DEPARTAMENTOS.find(d => d.nombre === selectedDept);
-        return dept ? PROVINCIAS.filter(p => p.departamento_id === dept.id) : [];
-    }, [selectedDept]);
-
-    const availableDistritos = useMemo(() => {
-        const prov = PROVINCIAS.find(p => p.nombre === selectedProv && p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === selectedDept)?.id);
-        return prov ? DISTRITOS.filter(d => d.provincia_id === prov.id) : [];
-    }, [selectedDept, selectedProv]);
 
     const filteredProducts = useMemo(() => {
         let result = products.filter(p =>
@@ -279,8 +282,6 @@ export function POSSystem({
         setClientDoc("");
         setClientName("");
         setClientPhone("");
-        setClientAddress("");
-        setClientLocation("");
         setSelectedClientId(null);
         setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
         setPaymentMethod(paymentMethods[0]?.value || "YAPE");
@@ -291,16 +292,18 @@ export function POSSystem({
         setShippingType("adicional");
         setShippingCost(0);
         setCourier(courierTypes[0]?.value || "SHALOM");
-        setSelectedDept("LIMA");
-        setSelectedProv("LIMA");
-        setSelectedDist("LIMA");
         setDestination("");
         setCourierOrder("");
         setCourierCode("");
         setCourierPass("");
         setVoucherIds([]);
+        setOrderDept("LIMA");
+        setOrderProv("LIMA");
+        setOrderDist("LIMA");
+        setOrderAddress("");
+        setOrderLocation("");
+        setSelectedClientId(null);
     };
-
     const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
@@ -383,7 +386,6 @@ export function POSSystem({
                     if (existingClient) {
                         finalClientId = existingClient.id;
                         setClientName(existingClient.nombre_completo);
-                        setClientLocation(existingClient.ubicacion || "");
                         setSelectedClientId(existingClient.id);
                     } else if (clientName) {
                         // Create from DNI + Name
@@ -393,11 +395,6 @@ export function POSSystem({
                             documento_identificacion: clientDoc,
                             tipo_cliente: clientType,
                             telefono: clientPhone,
-                            departamento: selectedDept,
-                            provincia: selectedProv,
-                            distrito: selectedDist,
-                            direccion: clientAddress,
-                            ubicacion: clientLocation,
                             status: "active"
                         };
                         const { data: newClient, error } = await createClient(newClientData);
@@ -418,11 +415,6 @@ export function POSSystem({
                         nombre_completo: clientName,
                         tipo_cliente: clientType,
                         telefono: clientPhone,
-                        departamento: selectedDept,
-                        provincia: selectedProv,
-                        distrito: selectedDist,
-                        direccion: clientAddress,
-                        ubicacion: clientLocation,
                         status: "active"
                     };
                     const { data: newClient, error } = await createClient(newClientData);
@@ -464,7 +456,7 @@ export function POSSystem({
                 tipo_cobro_envio: shippingType,
                 costo_envio: Number(shippingCost),
                 courier_nombre: courier,
-                courier_provincia_dpto: selectedDept,
+                courier_provincia_dpto: "",
                 courier_destino_agencia: destination,
                 courier_nro_orden: courierOrder,
                 courier_codigo: courierCode,
@@ -472,7 +464,11 @@ export function POSSystem({
                 ajuste_total: Number(adjustment),
                 voucher: voucherIds.length > 0 ? voucherIds.map(id => ({ directus_files_id: id })) : undefined,
                 fecha_entrega: deliveryDate,
-                ubicacion: clientLocation,
+                departamento: orderDept,
+                provincia: orderProv,
+                distrito: orderDist,
+                direccion: orderAddress,
+                ubicacion: orderLocation,
             }, orderItems);
 
             if (error) throw new Error(error);
@@ -728,89 +724,6 @@ export function POSSystem({
                                 />
                             </div>
 
-                            {/* Ubicación: Departamento, Provincia, Distrito */}
-                            <div className="grid grid-cols-1 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label className="text-sm font-medium">Departamento</Label>
-                                    <Select value={selectedDept} onValueChange={(val) => {
-                                        setSelectedDept(val);
-                                        const firstProv = PROVINCIAS.find(p => p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === val)?.id);
-                                        if (firstProv) {
-                                            setSelectedProv(firstProv.nombre);
-                                            const firstDist = DISTRITOS.find(d => d.provincia_id === firstProv.id);
-                                            if (firstDist) setSelectedDist(firstDist.nombre);
-                                        }
-                                    }}>
-                                        <SelectTrigger className="h-10 text-sm w-full">
-                                            <SelectValue placeholder="Seleccionar departamento" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {DEPARTAMENTOS.map((dep) => (
-                                                <SelectItem key={dep.id} value={dep.nombre}>{dep.nombre}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-sm font-medium">Provincia</Label>
-                                        <Select value={selectedProv} onValueChange={(val) => {
-                                            setSelectedProv(val);
-                                            const prov = PROVINCIAS.find(p => p.nombre === val && p.departamento_id === DEPARTAMENTOS.find(d => d.nombre === selectedDept)?.id);
-                                            if (prov) {
-                                                const firstDist = DISTRITOS.find(d => d.provincia_id === prov.id);
-                                                if (firstDist) setSelectedDist(firstDist.nombre);
-                                            }
-                                        }}>
-                                            <SelectTrigger className="h-10 text-sm w-full">
-                                                <SelectValue placeholder="Provincia" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {availableProvincias.map((prov) => (
-                                                    <SelectItem key={prov.id} value={prov.nombre}>{prov.nombre}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label className="text-sm font-medium">Distrito</Label>
-                                        <Select value={selectedDist} onValueChange={setSelectedDist}>
-                                            <SelectTrigger className="h-10 text-sm w-full">
-                                                <SelectValue placeholder="Distrito" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {availableDistritos.map((dist) => (
-                                                    <SelectItem key={dist.id} value={dist.nombre}>{dist.nombre}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                {/* Direccion */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-sm font-medium">Dirección</Label>
-                                    <Input
-                                        placeholder="Av. Las Magnolias 123..."
-                                        className="h-10 text-sm font-medium"
-                                        value={clientAddress}
-                                        onChange={(e) => setClientAddress(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Ubicacion */}
-                                <div className="space-y-1.5">
-                                    <Label className="text-sm font-medium">Ubicación</Label>
-                                    <Input
-                                        placeholder="Link de Google Maps o referencia..."
-                                        className="h-10 text-sm font-medium"
-                                        value={clientLocation}
-                                        onChange={(e) => setClientLocation(e.target.value)}
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                         <Separator />
@@ -1110,6 +1023,94 @@ export function POSSystem({
                                             onChange={(e) => setCourierPass(e.target.value)}
                                         />
                                     </div>
+
+                                    {/* Dirección de Entrega (Order specific) */}
+                                    <div className="space-y-4 pt-4 border-t border-dashed">
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="h-3.5 w-3.5" />
+                                            <Label className="text-sm font-medium">Dirección de Entrega</Label>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Departamento</Label>
+                                                <Select value={orderDept} onValueChange={(val) => {
+                                                    setOrderDept(val);
+                                                    const deptId = DEPARTAMENTOS.find(d => d.nombre === val)?.id;
+                                                    const firstProv = PROVINCIAS.find(p => p.departamento_id === deptId);
+                                                    if (firstProv) {
+                                                        setOrderProv(firstProv.nombre);
+                                                        const firstDist = DISTRITOS.find(d => d.provincia_id === firstProv.id);
+                                                        if (firstDist) setOrderDist(firstDist.nombre);
+                                                    }
+                                                }}>
+                                                    <SelectTrigger className="h-9 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {DEPARTAMENTOS.map(d => (
+                                                            <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Provincia</Label>
+                                                <Select value={orderProv} onValueChange={(val) => {
+                                                    setOrderProv(val);
+                                                    const provObj = availableProvinces.find(p => p.nombre === val);
+                                                    if (provObj) {
+                                                        const firstDist = DISTRITOS.find(d => d.provincia_id === provObj.id);
+                                                        if (firstDist) setOrderDist(firstDist.nombre);
+                                                    }
+                                                }}>
+                                                    <SelectTrigger className="h-9 text-xs">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {availableProvinces.map(p => (
+                                                            <SelectItem key={p.id} value={p.nombre}>{p.nombre}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Distrito</Label>
+                                            <Select value={orderDist} onValueChange={setOrderDist}>
+                                                <SelectTrigger className="h-9 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableDistricts.map(d => (
+                                                        <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Dirección Exacta</Label>
+                                            <Input
+                                                placeholder="Calle, número, urbanización..."
+                                                className="h-10 text-sm font-medium"
+                                                value={orderAddress}
+                                                onChange={(e) => setOrderAddress(e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Ubicación GPS / Referencia</Label>
+                                            <Input
+                                                placeholder="Link de Google Maps o referencia..."
+                                                className="h-10 text-sm font-medium"
+                                                value={orderLocation}
+                                                onChange={(e) => setOrderLocation(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1223,8 +1224,6 @@ export function POSSystem({
                     </Button>
                 </div>
             </div>
-
-
         </div>
     );
 }

@@ -40,9 +40,10 @@ export default function WorkspaceCard({ workspace, currentUserId, onEdit, onDele
             const userId = typeof m.user_id === 'object' ? m.user_id.id : m.user_id;
             return userId === currentUserId;
         });
-        if (member?.role === "admin") return { label: "Admin", icon: Edit3, color: "text-blue-500" };
-        if (member?.role === "editor") return { label: "Editor", icon: Pencil, color: "text-green-500" };
-        return { label: "Viewer", icon: Eye, color: "text-gray-500" };
+        const roleName = typeof member?.role_id === 'object' ? member.role_id.name.toLowerCase() : '';
+        if (roleName.includes("admin")) return { label: "Admin", icon: Edit3, color: "text-blue-500" };
+        if (roleName.includes("editor")) return { label: "Editor", icon: Pencil, color: "text-green-500" };
+        return { label: "Visualizador", icon: Eye, color: "text-gray-500" };
     };
 
     const role = getUserRole();

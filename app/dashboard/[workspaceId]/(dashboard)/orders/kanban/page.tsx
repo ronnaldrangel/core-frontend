@@ -42,7 +42,7 @@ export default async function KanbanPage({ params }: KanbanPageProps) {
                     </p>
                 </div>
 
-                <div className="h-[600px] min-h-0">
+                <div className="h-[800px] min-h-0">
                     <OrderKanban
                         orders={orders}
                         orderStatuses={orderStatuses}
