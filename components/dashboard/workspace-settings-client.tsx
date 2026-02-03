@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Mail, Phone, MapPin } from "lucide-react";
+import { Settings, Palette, Bell, Trash2, Loader2, Upload, X, Mail, Phone, MapPin, MessageCircle } from "lucide-react";
 import { Workspace, updateWorkspace, uploadWorkspaceLogo, deleteWorkspace } from "@/lib/workspace-actions";
 import { OrderStatus, createOrderStatus, deleteOrderStatus, PaymentStatus, createPaymentStatus, deletePaymentStatus, CourierType, createCourierType, deleteCourierType, PaymentMethod, createPaymentMethod, deletePaymentMethod } from "@/lib/order-actions";
 import { toast } from "sonner";
@@ -120,6 +120,9 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
         email_contacto: workspace.email_contacto || "",
         telefono_contacto: workspace.telefono_contacto || "",
         direccion_contacto: workspace.direccion_contacto || "",
+        whatsapp_name: workspace.whatsapp_name || "",
+        whatsapp_url: workspace.whatsapp_url || "",
+        whatsapp_api_key: workspace.whatsapp_api_key || "",
     });
 
     const handleAddStatus = async () => {
@@ -383,6 +386,9 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                 email_contacto: formData.email_contacto,
                 telefono_contacto: formData.telefono_contacto,
                 direccion_contacto: formData.direccion_contacto,
+                whatsapp_name: formData.whatsapp_name,
+                whatsapp_url: formData.whatsapp_url,
+                whatsapp_api_key: formData.whatsapp_api_key,
             });
 
             if (result.error) {
@@ -595,6 +601,56 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                                 />
                             ))}
                         </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* WhatsApp Integration */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg text-green-600">
+                        <MessageCircle className="h-5 w-5" /> Configuración de WhatsApp
+                    </CardTitle>
+                    <CardDescription>
+                        Configura la conexión con la API de WhatsApp para envío de mensajes automáticos.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="whatsapp_name">Nombre de la Cuenta (Instancia)</Label>
+                            <Input
+                                id="whatsapp_name"
+                                value={formData.whatsapp_name}
+                                onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_name: e.target.value }))}
+                                placeholder="Ej: Ventas Principal"
+                                disabled={!canEdit}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="whatsapp_url">WhatsApp API Endpoint (URL)</Label>
+                            <Input
+                                id="whatsapp_url"
+                                value={formData.whatsapp_url}
+                                onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_url: e.target.value }))}
+                                placeholder="https://api.wa.me/..."
+                                disabled={!canEdit}
+                            />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="whatsapp_api_key">Token / API Key</Label>
+                        <Input
+                            id="whatsapp_api_key"
+                            type="password"
+                            value={formData.whatsapp_api_key}
+                            onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_api_key: e.target.value }))}
+                            placeholder="Introduce tu Token o API Key"
+                            disabled={!canEdit}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Este token se utiliza para autenticar las peticiones a la API de WhatsApp. Mantén esta información segura.
+                        </p>
                     </div>
                 </CardContent>
             </Card>
