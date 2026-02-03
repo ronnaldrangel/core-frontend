@@ -108,9 +108,9 @@ export function POSSystem({
 
     // Order Info
     const [orderDate] = useState(new Date());
-    const [paymentStatus, setPaymentStatus] = useState(paymentStatuses[0]?.value || "pendiente");
-    const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.value || "YAPE");
-    const [orderStatus, setOrderStatus] = useState(orderStatuses[0]?.value || "preparando");
+    const [paymentStatus, setPaymentStatus] = useState(paymentStatuses[0]?.id || "");
+    const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.id || "");
+    const [orderStatus, setOrderStatus] = useState(orderStatuses[0]?.id || "");
     const [advancePayment, setAdvancePayment] = useState(0);
     const [adjustment, setAdjustment] = useState(0);
     const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -366,9 +366,9 @@ export function POSSystem({
         setClientName("");
         setClientPhone("");
         setSelectedClientId(null);
-        setPaymentStatus(paymentStatuses[0]?.value || "pendiente");
-        setPaymentMethod(paymentMethods[0]?.value || "YAPE");
-        setOrderStatus(orderStatuses[0]?.value || "preparando");
+        setPaymentStatus(paymentStatuses[0]?.id || "");
+        setPaymentMethod(paymentMethods[0]?.id || "");
+        setOrderStatus(orderStatuses[0]?.id || "");
         setAdvancePayment(0);
         setAdjustment(0);
         setConfigureShipping(true);
@@ -942,7 +942,7 @@ export function POSSystem({
                                     </SelectTrigger>
                                     <SelectContent position="popper" side="bottom">
                                         {paymentMethods.map((method) => (
-                                            <SelectItem key={method.id} value={method.value}>
+                                            <SelectItem key={method.id} value={method.id}>
                                                 <div className="flex items-center gap-2">
                                                     <div className="h-2 w-2 rounded-full" style={{ backgroundColor: method.color }} />
                                                     {method.name}
@@ -962,7 +962,7 @@ export function POSSystem({
                                         </SelectTrigger>
                                         <SelectContent position="popper" side="bottom">
                                             {paymentStatuses.map((status) => (
-                                                <SelectItem key={status.id} value={status.value}>
+                                                <SelectItem key={status.id} value={status.id}>
                                                     <div className="flex items-center gap-2">
                                                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
                                                         {status.name}
@@ -980,7 +980,7 @@ export function POSSystem({
                                         </SelectTrigger>
                                         <SelectContent position="popper" side="bottom">
                                             {orderStatuses.map((status) => (
-                                                <SelectItem key={status.id} value={status.value}>
+                                                <SelectItem key={status.id} value={status.id}>
                                                     <div className="flex items-center gap-2">
                                                         <div className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />
                                                         {status.name}
