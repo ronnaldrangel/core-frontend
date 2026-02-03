@@ -203,7 +203,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
         setImageFile(null);
         setImagePreview(null);
         setExistingImageId(null);
-        setSelectedCategory("");
+        setSelectedCategory("none");
     };
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {

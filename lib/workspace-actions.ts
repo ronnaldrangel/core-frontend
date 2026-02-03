@@ -23,6 +23,9 @@ export interface Workspace {
     email_contacto?: string;
     telefono_contacto?: string;
     direccion_contacto?: string;
+    whatsapp_name?: string;
+    whatsapp_url?: string;
+    whatsapp_api_key?: string;
 }
 
 
@@ -85,6 +88,9 @@ export interface CreateWorkspaceData {
     email_contacto?: string;
     telefono_contacto?: string;
     direccion_contacto?: string;
+    whatsapp_name?: string;
+    whatsapp_url?: string;
+    whatsapp_api_key?: string;
 }
 
 export interface UpdateWorkspaceData {
@@ -97,6 +103,9 @@ export interface UpdateWorkspaceData {
     email_contacto?: string;
     telefono_contacto?: string;
     direccion_contacto?: string;
+    whatsapp_name?: string;
+    whatsapp_url?: string;
+    whatsapp_api_key?: string;
 }
 
 // Get all workspaces for the current user (owned or member of)
@@ -138,6 +147,9 @@ export async function getWorkspaces() {
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
+                    "whatsapp_name",
+                    "whatsapp_url",
+                    "whatsapp_api_key",
                 ],
                 filter: {
                     _or: [
@@ -191,6 +203,9 @@ export async function getWorkspace(id: string) {
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
+                    "whatsapp_name",
+                    "whatsapp_url",
+                    "whatsapp_api_key",
                 ],
             })
         );
@@ -239,6 +254,9 @@ export async function getWorkspaceBySlug(slug: string) {
                     "email_contacto",
                     "telefono_contacto",
                     "direccion_contacto",
+                    "whatsapp_name",
+                    "whatsapp_url",
+                    "whatsapp_api_key",
                 ],
                 filter: {
                     slug: { _eq: slug }
@@ -323,6 +341,9 @@ export async function createWorkspace(data: CreateWorkspaceData) {
                 email_contacto: data.email_contacto || null,
                 telefono_contacto: data.telefono_contacto || null,
                 direccion_contacto: data.direccion_contacto || null,
+                whatsapp_name: data.whatsapp_name || null,
+                whatsapp_url: data.whatsapp_url || null,
+                whatsapp_api_key: data.whatsapp_api_key || null,
             })
         );
 

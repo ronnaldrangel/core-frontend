@@ -137,6 +137,60 @@ export function POSSystem({
     const [isProcessing, setIsProcessing] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
+    // --- Audio Feedback ---
+    const playSound = (type: 'add' | 'remove' | 'success') => {
+        try {
+            const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'add') {
+                // Sonido tipo "Scanner de Barcode" (Beep corto y seco)
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(2500, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.05);
+            } else if (type === 'remove') {
+                // Click mecánico simple
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.03);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.03);
+            } else if (type === 'success') {
+                // Sonido tipo "Ding!" de Caja Registradora clásica
+                const bell = audioCtx.createOscillator();
+                const bellGain = audioCtx.createGain();
+                bell.connect(bellGain);
+                bellGain.connect(audioCtx.destination);
+
+                bell.type = 'sine';
+                bell.frequency.setValueAtTime(2200, audioCtx.currentTime);
+                bellGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                bellGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+                bell.start();
+                bell.stop(audioCtx.currentTime + 0.5);
+
+                // Nota secundaria para dar cuerpo al "Ding"
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(1400, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.4);
+            }
+        } catch (e) {
+            console.error("Audio no compatible", e);
+        }
+    };
+
     // --- Logical Handling ---
 
     const availableProvinces = useMemo(() => {
@@ -235,10 +289,19 @@ export function POSSystem({
     }, [products, searchTerm, showOutOfStock, sortBy]);
 
     const addToCart = (product: Product) => {
+        const currentQty = cartQuantities[product.id] || 0;
+
         if (product.stock <= 0) {
             toast.error("Producto agotado");
             return;
         }
+
+        if (currentQty >= product.stock) {
+            toast.warning(`Solo hay ${product.stock} unidades en stock`);
+            return;
+        }
+
+        playSound('add');
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
@@ -251,6 +314,9 @@ export function POSSystem({
     };
 
     const updateQuantity = (id: string, delta: number) => {
+        if (delta > 0) playSound('add');
+        else playSound('remove');
+
         setCart(prev => prev.map(item => {
             if (item.id === id) {
                 const newQty = Math.max(0, item.quantity + delta);
@@ -270,7 +336,16 @@ export function POSSystem({
     };
 
     const subtotal = useMemo(() => {
-        return cart.reduce((sum, item) => sum + (Number(item.precio_venta || 0) * item.quantity), 0);
+        return cart.reduce((sum, item) => {
+            const price = Number(item.precio_venta || 0);
+            const p2 = item.pack2 ? Number(item.pack2) : null;
+            const p3 = item.pack3 ? Number(item.pack3) : null;
+
+            if (item.quantity === 2 && p2) return sum + p2;
+            if (item.quantity === 3 && p3) return sum + p3;
+
+            return sum + (price * item.quantity);
+        }, 0);
     }, [cart]);
 
     const totalShipping = configureShipping && shippingType === "adicional" ? Number(shippingCost) : 0;
@@ -473,6 +548,7 @@ export function POSSystem({
 
             if (error) throw new Error(error);
 
+            playSound('success');
             // Show Success Dialog instead of basic toast
             setLastOrder(order as Order);
             resetPOS();
@@ -564,15 +640,16 @@ export function POSSystem({
 
                 {/* Products Grid */}
                 <ScrollArea className="flex-1">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pr-4 pb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 p-4 pb-10">
                         {filteredProducts.map((product) => {
                             const isOutOfStock = product.stock <= 0;
                             return (
                                 <Card
                                     key={product.id}
                                     className={cn(
-                                        "overflow-hidden cursor-pointer hover:shadow-md transition-all border-none bg-muted/5 flex flex-col group",
-                                        isOutOfStock && "opacity-80"
+                                        "overflow-hidden cursor-pointer hover:shadow-xl transition-all duration-200 border border-muted/20 bg-card flex flex-col group active:scale-[0.98] select-none relative",
+                                        isOutOfStock && "opacity-60 grayscale-[0.5]",
+                                        cartQuantities[product.id] > 0 && "ring-2 ring-primary ring-offset-1 ring-offset-background border-primary/20 shadow-lg shadow-primary/5"
                                     )}
                                     onClick={() => addToCart(product)}
                                 >
@@ -600,6 +677,25 @@ export function POSSystem({
                                             S/ {Number(product.precio_venta).toFixed(2)}
                                         </div>
 
+                                        {/* CART QUANTITY Badge & Controls */}
+                                        {cartQuantities[product.id] > 0 && (
+                                            <>
+                                                <div className="absolute top-2 left-2 bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg animate-in zoom-in-50 duration-200 ring-2 ring-background z-20">
+                                                    {cartQuantities[product.id]}
+                                                </div>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        updateQuantity(product.id, -1);
+                                                    }}
+                                                    className="absolute top-2 right-2 bg-destructive text-destructive-foreground h-7 w-7 rounded-full flex items-center justify-center shadow-lg hover:bg-destructive hover:scale-110 active:scale-90 transition-all z-20 animate-in slide-in-from-top-2 duration-200"
+                                                    title="Quitar uno"
+                                                >
+                                                    <Minus className="h-4 w-4" />
+                                                </button>
+                                            </>
+                                        )}
+
                                         {/* Out of stock overlay */}
                                         {isOutOfStock && (
                                             <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center p-2">
@@ -620,6 +716,18 @@ export function POSSystem({
                                             <p className="text-[10px] text-muted-foreground line-clamp-1 italic mt-1">
                                                 {product.descripcion_corta || "Sin descripción corta"}
                                             </p>
+                                            <div className="flex gap-1 mt-2">
+                                                {product.pack2 && (
+                                                    <div className="text-[8px] bg-green-500/10 text-green-600 px-1 border border-green-500/20 rounded font-bold">
+                                                        P2: S/{product.pack2}
+                                                    </div>
+                                                )}
+                                                {product.pack3 && (
+                                                    <div className="text-[8px] bg-blue-500/10 text-blue-600 px-1 border border-blue-500/20 rounded font-bold">
+                                                        P3: S/{product.pack3}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -1145,7 +1253,27 @@ export function POSSystem({
                                                 <div className="flex-1 flex flex-col justify-between py-0.5 min-w-0">
                                                     <div className="flex justify-between items-start gap-2">
                                                         <h4 className="text-[11px] font-black uppercase truncate leading-tight flex-1 text-foreground/90">{item.nombre}</h4>
-                                                        <div className="font-black text-xs text-primary tabular-nums">S/ {Number(item.precio_venta).toFixed(2)}</div>
+                                                        <div className="flex flex-col items-end">
+                                                            {((item.quantity === 2 && item.pack2) || (item.quantity === 3 && item.pack3)) ? (
+                                                                <>
+                                                                    <div className="text-[10px] text-muted-foreground line-through opacity-50">S/ {(Number(item.precio_venta) * item.quantity).toFixed(2)}</div>
+                                                                    <div className={cn(
+                                                                        "font-black text-xs tabular-nums",
+                                                                        item.quantity === 2 ? "text-green-600" : "text-blue-600"
+                                                                    )}>
+                                                                        S/ {item.quantity === 2 ? Number(item.pack2).toFixed(2) : Number(item.pack3).toFixed(2)}
+                                                                    </div>
+                                                                    <Badge className={cn(
+                                                                        "text-[8px] h-3 px-1 mt-0.5",
+                                                                        item.quantity === 2 ? "bg-green-600 hover:bg-green-600" : "bg-blue-600 hover:bg-blue-600"
+                                                                    )}>
+                                                                        PACK {item.quantity}
+                                                                    </Badge>
+                                                                </>
+                                                            ) : (
+                                                                <div className="font-black text-xs text-primary tabular-nums">S/ {(Number(item.precio_venta) * item.quantity).toFixed(2)}</div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="flex items-center justify-between mt-auto">
                                                         <div className="flex items-center bg-background rounded-md border border-border/60 h-7 overflow-hidden">
