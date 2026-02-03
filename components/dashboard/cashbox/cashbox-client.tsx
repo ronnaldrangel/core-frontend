@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { TransactionModal } from "./transaction-modal";
 import { format } from "date-fns";
+import { PaymentMethod } from "@/lib/order-actions";
 import { es } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,16 +33,17 @@ interface Transaction {
     tipo: "ingreso" | "egreso";
     monto: number;
     descripcion: string;
-    metodo_pago: "cash" | "card" | "transfer";
+    metodo_pago: string;
     date_created: string;
 }
 
 interface CashboxClientProps {
     initialTransactions: Transaction[];
     workspaceId: string;
+    paymentMethods: PaymentMethod[];
 }
 
-export function CashboxClient({ initialTransactions, workspaceId }: CashboxClientProps) {
+export function CashboxClient({ initialTransactions, workspaceId, paymentMethods }: CashboxClientProps) {
     const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
     const [searchQuery, setSearchQuery] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -186,7 +188,7 @@ export function CashboxClient({ initialTransactions, workspaceId }: CashboxClien
                                     <TableCell className="px-4 py-4">
                                         <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-tight">
                                             <CreditCard className="h-3.5 w-3.5 opacity-60" />
-                                            {t.metodo_pago === 'cash' ? 'Efectivo' : t.metodo_pago === 'card' ? 'Tarjeta' : 'Transferencia'}
+                                            {paymentMethods.find(m => m.id === t.metodo_pago)?.name || t.metodo_pago}
                                         </div>
                                     </TableCell>
                                     <TableCell className={cn(
@@ -208,6 +210,7 @@ export function CashboxClient({ initialTransactions, workspaceId }: CashboxClien
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleSuccess}
                 workspaceId={workspaceId}
+                paymentMethods={paymentMethods}
             />
         </div>
     );

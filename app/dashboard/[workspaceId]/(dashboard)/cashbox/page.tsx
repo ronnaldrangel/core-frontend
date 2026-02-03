@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getCashboxTransactions } from "@/lib/cashbox-actions";
+import { getPaymentMethods } from "@/lib/order-actions";
 import { getMyPermissions } from "@/lib/rbac-actions";
 import { CashboxClient } from "@/components/dashboard/cashbox/cashbox-client";
 
@@ -29,7 +30,10 @@ export default async function CashboxPage({ params }: CashboxPageProps) {
     }
 
     // Obtener movimientos usando el ID del workspace
-    const { data: transactions, error: transactionsError } = await getCashboxTransactions(workspace.id);
+    const [{ data: transactions }, { data: paymentMethods }] = await Promise.all([
+        getCashboxTransactions(workspace.id),
+        getPaymentMethods(workspace.id)
+    ]);
 
     return (
         <div className="space-y-6">
@@ -43,6 +47,7 @@ export default async function CashboxPage({ params }: CashboxPageProps) {
             <CashboxClient
                 initialTransactions={transactions || []}
                 workspaceId={workspace.id}
+                paymentMethods={paymentMethods || []}
             />
         </div>
     );

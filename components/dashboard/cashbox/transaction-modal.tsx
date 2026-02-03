@@ -16,26 +16,28 @@ import { Loader2, ArrowUpCircle, ArrowDownCircle, Banknote, CreditCard, Send } f
 import { toast } from "sonner";
 import { createTransaction } from "@/lib/cashbox-actions";
 import { cn } from "@/lib/utils";
+import { PaymentMethod } from "@/lib/order-actions";
 
 interface TransactionModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: (transaction: any) => void;
     workspaceId: string;
+    paymentMethods: PaymentMethod[];
 }
 
-export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: TransactionModalProps) {
+export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId, paymentMethods }: TransactionModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [tipo, setTipo] = useState<"ingreso" | "egreso">("ingreso");
     const [monto, setMonto] = useState("");
     const [descripcion, setDescripcion] = useState("");
-    const [metodoPago, setMetodoPago] = useState<"cash" | "card" | "transfer">("cash");
+    const [metodoPago, setMetodoPago] = useState<string>(paymentMethods[0]?.id || "");
 
     const resetForm = () => {
         setTipo("ingreso");
         setMonto("");
         setDescripcion("");
-        setMetodoPago("cash");
+        setMetodoPago(paymentMethods[0]?.id || "");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -151,29 +153,19 @@ export function TransactionModal({ isOpen, onClose, onSuccess, workspaceId }: Tr
 
                         <div className="space-y-2">
                             <Label htmlFor="metodo">Método de Pago</Label>
-                            <Select value={metodoPago} onValueChange={(v: any) => setMetodoPago(v)}>
+                            <Select value={metodoPago} onValueChange={(v: string) => setMetodoPago(v)}>
                                 <SelectTrigger id="metodo">
                                     <SelectValue placeholder="Selecciona un método" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="cash">
-                                        <div className="flex items-center gap-2">
-                                            <Banknote className="h-4 w-4" />
-                                            Efectivo
-                                        </div>
-                                    </SelectItem>
-                                    <SelectItem value="card">
-                                        <div className="flex items-center gap-2">
-                                            <CreditCard className="h-4 w-4" />
-                                            Tarjeta
-                                        </div>
-                                    </SelectItem>
-                                    <SelectItem value="transfer">
-                                        <div className="flex items-center gap-2">
-                                            <Send className="h-4 w-4" />
-                                            Transferencia
-                                        </div>
-                                    </SelectItem>
+                                    {paymentMethods.map((method) => (
+                                        <SelectItem key={method.id} value={method.id}>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: method.color }} />
+                                                {method.name}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

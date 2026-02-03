@@ -33,7 +33,7 @@ export async function createTransaction(data: {
     tipo: "ingreso" | "egreso";
     monto: number;
     descripcion?: string;
-    metodo_pago: "cash" | "card" | "transfer";
+    metodo_pago: string;
 }) {
     try {
         // Verificar permisos
