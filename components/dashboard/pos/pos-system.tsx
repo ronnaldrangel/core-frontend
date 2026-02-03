@@ -288,6 +288,14 @@ export function POSSystem({
         return result;
     }, [products, searchTerm, showOutOfStock, sortBy]);
 
+    const cartQuantities = useMemo(() => {
+        const quantities: Record<string, number> = {};
+        cart.forEach(item => {
+            quantities[item.id] = item.quantity;
+        });
+        return quantities;
+    }, [cart]);
+
     const addToCart = (product: Product) => {
         const currentQty = cartQuantities[product.id] || 0;
 
@@ -834,6 +842,94 @@ export function POSSystem({
 
                         </div>
 
+                        {/* Dirección de Entrega (Order specific) */}
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                <Label className="text-sm font-semibold">Dirección de Entrega</Label>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Departamento</Label>
+                                <Select value={orderDept} onValueChange={(val) => {
+                                    setOrderDept(val);
+                                    const deptId = DEPARTAMENTOS.find(d => d.nombre === val)?.id;
+                                    const firstProv = PROVINCIAS.find(p => p.departamento_id === deptId);
+                                    if (firstProv) {
+                                        setOrderProv(firstProv.nombre);
+                                        const firstDist = DISTRITOS.find(d => d.provincia_id === firstProv.id);
+                                        if (firstDist) setOrderDist(firstDist.nombre);
+                                    }
+                                }}>
+                                    <SelectTrigger className="h-9 text-xs w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {DEPARTAMENTOS.map(d => (
+                                            <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Provincia</Label>
+                                    <Select value={orderProv} onValueChange={(val) => {
+                                        setOrderProv(val);
+                                        const provObj = availableProvinces.find(p => p.nombre === val);
+                                        if (provObj) {
+                                            const firstDist = DISTRITOS.find(d => d.provincia_id === provObj.id);
+                                            if (firstDist) setOrderDist(firstDist.nombre);
+                                        }
+                                    }}>
+                                        <SelectTrigger className="h-9 text-xs w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableProvinces.map(p => (
+                                                <SelectItem key={p.id} value={p.nombre}>{p.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Distrito</Label>
+                                    <Select value={orderDist} onValueChange={setOrderDist}>
+                                        <SelectTrigger className="h-9 text-xs w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableDistricts.map(d => (
+                                                <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Dirección Exacta</Label>
+                                <Input
+                                    placeholder="Calle, número, urbanización..."
+                                    className="h-10 text-sm font-medium"
+                                    value={orderAddress}
+                                    onChange={(e) => setOrderAddress(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Ubicación GPS / Referencia</Label>
+                                <Input
+                                    placeholder="Link de Google Maps o referencia..."
+                                    className="h-10 text-sm font-medium"
+                                    value={orderLocation}
+                                    onChange={(e) => setOrderLocation(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
                         <Separator />
 
                         {/* Pago y Estados */}
@@ -1132,93 +1228,7 @@ export function POSSystem({
                                         />
                                     </div>
 
-                                    {/* Dirección de Entrega (Order specific) */}
-                                    <div className="space-y-4 pt-4 border-t border-dashed">
-                                        <div className="flex items-center gap-2">
-                                            <MapPin className="h-3.5 w-3.5" />
-                                            <Label className="text-sm font-medium">Dirección de Entrega</Label>
-                                        </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Departamento</Label>
-                                                <Select value={orderDept} onValueChange={(val) => {
-                                                    setOrderDept(val);
-                                                    const deptId = DEPARTAMENTOS.find(d => d.nombre === val)?.id;
-                                                    const firstProv = PROVINCIAS.find(p => p.departamento_id === deptId);
-                                                    if (firstProv) {
-                                                        setOrderProv(firstProv.nombre);
-                                                        const firstDist = DISTRITOS.find(d => d.provincia_id === firstProv.id);
-                                                        if (firstDist) setOrderDist(firstDist.nombre);
-                                                    }
-                                                }}>
-                                                    <SelectTrigger className="h-9 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {DEPARTAMENTOS.map(d => (
-                                                            <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Provincia</Label>
-                                                <Select value={orderProv} onValueChange={(val) => {
-                                                    setOrderProv(val);
-                                                    const provObj = availableProvinces.find(p => p.nombre === val);
-                                                    if (provObj) {
-                                                        const firstDist = DISTRITOS.find(d => d.provincia_id === provObj.id);
-                                                        if (firstDist) setOrderDist(firstDist.nombre);
-                                                    }
-                                                }}>
-                                                    <SelectTrigger className="h-9 text-xs">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {availableProvinces.map(p => (
-                                                            <SelectItem key={p.id} value={p.nombre}>{p.nombre}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Distrito</Label>
-                                            <Select value={orderDist} onValueChange={setOrderDist}>
-                                                <SelectTrigger className="h-9 text-xs">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {availableDistricts.map(d => (
-                                                        <SelectItem key={d.id} value={d.nombre}>{d.nombre}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Dirección Exacta</Label>
-                                            <Input
-                                                placeholder="Calle, número, urbanización..."
-                                                className="h-10 text-sm font-medium"
-                                                value={orderAddress}
-                                                onChange={(e) => setOrderAddress(e.target.value)}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground/70">Ubicación GPS / Referencia</Label>
-                                            <Input
-                                                placeholder="Link de Google Maps o referencia..."
-                                                className="h-10 text-sm font-medium"
-                                                value={orderLocation}
-                                                onChange={(e) => setOrderLocation(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
                                 </div>
                             )}
                         </div>

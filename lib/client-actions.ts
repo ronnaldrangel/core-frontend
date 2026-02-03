@@ -12,13 +12,8 @@ export interface Client {
     nombre_completo: string;
     email: string | null;
     telefono: string | null;
-    direccion: string | null;
     documento_identificacion: string | null;
     tipo_cliente: string;
-    distrito: string | null;
-    provincia: string | null;
-    departamento: string | null;
-    ubicacion: string | null;
     date_created?: string;
 }
 
