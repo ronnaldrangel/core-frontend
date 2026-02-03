@@ -21,7 +21,7 @@ export interface Order {
     cliente_id: string | null;
     fecha_venta: string;
     total: number;
-    metodo_pago: string;
+    metodo_pago: any;
     status: string;
     numero_correlativo?: number;
     estado_pago?: string;
@@ -401,7 +401,7 @@ export async function getOrderById(id: string) {
     try {
         const order = await directusAdmin.request(
             readItem("orders", id, {
-                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*"],
+                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*", "metodo_pago.*"],
             })
         );
 

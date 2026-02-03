@@ -822,7 +822,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                         </div>
                                                                         <div className="flex justify-between items-center text-xs">
                                                                             <span className="text-muted-foreground">Tipo:</span>
-                                                                            <span className="font-semibold capitalize">{order.cliente_id?.tipo_cliente || "-"}</span>
+                                                                            <span className="font-semibold capitalize">{order.cliente_id?.tipo_cliente || "persona"}</span>
                                                                         </div>
                                                                         <div className="flex justify-between items-center text-xs">
                                                                             <span className="text-muted-foreground">Nombre Completo:</span>
@@ -956,7 +956,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                             <span className="text-muted-foreground font-semibold">Método de Pago:</span>
                                                                             <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border font-medium">
                                                                                 <CreditCard className="h-3 w-3 text-primary" />
-                                                                                {getPaymentMethodLabel(order.metodo_pago)}
+                                                                                {typeof order.metodo_pago === 'object' ? order.metodo_pago.name : getPaymentMethodLabel(order.metodo_pago)}
                                                                             </div>
                                                                         </div>
                                                                         <Separator className="bg-border/40" />

@@ -98,7 +98,7 @@ export function OrderAnalytics({ orders, orderStatuses, themeColor = "#6366F1" }
                         <SelectTrigger className="w-[180px] bg-card">
                             <SelectValue placeholder="Periodo" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent position="popper" side="bottom" sideOffset={4}>
                             <SelectItem value="today">Hoy</SelectItem>
                             <SelectItem value="yesterday">Ayer</SelectItem>
                             <SelectItem value="3days">Últimos 3 días</SelectItem>

@@ -15,7 +15,7 @@ import {
     Wallet,
     CreditCard
 } from "lucide-react";
-import { OrderStatus, updateOrder } from "@/lib/order-actions";
+import { OrderStatus, PaymentStatus, updateOrder } from "@/lib/order-actions";
 import { toast } from "sonner";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -45,12 +45,13 @@ import Image from "next/image";
 interface OrderKanbanProps {
     orders: any[];
     orderStatuses: OrderStatus[];
+    paymentStatuses: PaymentStatus[];
     themeColor?: string;
 }
 
 type DatePreset = "today" | "yesterday" | "7days";
 
-export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: OrderKanbanProps) {
+export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor = "#6366F1" }: OrderKanbanProps) {
     const [localOrders, setLocalOrders] = useState(orders);
     const [draggedOrderId, setDraggedOrderId] = useState<string | null>(null);
     const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -198,6 +199,17 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
         }
     };
 
+    const getStatusColor = (id: string, type: 'order' | 'payment') => {
+        const statuses = type === 'order' ? orderStatuses : paymentStatuses;
+        const status = statuses.find((s: OrderStatus | PaymentStatus) => s.id === id);
+        return status?.color || (type === 'order' ? '#e2e8f0' : '#cbd5e1');
+    };
+
+    const getPaymentStatusName = (id: string) => {
+        const status = paymentStatuses.find((s: PaymentStatus) => s.id === id);
+        return status?.name || "Estado Desconocido";
+    };
+
     // Sync local orders when props change
     useEffect(() => {
         setLocalOrders(orders);
@@ -321,7 +333,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                             <SelectValue placeholder="Filtrar por fecha" />
                         </div>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" side="bottom" sideOffset={4} className="w-[180px]">
                         <SelectItem value="today" className="text-[11px] font-bold uppercase tracking-wider">Hoy</SelectItem>
                         <SelectItem value="yesterday" className="text-[11px] font-bold uppercase tracking-wider">Ayer</SelectItem>
                         <SelectItem value="7days" className="text-[11px] font-bold uppercase tracking-wider">Hace 7 Días</SelectItem>
@@ -362,7 +374,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                         </div>
 
                         {/* Column Content */}
-                        <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-none">
+                        <div className="flex-1 space-y-3 overflow-y-auto p-1 pt-2 scrollbar-none -m-1">
                             {
                                 ordersByStatus[status.id]?.map((order) => (
                                     <div
@@ -409,7 +421,11 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                                         </div>
                                                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1 font-medium">
                                                             <MapPin className="h-3 w-3" />
-                                                            <span className="truncate">{order.courier_provincia_dpto || order.cliente_id?.departamento || "Sin ubicación"}</span>
+                                                            <span className="truncate">
+                                                                {order.courier_provincia_dpto ||
+                                                                    (order.departamento ? `${order.departamento}${order.provincia ? `, ${order.provincia}` : ''}` :
+                                                                        order.cliente_id?.departamento || "Sin ubicación")}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -421,8 +437,17 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                                             variant="secondary"
                                                             className="bg-muted/50 text-[10px] font-bold px-1.5 py-0 h-5"
                                                         >
-                                                            {order.metodo_pago === 'cash' ? 'EFECTIVO' : order.metodo_pago === 'card' ? 'TARJETA' : 'TRANSF.'}
+                                                            {typeof order.metodo_pago === 'object' ? order.metodo_pago.name : (order.metodo_pago === 'cash' ? 'EFECTIVO' : order.metodo_pago === 'card' ? 'TARJETA' : 'TRANSF.')}
                                                         </Badge>
+                                                        {order.estado_pago && (
+                                                            <div className="flex items-center gap-1 ml-1">
+                                                                <div
+                                                                    className="h-2 w-2 rounded-full"
+                                                                    style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
+                                                                />
+                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase">{getPaymentStatusName(order.estado_pago)}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="flex flex-col items-end">
                                                         <div className="text-sm font-black text-foreground tabular-nums tracking-tight">
@@ -464,11 +489,23 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                         {/* 0. Identificación del Cliente - Clean Style */}
                         <div className="space-y-1 pt-2">
                             <h2 className="text-xl font-semibold text-white">
-                                {selectedOrder?.cliente_id?.nombre_completo || "---"}
+                                {selectedOrder?.cliente_id?.nombre_completo || selectedOrder?.cliente_nombre || "Cliente Mostrador"}
                             </h2>
-                            <div className="flex items-center gap-2 text-white/50 text-sm">
-                                <User className="h-3.5 w-3.5" />
-                                {selectedOrder?.cliente_id?.documento_identificacion || "---"}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/50 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                    <User className="h-3 w-3" />
+                                    <span>{selectedOrder?.cliente_id?.documento_identificacion || "---"}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="h-1 w-1 rounded-full bg-white/20" />
+                                    <span className="capitalize">{selectedOrder?.cliente_id?.tipo_cliente || "persona"}</span>
+                                </div>
+                                {selectedOrder?.cliente_id?.telefono && (
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="h-1 w-1 rounded-full bg-white/20" />
+                                        <span>{selectedOrder.cliente_id.telefono}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -514,6 +551,39 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                             </header>
 
                             <div className="space-y-4 rounded-lg bg-[#1A1A1A]/50 p-5 border border-white/[0.03]">
+                                {(selectedOrder?.departamento || selectedOrder?.provincia || selectedOrder?.distrito || selectedOrder?.direccion) && (
+                                    <div className="space-y-4">
+                                        <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Localización del Pedido</div>
+                                        <div className="space-y-3">
+                                            {selectedOrder?.departamento && (
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Departamento:</span>
+                                                    <span className="font-medium text-white uppercase text-right">{selectedOrder.departamento}</span>
+                                                </div>
+                                            )}
+                                            {selectedOrder?.provincia && (
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Provincia:</span>
+                                                    <span className="font-medium text-white uppercase text-right">{selectedOrder.provincia}</span>
+                                                </div>
+                                            )}
+                                            {selectedOrder?.distrito && (
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Distrito:</span>
+                                                    <span className="font-medium text-white uppercase text-right">{selectedOrder.distrito}</span>
+                                                </div>
+                                            )}
+                                            {selectedOrder?.direccion && (
+                                                <div className="flex flex-col gap-1.5 text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Dirección:</span>
+                                                    <span className="font-medium text-white p-2 rounded bg-white/[0.02] border border-white/[0.05]">{selectedOrder.direccion}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Separator className="bg-white/5 my-4" />
+                                    </div>
+                                )}
+
                                 <div className="space-y-4">
                                     <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Datos del Courier</div>
                                     <div className="space-y-3">
@@ -523,7 +593,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                         </div>
                                         <div className="flex justify-between items-start text-[11px]">
                                             <span className="font-normal text-white/40 uppercase">Departamento:</span>
-                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_provincia_dpto || "---"}</span>
+                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_provincia_dpto || selectedOrder?.departamento || "---"}</span>
                                         </div>
                                         <div className="flex justify-between items-start text-[11px]">
                                             <span className="font-normal text-white/40 uppercase">Destino:</span>
@@ -567,7 +637,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                     <span className="text-white/60">Método de Pago:</span>
                                     <Badge variant="outline" className="bg-[#1A1A1A] border-white/10 text-white font-medium text-[10px] px-3 py-1 gap-2">
                                         <Wallet className="h-3 w-3" />
-                                        {selectedOrder?.metodo_pago?.toUpperCase()}
+                                        {typeof selectedOrder?.metodo_pago === 'object' ? selectedOrder.metodo_pago.name?.toUpperCase() : selectedOrder?.metodo_pago?.toUpperCase()}
                                     </Badge>
                                 </div>
 

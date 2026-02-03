@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getOrdersByWorkspace } from "@/lib/order-history-actions";
-import { getOrderStatuses } from "@/lib/order-actions";
+import { getOrderStatuses, getPaymentStatuses } from "@/lib/order-actions";
 import { OrderKanban } from "@/components/dashboard/orders/order-kanban";
 
 interface KanbanPageProps {
@@ -25,13 +25,15 @@ export default async function KanbanPage({ params }: KanbanPageProps) {
 
     try {
         // Fetch data in parallel
-        const [ordersResult, orderStatusesResult] = await Promise.all([
+        const [ordersResult, orderStatusesResult, paymentStatusesResult] = await Promise.all([
             getOrdersByWorkspace(workspace.id),
-            getOrderStatuses(workspace.id)
+            getOrderStatuses(workspace.id),
+            getPaymentStatuses(workspace.id)
         ]);
 
         const orders = ordersResult?.data || [];
         const orderStatuses = orderStatusesResult?.data || [];
+        const paymentStatuses = paymentStatusesResult?.data || [];
 
         return (
             <div className="space-y-6">
@@ -46,6 +48,7 @@ export default async function KanbanPage({ params }: KanbanPageProps) {
                     <OrderKanban
                         orders={orders}
                         orderStatuses={orderStatuses}
+                        paymentStatuses={paymentStatuses}
                         themeColor={workspace.color || undefined}
                     />
                 </div>
