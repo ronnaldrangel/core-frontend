@@ -237,16 +237,20 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
 
         // Initialize with empty arrays for all statuses
         orderStatuses.forEach(status => {
-            grouped[status.value] = [];
+            grouped[status.id] = [];
         });
 
         // Fill with actual orders
         filteredOrders.forEach(order => {
-            const status = order.estado_pedido || "pendiente";
-            if (!grouped[status]) {
-                grouped[status] = [];
+            const status = order.estado_pedido;
+            if (status && grouped[status]) {
+                grouped[status].push(order);
+            } else if (status) {
+                // If status exists but not in our list (maybe legacy?), create a bucket or ignore
+                // For now, let's add it if it doesn't exist to avoid hiding data
+                if (!grouped[status]) grouped[status] = [];
+                grouped[status].push(order);
             }
-            grouped[status].push(order);
         });
 
         return grouped;
@@ -298,7 +302,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                 toast.error(`Error al mover pedido: ${result.error}`);
                 setLocalOrders(orders); // Rollback to props
             } else {
-                toast.success(`Pedido movido a ${orderStatuses.find(s => s.value === newStatus)?.name}`);
+                toast.success(`Pedido movido a ${orderStatuses.find(s => s.id === newStatus)?.name}`);
             }
         } catch (error) {
             toast.error("Error al actualizar el estado");
@@ -328,18 +332,18 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
             <div className="flex flex-1 gap-6 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-muted">
                 {orderStatuses.map((status) => (
                     <div
-                        key={status.value}
+                        key={status.id}
                         className={cn(
                             "flex min-w-[300px] max-w-[300px] flex-col rounded-xl p-4 border transition-all duration-200 shadow-sm",
-                            dragOverColumn === status.value ? "ring-2 ring-primary/20 scale-[1.01]" : "border-border/50"
+                            dragOverColumn === status.id ? "ring-2 ring-primary/20 scale-[1.01]" : "border-border/50"
                         )}
                         style={{
-                            backgroundColor: dragOverColumn === status.value ? `${status.color}25` : `${status.color}08`,
-                            borderColor: dragOverColumn === status.value ? status.color : `${status.color}20`
+                            backgroundColor: dragOverColumn === status.id ? `${status.color}25` : `${status.color}08`,
+                            borderColor: dragOverColumn === status.id ? status.color : `${status.color}20`
                         }}
-                        onDragOver={(e) => handleDragOver(e, status.value)}
+                        onDragOver={(e) => handleDragOver(e, status.id)}
                         onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, status.value)}
+                        onDrop={(e) => handleDrop(e, status.id)}
                     >
                         {/* Column Header */}
                         <div className="mb-4 flex items-center justify-between px-2">
@@ -352,7 +356,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                     {status.name}
                                 </h3>
                                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] justify-center px-1 font-mono text-[10px]">
-                                    {ordersByStatus[status.value]?.length || 0}
+                                    {ordersByStatus[status.id]?.length || 0}
                                 </Badge>
                             </div>
                         </div>
@@ -360,7 +364,7 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                         {/* Column Content */}
                         <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-none">
                             {
-                                ordersByStatus[status.value]?.map((order) => (
+                                ordersByStatus[status.id]?.map((order) => (
                                     <div
                                         key={order.id}
                                         draggable
@@ -439,7 +443,9 @@ export function OrderKanban({ orders, orderStatuses, themeColor = "#6366F1" }: O
                                 ))
                             }
 
-                            {(!ordersByStatus[status.value] || ordersByStatus[status.value].length === 0) && (
+
+
+                            {(!ordersByStatus[status.id] || ordersByStatus[status.id].length === 0) && (
                                 <div className="flex h-24 flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-muted/20 text-muted-foreground/40">
                                     <Package className="h-6 w-6 mb-1 opacity-20" />
                                     <span className="text-[10px] font-medium uppercase tracking-widest">Vacío</span>

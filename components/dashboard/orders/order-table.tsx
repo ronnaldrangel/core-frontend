@@ -409,13 +409,13 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
     const getStatusColor = (val: string, type: 'order' | 'payment') => {
         const statuses = type === 'order' ? orderStatuses : paymentStatuses;
-        const status = statuses.find(s => s.value === val);
+        const status = statuses.find(s => s.id === val);
         return status?.color || "#808080";
     };
 
     const getStatusName = (val: string, type: 'order' | 'payment') => {
         const statuses = type === 'order' ? orderStatuses : paymentStatuses;
-        const status = statuses.find(s => s.value === val);
+        const status = statuses.find(s => s.id === val);
         return status?.name || val;
     };
 
@@ -664,7 +664,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                     </SelectTrigger>
                                                     <SelectContent position="popper" align="start">
                                                         {orderStatuses.map((status) => (
-                                                            <SelectItem key={status.value} value={status.value}>
+                                                            <SelectItem key={status.id} value={status.id}>
                                                                 <div className="flex items-center gap-2">
                                                                     <div
                                                                         className="h-2 w-2 rounded-full"
@@ -707,7 +707,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                     </SelectTrigger>
                                                     <SelectContent position="popper" align="start">
                                                         {paymentStatuses.map((status) => (
-                                                            <SelectItem key={status.value} value={status.value}>
+                                                            <SelectItem key={status.id} value={status.id}>
                                                                 <div className="flex items-center gap-2">
                                                                     <div
                                                                         className="h-2 w-2 rounded-full"

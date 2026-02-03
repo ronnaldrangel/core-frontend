@@ -27,7 +27,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { DEPARTAMENTOS } from "@/lib/peru-locations";
 import { cn } from "@/lib/utils";
 
 interface ClientListProps {
@@ -90,13 +89,6 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
         }
     };
 
-    // Obtener el nombre del departamento por ID
-    const getDepartamentoNombre = (depId: string | null) => {
-        if (!depId) return null;
-        const dep = DEPARTAMENTOS.find(d => d.id === depId);
-        return dep?.nombre || depId;
-    };
-
     return (
         <div className="space-y-4">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -131,7 +123,6 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                                 <th className="px-4 py-3 min-w-[250px]">Cliente</th>
                                 <th className="px-4 py-3 hidden md:table-cell">Contacto</th>
                                 <th className="px-4 py-3">Tipo</th>
-                                <th className="px-4 py-3">Ubicación</th>
                                 <th className="px-4 py-3 text-right">Total Gastado</th>
                                 <th className="px-4 py-3 text-right">Acciones</th>
                             </tr>
@@ -139,7 +130,7 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                         <tbody className="divide-y">
                             {filteredClients.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                                    <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground">
                                         <div className="flex flex-col items-center gap-2">
                                             <User className="h-8 w-8 opacity-20" />
                                             <p>{searchTerm ? "No se encontraron resultados" : "No hay clientes registrados"}</p>
@@ -187,11 +178,6 @@ export function ClientList({ initialClients, workspaceId, clientTotals = {} }: C
                                             <Badge className={getBadgeColor(client.tipo_cliente)}>
                                                 {client.tipo_cliente === "persona" ? "Persona" : "Empresa"}
                                             </Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                                            <span className="line-clamp-1">
-                                                {getDepartamentoNombre(client.departamento) || "-"}
-                                            </span>
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             <div className="flex flex-col items-end">
