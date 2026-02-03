@@ -29,46 +29,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from "@/components/ui/command";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { createClient, updateClient, Client, checkDniExists, lookupDni } from "@/lib/client-actions";
-import {
-    DEPARTAMENTOS,
-    PROVINCIAS,
-    DISTRITOS,
-    getProvinciasByDepartamento,
-    getDistritosByProvincia,
-    Provincia,
-    Distrito
-} from "@/lib/peru-locations";
-import { Loader2, Check, ChevronsUpDown } from "lucide-react";
-import { PhoneInput } from "@/components/ui/phone-input";
-import type { E164Number } from "libphonenumber-js/core";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
+
+import { PhoneInput } from "@/components/ui/phone-input";
 
 const clientSchema = z.object({
     nombre_completo: z.string().min(2, "El nombre es obligatorio"),
     email: z.string().email("Email inválido").optional().or(z.literal("")),
     telefono: z.string().optional().or(z.literal("")),
-    direccion: z.string().optional().or(z.literal("")),
-    documento_identificacion: z.string().min(1, "El DNI/RUC es obligatorio"),
     tipo_cliente: z.enum(["persona", "empresa"]),
-    departamento: z.string().optional().or(z.literal("")),
-    provincia: z.string().optional().or(z.literal("")),
-    distrito: z.string().optional().or(z.literal("")),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -90,9 +62,6 @@ export function ClientModal({
 }: ClientModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [isLookingUpDni, setIsLookingUpDni] = useState(false);
-    const [provincias, setProvincias] = useState<Provincia[]>([]);
-    const [distritos, setDistritos] = useState<Distrito[]>([]);
-    const [openDepartamento, setOpenDepartamento] = useState(false);
 
     const form = useForm<ClientFormValues>({
         resolver: zodResolver(clientSchema),
@@ -100,95 +69,34 @@ export function ClientModal({
             nombre_completo: "",
             email: "",
             telefono: "",
-            direccion: "",
             documento_identificacion: "",
             tipo_cliente: "persona",
-            departamento: "",
-            provincia: "",
-            distrito: "",
         },
     });
 
     useEffect(() => {
         if (isOpen) {
             if (client) {
-                // Lógica de carga inversa: Nombres (DB) -> IDs (Formulario)
-                const depObj = DEPARTAMENTOS.find(d => d.nombre === client.departamento);
-                const depId = depObj?.id || "";
-
-                let provId = "";
-                let distId = "";
-
-                if (depId) {
-                    setProvincias(getProvinciasByDepartamento(depId));
-
-                    if (client.provincia) {
-                        const provObj = PROVINCIAS.find(p => p.nombre === client.provincia && p.departamento_id === depId);
-                        provId = provObj?.id || "";
-
-                        if (provId) {
-                            setDistritos(getDistritosByProvincia(provId));
-
-                            if (client.distrito) {
-                                const distObj = DISTRITOS.find(d => d.nombre === client.distrito && d.provincia_id === provId);
-                                distId = distObj?.id || "";
-                            }
-                        }
-                    }
-                }
-
                 form.reset({
                     nombre_completo: client.nombre_completo || "",
                     email: client.email || "",
                     telefono: client.telefono || "",
-                    direccion: client.direccion || "",
                     documento_identificacion: client.documento_identificacion || "",
                     tipo_cliente: (client.tipo_cliente as "persona" | "empresa") || "persona",
-                    departamento: depId,
-                    provincia: provId,
-                    distrito: distId,
                 });
             } else {
                 form.reset({
                     nombre_completo: "",
                     email: "",
                     telefono: "",
-                    direccion: "",
                     documento_identificacion: "",
                     tipo_cliente: "persona",
-                    departamento: "",
-                    provincia: "",
-                    distrito: "",
                 });
-                setProvincias([]);
-                setDistritos([]);
             }
         }
     }, [client, form, isOpen]);
 
-    // Manejar cambio de departamento
-    const handleDepartamentoChange = (departamentoId: string) => {
-        if (!departamentoId) {
-            setProvincias([]);
-            setDistritos([]);
-            return;
-        }
 
-        const provs = getProvinciasByDepartamento(departamentoId);
-        setProvincias(provs);
-        setDistritos([]);
-    };
-
-    // Manejar cambio de provincia
-    const handleProvinciaChange = (provinciaId: string) => {
-        if (!provinciaId) {
-            setDistritos([]);
-            return;
-        }
-
-        const dists = getDistritosByProvincia(provinciaId);
-        setDistritos(dists);
-    };
 
     // Manejar búsqueda automática de DNI
     const handleDniLookup = async (dni: string) => {
@@ -243,15 +151,8 @@ export function ClientModal({
             }
 
             // Transformar IDs a Nombres para guardar en BD
-            const nombreDepartamento = DEPARTAMENTOS.find(d => d.id === values.departamento)?.nombre || "";
-            const nombreProvincia = PROVINCIAS.find(p => p.id === values.provincia)?.nombre || "";
-            const nombreDistrito = DISTRITOS.find(d => d.id === values.distrito)?.nombre || "";
-
             const data = {
                 ...values,
-                departamento: nombreDepartamento,
-                provincia: nombreProvincia,
-                distrito: nombreDistrito,
                 workspace_id: workspaceId,
             };
 
@@ -398,164 +299,7 @@ export function ClientModal({
                             />
                         </div>
 
-                        {/* 4. Departamento - Ancho completo con buscador */}
-                        <FormField
-                            control={form.control}
-                            name="departamento"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Departamento</FormLabel>
-                                    <Popover open={openDepartamento} onOpenChange={setOpenDepartamento}>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant="outline"
-                                                    role="combobox"
-                                                    aria-expanded={openDepartamento}
-                                                    className={cn(
-                                                        "w-full justify-between",
-                                                        !field.value && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    {field.value
-                                                        ? DEPARTAMENTOS.find(
-                                                            (dep) => dep.id === field.value
-                                                        )?.nombre
-                                                        : "Selecciona departamento"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-full p-0" align="start">
-                                            <Command>
-                                                <CommandInput placeholder="Buscar departamento..." />
-                                                <CommandList>
-                                                    <CommandEmpty>No se encontró departamento.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {DEPARTAMENTOS.map((dep) => (
-                                                            <CommandItem
-                                                                value={dep.nombre}
-                                                                key={dep.id}
-                                                                onSelect={() => {
-                                                                    field.onChange(dep.id);
-                                                                    handleDepartamentoChange(dep.id);
-                                                                    form.setValue("provincia", "");
-                                                                    form.setValue("distrito", "");
-                                                                    setOpenDepartamento(false);
-                                                                }}
-                                                            >
-                                                                <Check
-                                                                    className={cn(
-                                                                        "mr-2 h-4 w-4",
-                                                                        dep.id === field.value
-                                                                            ? "opacity-100"
-                                                                            : "opacity-0"
-                                                                    )}
-                                                                />
-                                                                {dep.nombre}
-                                                            </CommandItem>
-                                                        ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
 
-                        {/* 5. Provincia (izquierda) + Distrito (derecha) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="provincia"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Provincia</FormLabel>
-                                        <Select
-                                            onValueChange={(value) => {
-                                                field.onChange(value);
-                                                handleProvinciaChange(value);
-                                                form.setValue("distrito", "");
-                                            }}
-                                            value={field.value}
-                                            disabled={!form.watch("departamento")}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue
-                                                        placeholder={
-                                                            !form.watch("departamento")
-                                                                ? "Selecciona departamento primero"
-                                                                : "Selecciona provincia"
-                                                        }
-                                                    />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {provincias.map((prov) => (
-                                                    <SelectItem key={prov.id} value={prov.id}>
-                                                        {prov.nombre}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-
-                            <FormField
-                                control={form.control}
-                                name="distrito"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Distrito</FormLabel>
-                                        <Select
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                            disabled={!form.watch("provincia")}
-                                        >
-                                            <FormControl>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue
-                                                        placeholder={
-                                                            !form.watch("provincia")
-                                                                ? "Selecciona provincia primero"
-                                                                : "Selecciona distrito"
-                                                        }
-                                                    />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {distritos.map((dist) => (
-                                                    <SelectItem key={dist.id} value={dist.id}>
-                                                        {dist.nombre}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        {/* 6. Dirección - Al final */}
-                        <FormField
-                            control={form.control}
-                            name="direccion"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Dirección</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Calle, Número, Referencia..." {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
 
                         <DialogFooter>
                             <Button
