@@ -486,11 +486,13 @@ export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor
             <Sheet open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
                 <SheetContent className="sm:max-w-[450px] overflow-y-auto w-full bg-[#121212] border-border/10 text-white p-6">
                     <div className="flex flex-col gap-10 h-full">
-                        {/* 0. Identificación del Cliente - Clean Style */}
-                        <div className="space-y-1 pt-2">
-                            <h2 className="text-xl font-semibold text-white">
+                        <SheetHeader className="text-left space-y-1 pt-2">
+                            <SheetTitle className="text-xl font-semibold text-white">
                                 {selectedOrder?.cliente_id?.nombre_completo || selectedOrder?.cliente_nombre || "Cliente Mostrador"}
-                            </h2>
+                            </SheetTitle>
+                            <SheetDescription className="sr-only">
+                                Detalles completos del pedido y estado de pago.
+                            </SheetDescription>
                             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white/50 text-xs">
                                 <div className="flex items-center gap-1.5">
                                     <User className="h-3 w-3" />
@@ -507,7 +509,7 @@ export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </SheetHeader>
 
                         {/* 1. Detalle de Productos */}
                         <div className="space-y-6">
@@ -551,10 +553,18 @@ export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor
                             </header>
 
                             <div className="space-y-4 rounded-lg bg-[#1A1A1A]/50 p-5 border border-white/[0.03]">
-                                {(selectedOrder?.departamento || selectedOrder?.provincia || selectedOrder?.distrito || selectedOrder?.direccion) && (
+                                {(selectedOrder?.departamento || selectedOrder?.provincia || selectedOrder?.distrito || selectedOrder?.direccion || selectedOrder?.fecha_entrega) && (
                                     <div className="space-y-4">
-                                        <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Localización del Pedido</div>
+                                        <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Localización y Entrega</div>
                                         <div className="space-y-3">
+                                            {selectedOrder?.fecha_entrega && (
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Fecha Entrega:</span>
+                                                    <span className="font-medium text-white uppercase text-right">
+                                                        {format(new Date(selectedOrder.fecha_entrega), "dd 'de' MMM, yyyy", { locale: es })}
+                                                    </span>
+                                                </div>
+                                            )}
                                             {selectedOrder?.departamento && (
                                                 <div className="flex justify-between items-start text-[11px]">
                                                     <span className="font-normal text-white/40 uppercase">Departamento:</span>
@@ -580,47 +590,51 @@ export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor
                                                 </div>
                                             )}
                                         </div>
-                                        <Separator className="bg-white/5 my-4" />
                                     </div>
                                 )}
 
-                                <div className="space-y-4">
-                                    <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Datos del Courier</div>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-start text-[11px]">
-                                            <span className="font-normal text-white/40 uppercase">Agencia:</span>
-                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_nombre || "---"}</span>
+                                {selectedOrder?.configurar_envio && (
+                                    <>
+                                        <Separator className="bg-white/5 my-4" />
+                                        <div className="space-y-4">
+                                            <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Datos del Courier</div>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Agencia:</span>
+                                                    <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_nombre || "---"}</span>
+                                                </div>
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Departamento:</span>
+                                                    <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_provincia_dpto || selectedOrder?.departamento || "---"}</span>
+                                                </div>
+                                                <div className="flex justify-between items-start text-[11px]">
+                                                    <span className="font-normal text-white/40 uppercase">Destino:</span>
+                                                    <span className="font-medium text-white uppercase text-right max-w-[180px]">
+                                                        {selectedOrder?.courier_destino_agencia || "---"}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between items-start text-[11px]">
-                                            <span className="font-normal text-white/40 uppercase">Departamento:</span>
-                                            <span className="font-medium text-white uppercase text-right">{selectedOrder?.courier_provincia_dpto || selectedOrder?.departamento || "---"}</span>
-                                        </div>
-                                        <div className="flex justify-between items-start text-[11px]">
-                                            <span className="font-normal text-white/40 uppercase">Destino:</span>
-                                            <span className="font-medium text-white uppercase text-right max-w-[180px]">
-                                                {selectedOrder?.courier_destino_agencia || "---"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <Separator className="bg-white/5 my-4" />
+                                        <Separator className="bg-white/5 my-4" />
 
-                                <div className="space-y-3">
-                                    <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Seguimiento</div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 flex-1 rounded bg-white/[0.03] border border-white/5 flex items-center px-3 text-[10px] font-mono text-white/40">
-                                            {selectedOrder?.courier_codigo || "Esperando guía..."}
+                                        <div className="space-y-3">
+                                            <div className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em]">Seguimiento</div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-8 flex-1 rounded bg-white/[0.03] border border-white/5 flex items-center px-3 text-[10px] font-mono text-white/40">
+                                                    {selectedOrder?.courier_codigo || "Esperando guía..."}
+                                                </div>
+                                                {selectedOrder?.ubicacion && (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" asChild>
+                                                        <a href={selectedOrder.ubicacion} target="_blank" rel="noopener noreferrer">
+                                                            <MapPinIcon className="h-4 w-4 text-white/60" />
+                                                        </a>
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
-                                        {selectedOrder?.ubicacion && (
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10" asChild>
-                                                <a href={selectedOrder.ubicacion} target="_blank" rel="noopener noreferrer">
-                                                    <MapPinIcon className="h-4 w-4 text-white/60" />
-                                                </a>
-                                            </Button>
-                                        )}
-                                    </div>
-                                </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -693,22 +707,22 @@ export function OrderKanban({ orders, orderStatuses, paymentStatuses, themeColor
 
                                 {editingAmounts[selectedOrder?.id] && (
                                     <Button
-                                        className="w-full h-9 bg-zinc-200 text-zinc-900 hover:bg-zinc-300 rounded-xl text-sm font-medium transition-all shadow-sm gap-2"
+                                        className="w-full"
                                         onClick={() => handleSaveAmounts(selectedOrder.id)}
                                         disabled={isSavingAmounts === selectedOrder.id}
                                     >
                                         {isSavingAmounts === selectedOrder.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                         ) : (
-                                            <>
+                                            <span className="flex items-center gap-2">
                                                 <CreditCard className="h-4 w-4" />
                                                 Guardar Pagos
-                                            </>
+                                            </span>
                                         )}
                                     </Button>
                                 )}
 
-                                <div className="space-y-4 pt-8">
+                                <div className="space-y-4 pt-2">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2.5 text-[10px] font-medium text-white/40 uppercase tracking-[0.15em]">
                                             <ImageIcon className="h-3.5 w-3.5" />

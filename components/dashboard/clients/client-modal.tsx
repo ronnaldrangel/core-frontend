@@ -41,6 +41,7 @@ const clientSchema = z.object({
     email: z.string().email("Email inválido").optional().or(z.literal("")),
     telefono: z.string().optional().or(z.literal("")),
     tipo_cliente: z.enum(["persona", "empresa"]),
+    documento_identificacion: z.string().optional().or(z.literal("")),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -140,7 +141,7 @@ export function ClientModal({
             // Verificar si el DNI ya existe en este workspace
             const dniExists = await checkDniExists(
                 workspaceId,
-                values.documento_identificacion,
+                values.documento_identificacion || "",
                 client?.id // Excluir el cliente actual si estamos editando
             );
 

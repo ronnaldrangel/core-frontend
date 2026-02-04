@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { Product } from "@/lib/product-actions";
-import { Client, lookupDni, createClient, getClientByDni } from "@/lib/client-actions";
+import { Client, lookupDni, createClient, getClientByDni, updateClient } from "@/lib/client-actions";
 import { createOrder, OrderItem, OrderStatus, PaymentStatus, CourierType, Order, PaymentMethod } from "@/lib/order-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -454,67 +454,50 @@ export function POSSystem({
                 return;
             }
 
-            // --- RESOLVE CLIENT ID (Find or Create) ---
+            // --- RESOLVE CLIENT ID (Find, Create or Update) ---
             let finalClientId = selectedClientId;
 
-            // Cases for Client Resolution:
-            // 1. If we have a Client ID already (found locally or returned from create previously) -> We use it
-            // 2. If no ID, but we HAVE a DNI -> Check DB. If exists, use it. If not, create it.
-            // 3. If no ID AND no DNI, but we HAVE a Name -> Create a client without DNI.
-
-            if (!finalClientId) {
-                if (clientDoc && clientDoc.length >= 8) {
-                    // Check if exists in DB by DNI
-                    const existingClient = await getClientByDni(workspaceId, clientDoc);
-                    if (existingClient) {
-                        finalClientId = existingClient.id;
-                        setClientName(existingClient.nombre_completo);
-                        setSelectedClientId(existingClient.id);
-                    } else if (clientName) {
-                        // Create from DNI + Name
-                        const newClientData = {
-                            workspace_id: workspaceId,
-                            nombre_completo: clientName,
-                            documento_identificacion: clientDoc,
-                            tipo_cliente: clientType,
-                            telefono: clientPhone,
-                            status: "active"
-                        };
-                        const { data: newClient, error } = await createClient(newClientData);
-                        if (newClient) {
-                            finalClientId = newClient.id;
-                            setSelectedClientId(newClient.id);
-                            toast.success("Cliente registrado con DNI");
-                        } else {
-                            toast.error("Error al registrar cliente con DNI: " + error);
-                            setIsProcessing(false);
-                            return;
-                        }
-                    }
-                } else if (clientName) {
-                    // Create from Name Only (No DNI)
-                    const newClientData = {
-                        workspace_id: workspaceId,
-                        nombre_completo: clientName,
-                        tipo_cliente: clientType,
-                        telefono: clientPhone,
-                        status: "active"
-                    };
-                    const { data: newClient, error } = await createClient(newClientData);
-                    if (newClient) {
-                        finalClientId = newClient.id;
-                        setSelectedClientId(newClient.id);
-                        toast.success("Cliente registrado sin DNI");
-                    } else {
-                        toast.error("Error al registrar cliente sin DNI: " + error);
-                        setIsProcessing(false);
-                        return;
-                    }
+            // 1. If not selected locally, check by DNI in DB
+            if (!finalClientId && clientDoc && clientDoc.length >= 8) {
+                const existingClient = await getClientByDni(workspaceId, clientDoc);
+                if (existingClient) {
+                    finalClientId = existingClient.id;
                 }
-            } else if (selectedClientId && clientName) {
-                // Potential Update? (For now, just use the existing ID)
-                // If the user modified the name/phone but kept the ID, we might want to updateClient here.
-                // But for simplicity in POS, we just attach to the already selected/resolved ID.
+            }
+
+            // 2. Decide if we Update or Create
+            if (finalClientId) {
+                // UPDATE: User wants to overwrite existing data with what's in the form
+                const { error: updateError } = await updateClient(finalClientId, {
+                    workspace_id: workspaceId,
+                    nombre_completo: clientName,
+                    documento_identificacion: clientDoc || null,
+                    tipo_cliente: clientType,
+                    telefono: clientPhone,
+                });
+                if (updateError) {
+                    console.error("Error updating client:", updateError);
+                    // We continue anyway as the ID is valid for the order
+                }
+            } else if (clientName) {
+                // CREATE: New client
+                const newClientData = {
+                    workspace_id: workspaceId,
+                    nombre_completo: clientName,
+                    documento_identificacion: clientDoc || null,
+                    tipo_cliente: clientType,
+                    telefono: clientPhone,
+                    status: "active"
+                };
+                const { data: newClient, error: createError } = await createClient(newClientData);
+                if (newClient) {
+                    finalClientId = newClient.id;
+                    setSelectedClientId(newClient.id);
+                } else {
+                    toast.error("Error al registrar nuevo cliente: " + createError);
+                    setIsProcessing(false);
+                    return;
+                }
             }
 
             // --- CREATE ORDER ---

@@ -835,64 +835,73 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                     </div>
                                                                 </div>
 
+                                                                {(order.departamento || order.provincia || order.distrito || order.direccion || order.ubicacion || order.fecha_entrega) && (
+                                                                    <>
+                                                                        <Separator className="bg-border/40" />
+                                                                        <div className="space-y-2">
+                                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Localización y Entrega</p>
+                                                                            <div className="space-y-2">
+                                                                                {order.fecha_entrega && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Fecha Entrega:</span>
+                                                                                        <span className="font-semibold">{format(new Date(order.fecha_entrega), "dd 'de' MMM, yyyy", { locale: es })}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.departamento && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Departamento:</span>
+                                                                                        <span className="font-semibold">{order.departamento}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.provincia && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Provincia:</span>
+                                                                                        <span className="font-semibold">{order.provincia}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.distrito && (
+                                                                                    <div className="flex justify-between items-center text-xs">
+                                                                                        <span className="text-muted-foreground">Distrito:</span>
+                                                                                        <span className="font-semibold">{order.distrito}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.direccion && (
+                                                                                    <div className="flex flex-col gap-1 text-xs">
+                                                                                        <span className="text-muted-foreground">Dirección:</span>
+                                                                                        <span className="font-semibold bg-muted/30 p-2 rounded border border-border/20">{order.direccion}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                                {order.ubicacion && (
+                                                                                    <div className="flex flex-col gap-2 pt-1">
+                                                                                        <div className="flex justify-between items-center text-xs">
+                                                                                            <span className="text-muted-foreground">Ubicación GPS / Referencia:</span>
+                                                                                        </div>
+                                                                                        <Button
+                                                                                            variant="outline"
+                                                                                            size="sm"
+                                                                                            className="w-full h-8 text-[10px] uppercase font-bold gap-2"
+                                                                                            onClick={() => {
+                                                                                                const url = order.ubicacion.startsWith('http')
+                                                                                                    ? order.ubicacion
+                                                                                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.ubicacion)}`;
+                                                                                                window.open(url, '_blank');
+                                                                                            }}
+                                                                                        >
+                                                                                            <MapPin className="h-3 w-3" />
+                                                                                            Ver Mapa
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </>
+                                                                )}
+
                                                                 {order.configurar_envio && (
                                                                     <>
                                                                         <Separator className="bg-border/40" />
                                                                         <div className="space-y-2">
-                                                                            {(order.departamento || order.provincia || order.distrito || order.direccion || order.ubicacion) && (
-                                                                                <div className="space-y-2">
-                                                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Localización del Pedido</p>
-                                                                                    <div className="space-y-2">
-                                                                                        {order.departamento && (
-                                                                                            <div className="flex justify-between items-center text-xs">
-                                                                                                <span className="text-muted-foreground">Departamento:</span>
-                                                                                                <span className="font-semibold">{order.departamento}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {order.provincia && (
-                                                                                            <div className="flex justify-between items-center text-xs">
-                                                                                                <span className="text-muted-foreground">Provincia:</span>
-                                                                                                <span className="font-semibold">{order.provincia}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {order.distrito && (
-                                                                                            <div className="flex justify-between items-center text-xs">
-                                                                                                <span className="text-muted-foreground">Distrito:</span>
-                                                                                                <span className="font-semibold">{order.distrito}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {order.direccion && (
-                                                                                            <div className="flex flex-col gap-1 text-xs">
-                                                                                                <span className="text-muted-foreground">Dirección:</span>
-                                                                                                <span className="font-semibold bg-muted/30 p-2 rounded border border-border/20">{order.direccion}</span>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {order.ubicacion && (
-                                                                                            <div className="flex flex-col gap-2 pt-1">
-                                                                                                <div className="flex justify-between items-center text-xs">
-                                                                                                    <span className="text-muted-foreground italic">Ubicación GPS / Referencia:</span>
-                                                                                                </div>
-                                                                                                <Button
-                                                                                                    variant="outline"
-                                                                                                    size="sm"
-                                                                                                    className="w-full h-8 text-[10px] uppercase font-bold gap-2"
-                                                                                                    onClick={() => {
-                                                                                                        const url = order.ubicacion.startsWith('http')
-                                                                                                            ? order.ubicacion
-                                                                                                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.ubicacion)}`;
-                                                                                                        window.open(url, '_blank');
-                                                                                                    }}
-                                                                                                >
-                                                                                                    <MapPin className="h-3 w-3" />
-                                                                                                    Ver Mapa
-                                                                                                </Button>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
-
-                                                                            <div className="pt-3 space-y-2 border-t border-border/30">
+                                                                            <div className="space-y-2">
                                                                                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Datos del Courier</p>
                                                                                 <div className="space-y-2">
                                                                                     <div className="flex justify-between items-center text-xs">
