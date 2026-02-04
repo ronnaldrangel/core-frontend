@@ -207,15 +207,18 @@ export async function acceptInvitation(invitationId: string) {
             ? (invitation.workspace_id as any).id
             : invitation.workspace_id;
 
-        // Add user as member
-        const memberResult = await addWorkspaceMember(
-            workspaceId as string,
-            session.user.id,
-            invitation.role as "admin" | "editor" | "viewer"
+        // Add user as member directly (bypassing the permission check in addWorkspaceMember 
+        // since we've already verified the invitation belongs to this user)
+        const member = await directusAdmin.request(
+            createItem("workspaces_members", {
+                workspace_id: workspaceId as string,
+                user_id: session.user.id,
+                role_id: invitation.role,
+            })
         );
 
-        if (memberResult.error) {
-            return { error: memberResult.error };
+        if (!member) {
+            return { error: "No se pudo unir al workspace" };
         }
 
         // Update invitation status
