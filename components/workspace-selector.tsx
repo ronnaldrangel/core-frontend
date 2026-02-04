@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, ChevronRight, Boxes, Mail, Check, X, Clock } from "lucide-react";
+import { Search, Plus, ChevronRight, Boxes, Mail, Check, X, Clock, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface Invitation {
     id: string;
     status: string;
     role: string;
+    role_name?: string;
     date_created: string;
     workspace_id: string | {
         id: string;
@@ -35,7 +36,7 @@ interface Invitation {
         slug: string;
         color: string;
         icon: string;
-        logo: string | null; // Added logo
+        logo: string | null;
     };
     invited_by: string | {
         id: string;
@@ -188,11 +189,11 @@ export function WorkspaceSelector({
                             return (
                                 <div
                                     key={invitation.id}
-                                    className="flex flex-row p-4 gap-4 rounded-xl border-2 border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/20"
+                                    className="group relative flex flex-col sm:flex-row p-5 gap-5 rounded-2xl border border-border bg-card/50 backdrop-blur-sm shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all duration-300"
                                 >
-                                    <div className="flex-shrink-0">
+                                    <div className="flex-shrink-0 flex items-center justify-center">
                                         <div
-                                            className="h-12 w-12 rounded-xl flex items-center justify-center text-white font-bold text-lg overflow-hidden relative shadow-sm"
+                                            className="h-14 w-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl overflow-hidden relative shadow-inner ring-4 ring-background"
                                             style={{ backgroundColor: wsInfo.color || "#6366F1" }}
                                         >
                                             {wsInfo.logo ? (
@@ -208,39 +209,54 @@ export function WorkspaceSelector({
                                         </div>
                                     </div>
 
-                                    <div className="flex-grow min-w-0 ml-2 sm:ml-4">
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                                            <h3 className="text-sm sm:text-base font-bold sm:font-semibold text-foreground truncate">
+                                    <div className="flex-grow min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                            <h3 className="text-base font-bold text-foreground">
                                                 {wsInfo.name || "Workspace"}
                                             </h3>
-                                            <span className="inline-block self-start text-[9px] sm:text-[10px] px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-bold uppercase tracking-wider">
-                                                {roleLabels[invitation.role] || invitation.role}
-                                            </span>
+                                            <div className="bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-blue-500/20">
+                                                {invitation.role_name || roleLabels[invitation.role] || "Miembro"}
+                                            </div>
                                         </div>
-                                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 truncate">
-                                            <span className="hidden sm:inline">Invitado por </span><span className="font-medium text-foreground">{inviterInfo.first_name} {inviterInfo.last_name}</span>
+                                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                            <span>Invitado por</span>
+                                            <span className="font-semibold text-foreground">
+                                                {inviterInfo.first_name} {inviterInfo.last_name}
+                                            </span>
+                                            <span className="hidden sm:inline text-muted-foreground/40 mx-1">•</span>
+                                            <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                                                <Clock className="h-3 w-3" />
+                                                {formatDate(invitation.date_created)}
+                                            </span>
                                         </p>
                                     </div>
 
-                                    <div className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2">
+                                    <div className="flex flex-row items-center justify-end gap-3 sm:self-center ml-auto w-full sm:w-auto">
                                         <Button
-                                            size="sm"
                                             variant="outline"
-                                            className="flex-1 sm:flex-none border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950"
+                                            className="w-36"
                                             onClick={() => handleRejectInvitation(invitation.id)}
                                             disabled={isPending && processingId === invitation.id}
                                         >
-                                            <X className="h-4 w-4 mr-1" />
-                                            Rechazar
+                                            {isPending && processingId === invitation.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <X className="h-4 w-4 mr-2" />
+                                            )}
+                                            {isPending && processingId === invitation.id ? "Procesando" : "Rechazar"}
                                         </Button>
                                         <Button
-                                            size="sm"
-                                            className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white"
+                                            variant="default"
+                                            className="w-36"
                                             onClick={() => handleAcceptInvitation(invitation.id)}
                                             disabled={isPending && processingId === invitation.id}
                                         >
-                                            <Check className="h-4 w-4 mr-1" />
-                                            {isPending && processingId === invitation.id ? "Procesando..." : "Aceptar"}
+                                            {isPending && processingId === invitation.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            ) : (
+                                                <Check className="h-4 w-4 mr-2" />
+                                            )}
+                                            {isPending && processingId === invitation.id ? "Espera..." : "Aceptar"}
                                         </Button>
                                     </div>
                                 </div>

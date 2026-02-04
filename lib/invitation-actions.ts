@@ -11,6 +11,7 @@ export interface WorkspaceInvitation {
     id: string;
     status: "pending" | "accepted" | "rejected";
     role: string;
+    role_name?: string;
     workspace_id: string | {
         id: string;
         name: string;
@@ -167,6 +168,27 @@ export async function getPendingInvitations() {
                 sort: ["-date_created"],
             })
         );
+
+        // Get all unique role IDs from invitations
+        const roleIds = invitations
+            .map(inv => inv.role)
+            .filter(role => role && role.length > 20); // Basic check for UUID vs short strings like "admin"
+
+        if (roleIds.length > 0) {
+            const roles = await directusAdmin.request(
+                readItems("rbac_roles", {
+                    filter: { id: { _in: roleIds } }
+                })
+            );
+
+            const roleMap = new Map(roles.map(r => [r.id, r.name]));
+
+            invitations.forEach((inv: any) => {
+                if (roleMap.has(inv.role)) {
+                    inv.role_name = roleMap.get(inv.role);
+                }
+            });
+        }
 
         return { data: invitations as WorkspaceInvitation[] };
     } catch (error: any) {
