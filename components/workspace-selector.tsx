@@ -155,6 +155,14 @@ export function WorkspaceSelector({
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <Button
+                        variant="default"
+                        className="w-full md:w-auto gap-2 font-medium"
+                        onClick={() => setIsCreateModalOpen(true)}
+                    >
+                        <Plus className="h-4 w-4" />
+                        Nuevo Workspace
+                    </Button>
                 </div>
             </div>
 
@@ -306,15 +314,22 @@ export function WorkspaceSelector({
                                 {searchTerm ? "Intenta con otro término de búsqueda." : "Aún no eres miembro de ningún workspace."}
                             </p>
                             {!searchTerm && (
-                                <p className="text-muted-foreground text-sm">
-                                    Ponte en contacto con soporte si necesitas un nuevo espacio.
-                                </p>
+                                <Button
+                                    variant="default"
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                >
+                                    Crear mi primer workspace
+                                </Button>
                             )}
                         </div>
                     )}
                 </div>
             </div>
 
+            <CreateWorkspaceModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
         </div >
     );
 }

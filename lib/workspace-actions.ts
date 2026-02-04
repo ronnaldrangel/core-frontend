@@ -278,7 +278,105 @@ export async function getWorkspaceBySlug(slug: string) {
 
 // Create a new workspace
 export async function createWorkspace(data: CreateWorkspaceData) {
-    return { error: "La creación de espacios de trabajo está restringida. Por favor, contacta con el administrador." };
+    try {
+        const session = await auth();
+        if (!session?.user?.id || !session.access_token) {
+            return { error: "No estás autenticado" };
+        }
+
+
+        // Generate base slug from name
+        const baseSlug = generateSlug(data.name);
+        let slug = baseSlug;
+        let counter = 1;
+
+        // Check if slug already exists and generate unique one
+        while (true) {
+            const existingWorkspaces = await directusAdmin.request(
+                readItems("workspaces", {
+                    filter: { slug: { _eq: slug } },
+                    limit: 1,
+                })
+            );
+
+            if (!existingWorkspaces || existingWorkspaces.length === 0) {
+                break; // Slug is unique
+            }
+
+            counter++;
+            slug = `${baseSlug}-${counter}`;
+        }
+
+        const workspace = await directusAdmin.request(
+            createItem("workspaces", {
+                name: data.name,
+                slug: slug,
+                description: data.description || null,
+                color: data.color || "#6366F1",
+                icon: data.icon || "folder",
+                logo: data.logo || null,
+                owner: session.user.id,
+                status: "published",
+                email_contacto: data.email_contacto || null,
+                telefono_contacto: data.telefono_contacto || null,
+                direccion_contacto: data.direccion_contacto || null,
+                whatsapp_name: data.whatsapp_name || null,
+                whatsapp_url: data.whatsapp_url || null,
+                whatsapp_api_key: data.whatsapp_api_key || null,
+            })
+        );
+
+        const workspaceId = workspace.id;
+
+        // Create Default Order Statuses
+        await directusAdmin.request(
+            createItems("order_statuses", [
+                { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
+                { workspace_id: workspaceId, name: "Confirmado", value: "confirmado", color: "#3B82F6", sort: 2 },
+                { workspace_id: workspaceId, name: "Preparando", value: "preparando", color: "#F59E0B", sort: 3 },
+                { workspace_id: workspaceId, name: "Enviado", value: "enviado", color: "#8B5CF6", sort: 4 },
+                { workspace_id: workspaceId, name: "Entregado", value: "entregado", color: "#10B981", sort: 5 },
+                { workspace_id: workspaceId, name: "Cancelado", value: "cancelado", color: "#EF4444", sort: 6 },
+            ])
+        );
+
+        // Create Default Payment Statuses
+        await directusAdmin.request(
+            createItems("payment_statuses", [
+                { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
+                { workspace_id: workspaceId, name: "Pagado", value: "pagado", color: "#10B981", sort: 2 },
+            ])
+        );
+
+        // Create Default Courier Types
+        await directusAdmin.request(
+            createItems("courier_types", [
+                { workspace_id: workspaceId, name: "Shalom", value: "SHALOM", color: "#F59E0B", sort: 1 },
+                { workspace_id: workspaceId, name: "Olva Courier", value: "OLVA", color: "#EF4444", sort: 2 },
+                { workspace_id: workspaceId, name: "Marvisur", value: "MARVISUR", color: "#3B82F6", sort: 3 },
+                { workspace_id: workspaceId, name: "Motorizado", value: "MOTORIZADO", color: "#10B981", sort: 4 },
+                { workspace_id: workspaceId, name: "Courier Propio", value: "PROPIO", color: "#6366F1", sort: 5 },
+            ])
+        );
+
+        // Create Default Payment Methods
+        await directusAdmin.request(
+            createItems("payment_methods", [
+                { workspace_id: workspaceId, name: "Yape", value: "YAPE", color: "#830E9B", sort: 1 },
+                { workspace_id: workspaceId, name: "Plin", value: "PLIN", color: "#00CED1", sort: 2 },
+                { workspace_id: workspaceId, name: "Transferencia Bancaria", value: "TRANSFERENCIA", color: "#3B82F6", sort: 3 },
+                { workspace_id: workspaceId, name: "Efectivo", value: "EFECTIVO", color: "#10B981", sort: 4 },
+            ])
+        );
+
+        revalidatePath("/workspaces");
+
+        return { success: true, data: workspace };
+    } catch (error: any) {
+        console.error("Error creating workspace:", error);
+        const detail = error.errors?.[0]?.message || error.message || "Error desconocido";
+        return { error: `Error al crear el workspace: ${detail}` };
+    }
 }
 
 // Update a workspace
