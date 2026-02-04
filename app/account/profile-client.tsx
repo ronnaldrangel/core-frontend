@@ -316,27 +316,6 @@ export function ProfileClient({ profile, directusUrl }: ProfileClientProps) {
                 </CardContent>
             </Card>
 
-            {/* Account Info */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Información de la Cuenta</CardTitle>
-                    <CardDescription>
-                        Detalles técnicos de tu cuenta
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span className="text-muted-foreground">ID de usuario:</span>
-                            <p className="font-mono text-xs mt-1 bg-muted p-2 rounded">{profile.id}</p>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground">Email verificado:</span>
-                            <p className="mt-1">{profile.email}</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
 
 
