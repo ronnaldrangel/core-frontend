@@ -1,5 +1,5 @@
 import { getOrderStatuses } from "@/lib/order-actions";
-import { OrderStatusMessages } from "@/components/dashboard/orders/order-status-messages";
+import { OrderStatusMessages } from "@/components/dashboard/orders/order-messages-config";
 import { redirect } from "next/navigation";
 import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 
