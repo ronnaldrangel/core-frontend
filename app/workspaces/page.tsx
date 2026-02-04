@@ -14,27 +14,6 @@ export default async function WorkspacesPage() {
         redirect("/login");
     }
 
-    // Default to strict false
-    let hasPaid = false;
-    const isAdmin = session.user.role?.name?.toLowerCase().includes("admin") || false;
-
-    try {
-        const userData = await directusAdmin.request(
-            readUser(session.user.id, {
-                fields: ["has_paid"]
-            })
-        );
-
-        if (userData) {
-            hasPaid = (userData as any).has_paid === true;
-        }
-    } catch (error) {
-        console.error("Error fetching latest user status:", error);
-        hasPaid = false;
-    }
-
-    // Admins bypass the paid check
-    const finalHasPaid = isAdmin || hasPaid;
 
     const { workspaces, error } = await getUserWorkspaces();
     const { data: pendingInvitations } = await getPendingInvitations();
@@ -52,7 +31,6 @@ export default async function WorkspacesPage() {
                     pendingInvitations={safeInvitations}
                     userName={session.user.first_name || ""}
                     userEmail={session.user.email || ""}
-                    hasPaid={finalHasPaid}
                 />
             </main>
         </div>
