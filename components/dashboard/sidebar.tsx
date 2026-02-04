@@ -131,6 +131,11 @@ export function Sidebar({
             href: `/dashboard/${currentWorkspaceId}/orders/analytics`,
             permission: "orders.read",
         },
+        {
+            title: "Configurar Mensajes",
+            href: `/dashboard/${currentWorkspaceId}/orders/messages`,
+            permission: "settings.manage",
+        },
     ];
 
     // Filter items based on permissions

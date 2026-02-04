@@ -148,6 +148,28 @@ export interface OrderStatus {
     value: string;
     color: string;
     sort?: number;
+    default_message?: string;
+}
+
+export async function updateOrderStatus(id: string, data: Partial<OrderStatus>) {
+    try {
+        const statusRecord = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
+        if (!statusRecord) return { data: null, error: "Estado no encontrado" };
+
+        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
+        }
+
+        const status = await directusAdmin.request(
+            updateItem("order_statuses", id, data)
+        );
+        revalidatePath(`/dashboard`);
+        return { data: status, error: null };
+    } catch (error: any) {
+        console.error("Error updating order status:", error);
+        return { data: null, error: "Error al actualizar el estado de pedido" };
+    }
 }
 
 export async function getOrderStatuses(workspaceId: string) {
