@@ -8,9 +8,7 @@ import {
 } from "@/lib/workspace-actions";
 import {
     sendInvitation,
-    getWorkspacePendingInvitations,
-    cancelInvitation,
-    WorkspaceInvitation
+    cancelInvitation
 } from "@/lib/invitation-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -145,9 +143,8 @@ export function MembersClient({
             if (result.error) {
                 toast.error(result.error);
             } else {
-                toast.success("Invitación enviada exitosamente. El usuario verá la invitación en su página de workspaces.");
+                toast.success("Invitación enviada exitosamente.");
                 setInviteEmail("");
-                setInviteRole("viewer");
                 setIsInviteOpen(false);
                 router.refresh();
             }
@@ -252,7 +249,6 @@ export function MembersClient({
                                 <DialogTitle>Invitar nuevo miembro</DialogTitle>
                                 <DialogDescription>
                                     Ingresa el email del usuario que deseas invitar.
-                                    Recibirá una invitación que podrá aceptar o rechazar.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
@@ -277,42 +273,18 @@ export function MembersClient({
                                             <SelectValue placeholder="Selecciona un rol" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {/* Legacy roles for backward compatibility if needed, but primarily rbacRoles */}
-                                            {rbacRoles.length > 0 ? (
-                                                rbacRoles.map((role) => {
-                                                    const isViewer = role.name.toLowerCase().includes("viewer") || role.name.toLowerCase().includes("visualizador");
-                                                    const isAdminRole = role.name.toLowerCase().includes("admin");
-                                                    const isEditor = role.name.toLowerCase().includes("editor");
-
-                                                    return (
-                                                        <SelectItem key={role.id} value={role.id}>
-                                                            <div className="flex items-center gap-2">
-                                                                {isAdminRole ? <Shield className="h-4 w-4 text-blue-500" /> :
-                                                                    isEditor ? <Edit className="h-4 w-4 text-green-500" /> :
-                                                                        <Eye className="h-4 w-4 text-gray-500" />}
-                                                                {role.name}
-                                                            </div>
-                                                        </SelectItem>
-                                                    );
-                                                })
-                                            ) : (
-                                                <>
-                                                    <SelectItem value="viewer">Visualizador</SelectItem>
-                                                    <SelectItem value="editor">Editor</SelectItem>
-                                                    <SelectItem value="admin">Administrador</SelectItem>
-                                                </>
-                                            )}
+                                            {rbacRoles.map((role) => (
+                                                <SelectItem key={role.id} value={role.id}>
+                                                    {role.name}
+                                                </SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setIsInviteOpen(false)}>
-                                    Cancelar
-                                </Button>
-                                <Button onClick={handleInvite} disabled={isPending}>
-                                    {isPending ? "Enviando..." : "Enviar Invitación"}
-                                </Button>
+                                <Button variant="outline" onClick={() => setIsInviteOpen(false)}>Cancelar</Button>
+                                <Button onClick={handleInvite} disabled={isPending}>Enviar Invitación</Button>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -360,19 +332,14 @@ export function MembersClient({
                                             Propietario
                                         </div>
                                     </td>
-                                    <td className="px-4 py-3 text-right">
-                                        {/* No actions for owner usually */}
-                                    </td>
+                                    <td className="px-4 py-3 text-right"></td>
                                 </tr>
 
                                 {/* Other Members */}
                                 {members.map((member) => {
                                     const info = getMemberInfo(member);
-                                    const roleName = typeof member.role_id === 'object' ? member.role_id.name : 'viewer';
-                                    const normalizedRole = roleName.toLowerCase().includes('admin') ? 'admin' : roleName.toLowerCase().includes('editor') ? 'editor' : 'viewer';
-                                    const roleInfo = roleLabels[normalizedRole] || roleLabels.viewer;
-                                    const RoleIcon = roleInfo.icon;
                                     const isCurrentUser = info.id === currentUserId;
+                                    const roleName = member.role_id?.name || 'Visualizador';
 
                                     return (
                                         <tr key={member.id} className="hover:bg-muted/30 transition-colors group">
@@ -395,16 +362,8 @@ export function MembersClient({
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className={cn(
-                                                    "inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border",
-                                                    (member.role_id?.name || 'viewer').toLowerCase().includes('admin') ? "bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
-                                                        (member.role_id?.name || 'viewer').toLowerCase().includes('editor') ? "bg-green-50 text-green-700 border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" :
-                                                            "bg-gray-50 text-gray-700 border-gray-100 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-800"
-                                                )}>
-                                                    {((member.role_id?.name || 'viewer').toLowerCase().includes('admin')) ? <Shield className="h-3.5 w-3.5" /> :
-                                                        ((member.role_id?.name || 'viewer').toLowerCase().includes('editor')) ? <Edit className="h-3.5 w-3.5" /> :
-                                                            <Eye className="h-3.5 w-3.5" />}
-                                                    {member.role_id?.name || 'Visualizador'}
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                                                    {roleName}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
@@ -421,14 +380,13 @@ export function MembersClient({
                                                                     setMemberToEdit(member);
                                                                     setEditRole(member.role_id?.id || member.role_id);
                                                                 }}
-                                                                className="cursor-pointer"
                                                             >
                                                                 <Edit className="h-4 w-4 mr-2" />
                                                                 Cambiar rol
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
                                                             <DropdownMenuItem
-                                                                className="text-destructive focus:text-destructive cursor-pointer"
+                                                                className="text-destructive focus:text-destructive"
                                                                 onClick={() => setMemberToDelete(member)}
                                                             >
                                                                 <Trash2 className="h-4 w-4 mr-2" />
@@ -447,14 +405,92 @@ export function MembersClient({
                 </CardContent>
             </Card>
 
-            {/* Edit Role Dialog */}
+            {/* Pending Invitations Section */}
+            <div>
+                <div className="flex items-center gap-2 mb-4 mt-8">
+                    <Clock className="h-5 w-5 text-muted-foreground" />
+                    <h2 className="text-xl font-bold tracking-tight">Invitaciones Pendientes</h2>
+                </div>
+
+                <Card>
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left border-collapse">
+                                <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
+                                    <tr>
+                                        <th className="px-4 py-3 min-w-[280px]">Email</th>
+                                        <th className="px-4 py-3">Rol Invitado</th>
+                                        <th className="px-4 py-3">Fecha</th>
+                                        <th className="px-4 py-3 text-right">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {pendingInvitations.length > 0 ? (
+                                        pendingInvitations.map((invitation) => {
+                                            const roleId = typeof invitation.role === 'object' ? (invitation.role as any).id : invitation.role;
+                                            const roleName = rbacRoles.find(r => r.id === roleId)?.name || 'viewer';
+
+                                            return (
+                                                <tr key={invitation.id} className="hover:bg-muted/30 transition-colors group">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-9 w-9 bg-muted/50 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-muted-foreground border border-dashed">
+                                                                ?
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-foreground">
+                                                                    {typeof invitation.invited_user_id === 'object'
+                                                                        ? invitation.invited_user_id?.email
+                                                                        : invitation.invited_user_id}
+                                                                </span>
+                                                                <span className="text-[10px] text-blue-500 font-semibold uppercase tracking-wider">Esperando respuesta</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border bg-gray-50 text-gray-700">
+                                                            {roleName}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                                                        {formatDate(invitation.date_created)}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        {isAdmin && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+                                                                onClick={() => setInvitationToCancel(invitation)}
+                                                                disabled={isPending}
+                                                            >
+                                                                <X className="h-3.5 w-3.5" />
+                                                                Cancelar
+                                                            </Button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">
+                                                No hay invitaciones pendientes.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Dialogs */}
             <Dialog open={!!memberToEdit} onOpenChange={(open) => !open && setMemberToEdit(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Cambiar rol del miembro</DialogTitle>
-                        <DialogDescription>
-                            Selecciona el nuevo rol para {memberToEdit ? getMemberInfo(memberToEdit).name : ''}
-                        </DialogDescription>
+                        <DialogTitle>Cambiar rol</DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <Select value={editRole} onValueChange={(v) => setEditRole(v)}>
@@ -462,83 +498,41 @@ export function MembersClient({
                                 <SelectValue placeholder="Selecciona un rol" />
                             </SelectTrigger>
                             <SelectContent>
-                                {rbacRoles.length > 0 ? (
-                                    rbacRoles.map((role) => {
-                                        const isAdminRole = role.name.toLowerCase().includes("admin");
-                                        const isEditor = role.name.toLowerCase().includes("editor");
-
-                                        return (
-                                            <SelectItem key={role.id} value={role.id}>
-                                                <div className="flex items-center gap-2">
-                                                    {isAdminRole ? <Shield className="h-4 w-4 text-blue-500" /> :
-                                                        isEditor ? <Edit className="h-4 w-4 text-green-500" /> :
-                                                            <Eye className="h-4 w-4 text-gray-500" />}
-                                                    {role.name}
-                                                </div>
-                                            </SelectItem>
-                                        );
-                                    })
-                                ) : (
-                                    <>
-                                        <SelectItem value="viewer">Visualizador</SelectItem>
-                                        <SelectItem value="editor">Editor</SelectItem>
-                                        <SelectItem value="admin">Administrador</SelectItem>
-                                    </>
-                                )}
+                                {rbacRoles.map((role) => (
+                                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setMemberToEdit(null)}>
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleRoleChange} disabled={isPending}>
-                            {isPending ? "Guardando..." : "Guardar cambios"}
-                        </Button>
+                        <Button variant="outline" onClick={() => setMemberToEdit(null)}>Cancelar</Button>
+                        <Button onClick={handleRoleChange} disabled={isPending}>Guardar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* Delete Member Confirmation */}
             <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Eliminar miembro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta acción eliminará a {memberToDelete ? getMemberInfo(memberToDelete).name : ''} del workspace.
-                            El usuario perderá todo acceso.
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Esta acción eliminará al miembro del workspace.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleRemoveMember}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isPending ? "Eliminando..." : "Eliminar"}
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={handleRemoveMember} className="bg-destructive text-white">Eliminar</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Cancel Invitation Confirmation */}
             <AlertDialog open={!!invitationToCancel} onOpenChange={(open) => !open && setInvitationToCancel(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Cancelar invitación?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Esta acción cancelará la invitación enviada a {invitationToCancel?.invited_user_id?.email}.
-                            El usuario ya no podrá unirse al workspace con esta invitación.
-                        </AlertDialogDescription>
+                        <AlertDialogDescription>Esta invitación será cancelada permanentemente.</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Mantener</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={handleCancelInvitation}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        >
-                            {isPending ? "Cancelando..." : "Cancelar invitación"}
-                        </AlertDialogAction>
+                        <AlertDialogAction onClick={handleCancelInvitation} className="bg-destructive text-white">Cancelar invitación</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
