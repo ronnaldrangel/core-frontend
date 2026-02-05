@@ -23,9 +23,9 @@ export default async function MembersPage({ params }: MembersPageProps) {
     // Check permissions
     const permissions = await getMyPermissions(workspace.id);
     const isOwner = permissions.includes("*");
-    const canManageMembers = isOwner || permissions.includes("settings.manage");
+    const canViewMembers = isOwner || permissions.includes("settings.manage") || permissions.includes("members.read");
 
-    if (!canManageMembers) {
+    if (!canViewMembers) {
         redirect(`/dashboard/${workspaceId}`);
     }
 

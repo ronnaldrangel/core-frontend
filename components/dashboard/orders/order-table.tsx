@@ -56,6 +56,7 @@ import { deleteOrder, updateOrder, OrderStatus, PaymentStatus, CourierType } fro
 import { uploadFile } from "@/lib/product-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useRBAC } from "@/components/providers/rbac-provider";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -99,6 +100,10 @@ type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | 
 
 
 export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, themeColor = "#6366F1" }: OrderTableProps) {
+    const { hasPermission } = useRBAC();
+    const canUpdate = hasPermission("orders.update");
+    const canDelete = hasPermission("orders.delete");
+
     const [localOrders, setLocalOrders] = useState(orders);
     const [searchQuery, setSearchQuery] = useState("");
     const [datePreset, setDatePreset] = useState<DatePreset>("today");
@@ -650,6 +655,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                             toast.error(result.error || "Error al actualizar");
                                                         }
                                                     }}
+                                                    disabled={!canUpdate}
                                                 >
                                                     <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
                                                         <div className="flex items-center gap-2">
@@ -693,6 +699,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                             toast.error(result.error || "Error al actualizar");
                                                         }
                                                     }}
+                                                    disabled={!canUpdate}
                                                 >
                                                     <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
                                                         <div className="flex items-center gap-2">
@@ -770,13 +777,15 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                 Guía de Envío
                                                             </DropdownMenuItem>
                                                             <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                onClick={() => setOrderToDelete(order.id)}
-                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                                            >
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Eliminar
-                                                            </DropdownMenuItem>
+                                                            {canDelete && (
+                                                                <DropdownMenuItem
+                                                                    onClick={() => setOrderToDelete(order.id)}
+                                                                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                                    Eliminar
+                                                                </DropdownMenuItem>
+                                                            )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </div>
@@ -1014,13 +1023,17 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                         type="number"
                                                                                         step="0.01"
                                                                                         placeholder="0.00"
+                                                                                        readOnly={!canUpdate}
                                                                                         value={
                                                                                             editingAmounts[order.id]?.monto_adelanto !== undefined
                                                                                                 ? (editingAmounts[order.id]?.monto_adelanto === '0' || editingAmounts[order.id]?.monto_adelanto === '0.00' ? '' : editingAmounts[order.id]?.monto_adelanto)
                                                                                                 : (order.monto_adelanto && Number(order.monto_adelanto) > 0 ? Number(order.monto_adelanto).toFixed(2) : '')
                                                                                         }
                                                                                         onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
-                                                                                        className="h-10 pl-8 text-sm font-medium"
+                                                                                        className={cn(
+                                                                                            "h-10 pl-8 text-sm font-medium",
+                                                                                            !canUpdate && "bg-muted cursor-not-allowed"
+                                                                                        )}
                                                                                     />
                                                                                 </div>
                                                                             </div>
@@ -1043,7 +1056,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                 </div>
                                                                             </div>
                                                                         </div>
-                                                                        {editingAmounts[order.id] && (
+                                                                        {editingAmounts[order.id] && canUpdate && (
                                                                             <Button
                                                                                 onClick={() => handleSaveAmounts(order.id)}
                                                                                 disabled={isSavingAmounts === order.id}
@@ -1069,30 +1082,32 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                 Comprobantes de Adelanto
                                                                             </div>
 
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                                    type="file"
-                                                                                    id={`history-voucher-${order.id}`}
-                                                                                    className="hidden"
-                                                                                    accept="image/*"
-                                                                                    onChange={(e) => handleVoucherUpload(e, order)}
-                                                                                    disabled={isUploadingVoucher === order.id}
-                                                                                />
-                                                                                <Label
-                                                                                    htmlFor={`history-voucher-${order.id}`}
-                                                                                    className={cn(
-                                                                                        "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
-                                                                                        isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
-                                                                                    )}
-                                                                                >
-                                                                                    {isUploadingVoucher === order.id ? (
-                                                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                    ) : (
-                                                                                        <Plus className="h-3 w-3" />
-                                                                                    )}
-                                                                                    Subir Más
-                                                                                </Label>
-                                                                            </div>
+                                                                            {canUpdate && (
+                                                                                <div className="relative">
+                                                                                    <Input
+                                                                                        type="file"
+                                                                                        id={`history-voucher-${order.id}`}
+                                                                                        className="hidden"
+                                                                                        accept="image/*"
+                                                                                        onChange={(e) => handleVoucherUpload(e, order)}
+                                                                                        disabled={isUploadingVoucher === order.id}
+                                                                                    />
+                                                                                    <Label
+                                                                                        htmlFor={`history-voucher-${order.id}`}
+                                                                                        className={cn(
+                                                                                            "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
+                                                                                            isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
+                                                                                        )}
+                                                                                    >
+                                                                                        {isUploadingVoucher === order.id ? (
+                                                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                                                        ) : (
+                                                                                            <Plus className="h-3 w-3" />
+                                                                                        )}
+                                                                                        Subir Más
+                                                                                    </Label>
+                                                                                </div>
+                                                                            )}
                                                                         </div>
 
                                                                         {order.voucher && (Array.isArray(order.voucher) ? order.voucher.length > 0 : !!order.voucher) ? (
@@ -1120,13 +1135,15 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                                                     >
                                                                                                         <ExternalLink className="h-4 w-4 text-white" />
                                                                                                     </a>
-                                                                                                    <button
-                                                                                                        onClick={() => handleRemoveVoucher(order, fileId)}
-                                                                                                        className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
-                                                                                                        title="Eliminar comprobante"
-                                                                                                    >
-                                                                                                        <X className="h-4 w-4 text-white" />
-                                                                                                    </button>
+                                                                                                    {canUpdate && (
+                                                                                                        <button
+                                                                                                            onClick={() => handleRemoveVoucher(order, fileId)}
+                                                                                                            className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
+                                                                                                            title="Eliminar comprobante"
+                                                                                                        >
+                                                                                                            <X className="h-4 w-4 text-white" />
+                                                                                                        </button>
+                                                                                                    )}
                                                                                                 </div>
                                                                                             </div>
                                                                                         );
