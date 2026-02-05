@@ -53,7 +53,8 @@ export function Sidebar({
     const pathname = usePathname();
     const { hasPermission, isLoading } = useRBAC();
     const [productosOpen, setProductosOpen] = useState(pathname.includes("/products") || pathname.includes("/categories"));
-    const [pedidosOpen, setPedidosOpen] = useState(pathname.includes("/orders"));
+    const [pedidosOpen, setPedidosOpen] = useState(pathname.includes("/orders") && !pathname.includes("/messages"));
+    const [settingsOpen, setSettingsOpen] = useState(pathname.includes("/settings") || pathname.includes("/messages"));
 
     const logoUrl = workspaceLogo
         ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${workspaceLogo}`
@@ -94,12 +95,6 @@ export function Sidebar({
             icon: Banknote,
             permission: "cashbox.read",
         },
-        {
-            title: "Configuración",
-            href: `/dashboard/${currentWorkspaceId}/settings`,
-            icon: Settings,
-            permission: "settings.manage",
-        },
     ];
 
     const productosSubItems = [
@@ -131,8 +126,16 @@ export function Sidebar({
             href: `/dashboard/${currentWorkspaceId}/orders/analytics`,
             permission: "orders.update",
         },
+    ];
+
+    const settingsSubItems = [
         {
-            title: "Configurar Mensajes",
+            title: "General",
+            href: `/dashboard/${currentWorkspaceId}/settings`,
+            permission: "settings.manage",
+        },
+        {
+            title: "Mensajes",
             href: `/dashboard/${currentWorkspaceId}/orders/messages`,
             permission: "settings.manage",
         },
@@ -158,6 +161,12 @@ export function Sidebar({
     );
 
     const hasPedidosAccess = visiblePedidosSubItems.length > 0;
+
+    const visibleSettingsSubItems = settingsSubItems.filter(item =>
+        !item.permission || hasPermission(item.permission)
+    );
+
+    const hasSettingsAccess = visibleSettingsSubItems.length > 0;
 
     const content = (
         <div className="flex h-full max-h-screen flex-col gap-2">
@@ -339,6 +348,54 @@ export function Sidebar({
                             </Link>
                         );
                     })}
+
+                    {/* Configuración Dropdown */}
+                    {hasSettingsAccess && (
+                        <div className="space-y-1">
+                            <button
+                                onClick={() => setSettingsOpen(!settingsOpen)}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
+                                    pathname.includes("/settings") || pathname.includes("/messages")
+                                        ? "bg-muted text-primary"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                <Settings className="h-4 w-4" />
+                                <span className="flex-1 text-left">Configuración</span>
+                                <ChevronDown
+                                    className={cn(
+                                        "h-4 w-4 transition-transform duration-200",
+                                        settingsOpen ? "rotate-180" : ""
+                                    )}
+                                />
+                            </button>
+
+                            {/* Sub-items de Configuración */}
+                            {settingsOpen && (
+                                <div className="ml-4 space-y-1">
+                                    {visibleSettingsSubItems.map((subItem) => {
+                                        const isActive = pathname === subItem.href;
+                                        return (
+                                            <Link
+                                                key={subItem.href}
+                                                href={subItem.href}
+                                                onClick={onItemClick}
+                                                className={cn(
+                                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
+                                                    isActive
+                                                        ? "bg-muted text-primary"
+                                                        : "text-muted-foreground"
+                                                )}
+                                            >
+                                                {subItem.title}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </nav>
             </div>
         </div>

@@ -43,7 +43,11 @@ import {
     Loader2,
     Camera,
     X,
-    MoreVertical
+    MoreVertical,
+    MessageSquare,
+    Send,
+    Settings,
+    Upload
 } from "lucide-react";
 import Image from "next/image";
 import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
@@ -73,6 +77,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import {
     Select,
@@ -120,42 +125,70 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
     const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [orderToEdit, setOrderToEdit] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isUploadingVoucher, setIsUploadingVoucher] = useState<string | null>(null);
     const [editingAmounts, setEditingAmounts] = useState<Record<string, { monto_adelanto?: string; monto_faltante?: string }>>({});
     const [isSavingAmounts, setIsSavingAmounts] = useState<string | null>(null);
+    const [noteDraft, setNoteDraft] = useState("");
+    const [isSavingNote, setIsSavingNote] = useState(false);
+
+    // Update noteDraft when selectedOrder changes
+    useEffect(() => {
+        if (selectedOrder) {
+            setNoteDraft(selectedOrder.notas || "");
+        }
+    }, [selectedOrder]);
+
+    const handleSaveNote = async () => {
+        if (!selectedOrder || isSavingNote) return;
+
+        try {
+            setIsSavingNote(true);
+            const result = await updateOrder(selectedOrder.id, { notas: noteDraft });
+
+            if (result.data) {
+                toast.success("Comentario guardado");
+                // Update local orders
+                setLocalOrders(prev => prev.map(o =>
+                    o.id === selectedOrder.id ? { ...o, notas: noteDraft } : o
+                ));
+                // Update selected order reference
+                setSelectedOrder((prev: any) => prev ? { ...prev, notas: noteDraft } : null);
+            } else {
+                toast.error(result.error || "Error al guardar comentario");
+            }
+        } catch (error) {
+            toast.error("Error al guardar comentario");
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
 
     const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>, order: any) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
         try {
             setIsUploadingVoucher(order.id);
-            const formData = new FormData();
-            formData.append("file", file);
-
-            const uploadResult = await uploadFile(formData);
-            if (uploadResult.error || !uploadResult.data) {
-                toast.error(`Error al subir imagen: ${uploadResult.error}`);
-                return;
-            }
-
-            const newVoucherId = (uploadResult.data as any).id;
-
-            // Obtener vouchers actuales
-            const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
-
-            // Preparar el array para Directus M2M
-            // Nota: order.voucher viene del readItems con fields "voucher.*", 
-            // así que ya son objetos de la tabla intermedia si se cargaron bien, 
-            // o IDs si no se expandieron. Pero en lib/order-history-actions.ts pusimos "voucher.*".
-
-            const junctionItems = currentVouchers.map((v: any) => ({
+            const junctionItems = [...(Array.isArray(order.voucher) ? order.voucher : [])].map((v: any) => ({
                 directus_files_id: typeof v === 'object' ? v.directus_files_id : v
             }));
 
-            // Agregar el nuevo
-            junctionItems.push({ directus_files_id: newVoucherId });
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append("file", file);
+
+                const uploadResult = await uploadFile(formData);
+                if (uploadResult.error || !uploadResult.data) {
+                    toast.error(`Error al subir ${file.name}: ${uploadResult.error}`);
+                    continue;
+                }
+
+                const newVoucherId = (uploadResult.data as any).id;
+                junctionItems.push({ directus_files_id: newVoucherId });
+            }
 
             const updateResult = await updateOrder(order.id, {
                 voucher: junctionItems
@@ -164,7 +197,15 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
             if (updateResult.error) {
                 toast.error(`Error al actualizar la orden: ${updateResult.error}`);
             } else {
-                toast.success("Comprobante agregado correctamente");
+                toast.success(`${files.length > 1 ? files.length + ' comprobantes agregados' : 'Comprobante agregado'} correctamente`);
+
+                if (selectedOrder?.id === order.id) {
+                    setSelectedOrder({ ...selectedOrder, voucher: junctionItems });
+                }
+                if (orderToEdit?.id === order.id) {
+                    setOrderToEdit({ ...orderToEdit, voucher: junctionItems });
+                }
+                setLocalOrders(prev => prev.map(o => o.id === order.id ? { ...o, voucher: junctionItems } : o));
             }
         } catch (error: any) {
             toast.error("Error al procesar la subida");
@@ -177,10 +218,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
     const handleRemoveVoucher = async (order: any, fileId: string) => {
         try {
-            // Obtener vouchers actuales
             const currentVouchers = Array.isArray(order.voucher) ? order.voucher : [];
-
-            // Filtrar el que queremos eliminar
             const junctionItems = currentVouchers
                 .map((v: any) => ({
                     directus_files_id: typeof v === 'object' ? v.directus_files_id : v
@@ -195,6 +233,14 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                 toast.error(`Error al eliminar: ${result.error}`);
             } else {
                 toast.success("Comprobante eliminado");
+
+                if (selectedOrder?.id === order.id) {
+                    setSelectedOrder({ ...selectedOrder, voucher: junctionItems });
+                }
+                if (orderToEdit?.id === order.id) {
+                    setOrderToEdit({ ...orderToEdit, voucher: junctionItems });
+                }
+                setLocalOrders(prev => prev.map(o => o.id === order.id ? { ...o, voucher: junctionItems } : o));
             }
         } catch (error) {
             toast.error("Error al eliminar el comprobante");
@@ -207,6 +253,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
             ...prev,
             [id]: !prev[id]
         }));
+    };
+
+    const handleOpenDetails = (order: any) => {
+        setSelectedOrder(order);
     };
 
     const handleAmountChange = (orderId: string, field: 'monto_adelanto' | 'monto_faltante', value: string, orderTotal: number) => {
@@ -223,6 +273,15 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
             faltante = value;
             const calculatedAdelanto = Math.max(0, orderTotal - numValue);
             adelanto = calculatedAdelanto.toFixed(2);
+        }
+
+        const numericAdelanto = parseFloat(adelanto) || 0;
+        const numericFaltante = parseFloat(faltante) || 0;
+
+        // Actualización optimista para reflejar cambios al instante en la UI global
+        setLocalOrders(prev => prev.map(o => o.id === orderId ? { ...o, monto_adelanto: numericAdelanto, monto_faltante: numericFaltante } : o));
+        if (selectedOrder?.id === orderId) {
+            setSelectedOrder((prev: any) => ({ ...prev, monto_adelanto: numericAdelanto, monto_faltante: numericFaltante }));
         }
 
         setEditingAmounts(prev => ({
@@ -442,734 +501,575 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
     };
 
     return (
-        <div className="space-y-4">
-            {/* Filtros y Buscador - Una sola fila */}
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-                {/* Buscador */}
-                <div className="relative flex-1 min-w-[250px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
-                    <Input
-                        placeholder="Buscar pedido..."
-                        className="pl-10 h-10 bg-muted/10 border-border/40 focus:bg-background/50 transition-all rounded-lg"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
+        <div className="flex flex-col h-full gap-4">
+            <div className="flex flex-1 gap-4 overflow-hidden">
+                <div className={cn(
+                    "flex flex-col gap-4 transition-all duration-300 ease-in-out",
+                    selectedOrder ? "w-[60%] lg:w-[70%]" : "w-full"
+                )}>
+                    {/* Filtros y Buscador - Una sola fila */}
+                    <div className="flex flex-wrap items-center gap-3 mb-6">
+                        {/* Buscador */}
+                        <div className="relative flex-1 min-w-[250px]">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+                            <Input
+                                placeholder="Buscar pedido..."
+                                className="pl-10 h-10 bg-muted/10 border-border/40 focus:bg-background/50 transition-all rounded-lg"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Filtro de Fecha */}
+                        <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
+                            <SelectTrigger className="h-10 w-[160px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                                <SelectValue placeholder="Fecha" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                                <SelectItem value="today">Hoy</SelectItem>
+                                <SelectItem value="yesterday">Ayer</SelectItem>
+                                <SelectItem value="3days">Últimos 3 días</SelectItem>
+                                <SelectItem value="7days">Últimos 7 días</SelectItem>
+                                <SelectItem value="month">Este mes</SelectItem>
+                                <SelectItem value="all">Todas las fechas</SelectItem>
+                                <SelectItem value="custom">Rango personalizado</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Inputs personalizados de fecha */}
+                        {datePreset === "custom" && (
+                            <>
+                                <Input
+                                    type="date"
+                                    placeholder="Desde"
+                                    className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                />
+                                <Input
+                                    type="date"
+                                    placeholder="Hasta"
+                                    className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                />
+                            </>
+                        )}
+
+                        {/* Departamento */}
+                        <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                                <SelectValue placeholder="Departamento" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                                <SelectItem value="all">Todos los dptos.</SelectItem>
+                                <SelectItem value="lima">Lima</SelectItem>
+                                <SelectItem value="no_lima">Todos menos Lima</SelectItem>
+                                <div className="border-t my-1"></div>
+                                {DEPARTAMENTOS.map((dep) => (
+                                    <SelectItem key={dep.id} value={dep.nombre}>
+                                        {dep.nombre}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Courier */}
+                        <Select value={selectedCourier} onValueChange={setSelectedCourier}>
+                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                                <SelectValue placeholder="Courier" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                                <SelectItem value="all">Todos los couriers</SelectItem>
+                                {couriers.map((courier) => (
+                                    <SelectItem key={courier.id} value={courier.name}>
+                                        {courier.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Estado de Pedido */}
+                        <Select value={selectedOrderStatus} onValueChange={setSelectedOrderStatus}>
+                            <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
+                                <SelectValue placeholder="Estado" />
+                            </SelectTrigger>
+                            <SelectContent position="popper" align="start">
+                                <SelectItem value="all">Todos los estados</SelectItem>
+                                {orderStatuses.map((status) => (
+                                    <SelectItem key={status.value} value={status.value}>
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="h-2 w-2 rounded-full"
+                                                style={{ backgroundColor: status.color }}
+                                            />
+                                            {status.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="border rounded-lg border-border/50 overflow-x-auto bg-card shadow-sm">
+                        <Table>
+                            <TableHeader className="bg-muted/50 text-muted-foreground border-b border-border/50">
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="px-4 py-4 font-medium text-sm">ID</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm">Fechas</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm">Destino/Courier</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pedido</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pago</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm text-right">Total</TableHead>
+                                    <TableHead className="px-4 py-4 font-medium text-sm text-right">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody className="divide-y divide-border/50">
+                                {filteredOrders.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-2 opacity-50">
+                                                <Filter className="h-8 w-8" />
+                                                <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredOrders.map((order) => {
+                                        return (
+                                            <Fragment key={order.id}>
+                                                <TableRow
+                                                    className="group hover:bg-muted/30 transition-colors cursor-pointer"
+                                                    onClick={() => handleOpenDetails(order)}
+                                                >
+                                                    {/* ID */}
+                                                    <TableCell className="px-4 py-4 focus-within:z-10">
+                                                        <div className="text-xs font-mono font-semibold text-primary/80">
+                                                            {order.id.slice(0, 8).toUpperCase()}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Fechas (Envío y Entrega) */}
+                                                    <TableCell className="px-4 py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2 text-xs font-semibold">
+                                                                <CalendarIcon className="h-3 w-3" style={{ color: themeColor }} />
+                                                                {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
+                                                            </div>
+                                                            {order.fecha_entrega ? (
+                                                                <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                                                                    <Truck className="h-3 w-3" />
+                                                                    {format(new Date(order.fecha_entrega), "dd/MM/yyyy", { locale: es })}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-[10px] text-muted-foreground/50 italic ml-5">Sin fecha entrega</span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Cliente */}
+                                                    <TableCell className="px-4 py-4">
+                                                        <div className="flex flex-col">
+                                                            <div className="flex items-center gap-2 font-semibold text-sm tracking-tight capitalize">
+                                                                <User className="h-3.5 w-3.5 text-muted-foreground/50" />
+                                                                {order.cliente_id?.nombre_completo || "Cliente Mostrador"}
+                                                            </div>
+                                                            {order.cliente_id?.documento_identificacion && (
+                                                                <span className="text-[10px] text-muted-foreground/60 ml-5 font-medium">
+                                                                    {order.cliente_id.documento_identificacion}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Destino/Courier */}
+                                                    <TableCell className="px-4 py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2 text-xs font-semibold">
+                                                                <MapPin className="h-3 w-3 text-primary/60" />
+                                                                <span className="text-muted-foreground uppercase tracking-tight">{order.departamento || "-"}</span>
+                                                            </div>
+                                                            {order.configurar_envio ? (
+                                                                order.courier_nombre && (
+                                                                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/70">
+                                                                        <Truck className="h-3 w-3" />
+                                                                        {order.courier_nombre}
+                                                                    </div>
+                                                                )
+                                                            ) : (
+                                                                <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-tighter">
+                                                                    <Truck className="h-3 w-3 opacity-30" />
+                                                                    Sin courier
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Estado de Pedido - EDITABLE */}
+                                                    <TableCell className="px-4 py-4">
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                            <Select
+                                                                value={order.estado_pedido}
+                                                                onValueChange={async (value) => {
+                                                                    const result = await updateOrder(order.id, { estado_pedido: value });
+                                                                    if (result.data) {
+                                                                        setLocalOrders(prev => prev.map(o =>
+                                                                            o.id === order.id ? { ...o, estado_pedido: value } : o
+                                                                        ));
+                                                                        toast.success("Estado de pedido actualizado");
+                                                                    } else {
+                                                                        toast.error(result.error || "Error al actualizar");
+                                                                    }
+                                                                }}
+                                                                disabled={!canUpdate}
+                                                            >
+                                                                <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div
+                                                                            className="h-2 w-2 rounded-full flex-shrink-0"
+                                                                            style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
+                                                                        />
+                                                                        <span className="text-sm font-medium truncate">
+                                                                            {getStatusName(order.estado_pedido, 'order')}
+                                                                        </span>
+                                                                    </div>
+                                                                </SelectTrigger>
+                                                                <SelectContent position="popper" align="start">
+                                                                    {orderStatuses.map((status) => (
+                                                                        <SelectItem key={status.id} value={status.id}>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div
+                                                                                    className="h-2 w-2 rounded-full"
+                                                                                    style={{ backgroundColor: status.color }}
+                                                                                />
+                                                                                {status.name}
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Estado de Pago - EDITABLE */}
+                                                    <TableCell className="px-4 py-4">
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                            <Select
+                                                                value={order.estado_pago}
+                                                                onValueChange={async (value) => {
+                                                                    const result = await updateOrder(order.id, { estado_pago: value });
+                                                                    if (result.data) {
+                                                                        setLocalOrders(prev => prev.map(o =>
+                                                                            o.id === order.id ? { ...o, estado_pago: value } : o
+                                                                        ));
+                                                                        toast.success("Estado de pago actualizado");
+                                                                    } else {
+                                                                        toast.error(result.error || "Error al actualizar");
+                                                                    }
+                                                                }}
+                                                                disabled={!canUpdate}
+                                                            >
+                                                                <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div
+                                                                            className="h-2 w-2 rounded-full flex-shrink-0"
+                                                                            style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
+                                                                        />
+                                                                        <span className="text-sm font-medium truncate">
+                                                                            {getStatusName(order.estado_pago, 'payment')}
+                                                                        </span>
+                                                                    </div>
+                                                                </SelectTrigger>
+                                                                <SelectContent position="popper" align="start">
+                                                                    {paymentStatuses.map((status) => (
+                                                                        <SelectItem key={status.id} value={status.id}>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <div
+                                                                                    className="h-2 w-2 rounded-full"
+                                                                                    style={{ backgroundColor: status.color }}
+                                                                                />
+                                                                                {status.name}
+                                                                            </div>
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </TableCell>
+
+                                                    {/* Total */}
+                                                    <TableCell className="px-4 py-4 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-sm font-semibold text-green-600 dark:text-green-500 tabular-nums">
+                                                                S/ {Number(order.total).toFixed(2)}
+                                                            </span>
+                                                            {Number(order.monto_faltante) > 0 && (
+                                                                <span className="text-[10px] font-medium text-red-600 dark:text-red-500 tabular-nums tracking-tight">
+                                                                    Faltante: S/ {Number(order.monto_faltante).toFixed(2)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    {/* Acciones */}
+                                                    <TableCell className="px-4 py-4 text-center">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all mx-auto"
+                                                                >
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48">
+                                                                <DropdownMenuItem onClick={() => setOrderToEdit(order)}>
+                                                                    <Settings className="h-4 w-4 mr-2" />
+                                                                    Editar Orden
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => window.open(`/ticket/${order.id}`, '_blank')}>
+                                                                    <Receipt className="h-4 w-4 mr-2" />
+                                                                    Boleta Térmica
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}>
+                                                                    <FileText className="h-4 w-4 mr-2" />
+                                                                    Guía de Envío
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                {canDelete && (
+                                                                    <DropdownMenuItem
+                                                                        onClick={() => setOrderToDelete(order.id)}
+                                                                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Eliminar
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </TableCell>
+                                                </TableRow>
+                                            </Fragment>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
                 </div>
 
-                {/* Filtro de Fecha */}
-                <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
-                    <SelectTrigger className="h-10 w-[160px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                        <SelectValue placeholder="Fecha" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                        <SelectItem value="today">Hoy</SelectItem>
-                        <SelectItem value="yesterday">Ayer</SelectItem>
-                        <SelectItem value="3days">Últimos 3 días</SelectItem>
-                        <SelectItem value="7days">Últimos 7 días</SelectItem>
-                        <SelectItem value="month">Este mes</SelectItem>
-                        <SelectItem value="all">Todas las fechas</SelectItem>
-                        <SelectItem value="custom">Rango personalizado</SelectItem>
-                    </SelectContent>
-                </Select>
-
-                {/* Inputs personalizados de fecha */}
-                {datePreset === "custom" && (
-                    <>
-                        <Input
-                            type="date"
-                            placeholder="Desde"
-                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
-                            value={dateFrom}
-                            onChange={(e) => setDateFrom(e.target.value)}
-                        />
-                        <Input
-                            type="date"
-                            placeholder="Hasta"
-                            className="h-10 w-[140px] bg-muted/10 border-border/40 text-sm rounded-lg"
-                            value={dateTo}
-                            onChange={(e) => setDateTo(e.target.value)}
-                        />
-                    </>
-                )}
-
-                {/* Departamento */}
-                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                        <SelectValue placeholder="Departamento" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                        <SelectItem value="all">Todos los dptos.</SelectItem>
-                        <SelectItem value="lima">Lima</SelectItem>
-                        <SelectItem value="no_lima">Todos menos Lima</SelectItem>
-                        <div className="border-t my-1"></div>
-                        {DEPARTAMENTOS.map((dep) => (
-                            <SelectItem key={dep.id} value={dep.nombre}>
-                                {dep.nombre}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {/* Courier */}
-                <Select value={selectedCourier} onValueChange={setSelectedCourier}>
-                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                        <SelectValue placeholder="Courier" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                        <SelectItem value="all">Todos los couriers</SelectItem>
-                        {couriers.map((courier) => (
-                            <SelectItem key={courier.id} value={courier.name}>
-                                {courier.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-
-                {/* Estado de Pedido */}
-                <Select value={selectedOrderStatus} onValueChange={setSelectedOrderStatus}>
-                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg">
-                        <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" align="start">
-                        <SelectItem value="all">Todos los estados</SelectItem>
-                        {orderStatuses.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                                <div className="flex items-center gap-2">
-                                    <div
-                                        className="h-2 w-2 rounded-full"
-                                        style={{ backgroundColor: status.color }}
-                                    />
-                                    {status.name}
-                                </div>
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="border rounded-lg border-border/50 overflow-x-auto bg-card shadow-sm">
-                <Table>
-                    <TableHeader className="bg-muted/50 text-muted-foreground border-b border-border/50">
-                        <TableRow className="hover:bg-transparent">
-                            <TableHead className="px-4 py-4 font-medium text-sm">ID</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Fechas</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Cliente</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Destino/Courier</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pedido</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm">Estado de Pago</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm text-right">Total</TableHead>
-                            <TableHead className="px-4 py-4 font-medium text-sm text-right">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody className="divide-y divide-border/50">
-                        {filteredOrders.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                                    <div className="flex flex-col items-center gap-2 opacity-50">
-                                        <Filter className="h-8 w-8" />
-                                        <p className="font-medium">No se encontraron ventas con los filtros actuales.</p>
+                {/* Panel de Detalles al mismo plano */}
+                {selectedOrder && (
+                    <div className="w-[40%] lg:w-[30%] border rounded-lg border-border/50 bg-card shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+                        <div className="flex flex-col h-full bg-background overflow-y-auto">
+                            <div className="sticky top-0 z-10 p-6 border-b bg-muted/10 backdrop-blur-md flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <h3 className="flex items-center gap-3 text-lg font-medium">
+                                        <div className="p-2 rounded-lg bg-primary/5 text-primary">
+                                            <ShoppingBag className="h-5 w-5 opacity-70" />
+                                        </div>
+                                        Detalles de la Orden
+                                    </h3>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <span className="text-xs text-muted-foreground/60 uppercase bg-muted px-2 py-0.5 rounded">
+                                            OF-{selectedOrder.id.slice(0, 8).toUpperCase()}
+                                        </span>
+                                        <div
+                                            className="h-2 w-2 rounded-full"
+                                            style={{ backgroundColor: getStatusColor(selectedOrder.estado_pedido, 'order') }}
+                                        />
+                                        <span className="text-xs text-muted-foreground">
+                                            {getStatusName(selectedOrder.estado_pedido, 'order')}
+                                        </span>
                                     </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredOrders.map((order) => {
-                                const isExpanded = !!expandedRows[order.id];
-                                return (
-                                    <Fragment key={order.id}>
-                                        <TableRow className="group hover:bg-muted/30 transition-colors">
-                                            {/* ID */}
-                                            <TableCell className="px-4 py-4 focus-within:z-10">
-                                                <div className="text-xs font-mono font-semibold text-primary/80">
-                                                    {order.id.slice(0, 8).toUpperCase()}
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setSelectedOrder(null)}
+                                    className="h-8 w-8 rounded-full hover:bg-muted"
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
+                                {/* 1. Comentarios / Notas */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-medium">Notas del pedido</h4>
+                                    <div className="space-y-2">
+                                        <textarea
+                                            className="w-full min-h-[80px] bg-transparent border border-input rounded-md p-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all resize-none"
+                                            placeholder="Añadir una nota interna..."
+                                            value={noteDraft}
+                                            onChange={(e) => setNoteDraft(e.target.value)}
+                                        />
+                                        <div className="flex justify-end">
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSaveNote}
+                                                disabled={isSavingNote || noteDraft === (selectedOrder.notas || "")}
+                                                className="h-8"
+                                            >
+                                                {isSavingNote ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                                                Guardar nota
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* 2. Productos */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-medium">Productos</h4>
+                                    <div className="divide-y border-t border-b">
+                                        {selectedOrder.items?.map((item: any) => (
+                                            <div key={item.id} className="py-3 flex justify-between items-start text-sm">
+                                                <div className="space-y-0.5">
+                                                    <p>{item.product_id?.nombre}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {item.cantidad} x S/ {Number(item.precio_unitario).toFixed(2)}
+                                                    </p>
                                                 </div>
-                                            </TableCell>
+                                                <p className="tabular-nums text-right">
+                                                    S/ {Number(item.subtotal).toFixed(2)}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                            {/* Fechas (Envío y Entrega) */}
-                                            <TableCell className="px-4 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-2 text-xs font-semibold">
-                                                        <CalendarIcon className="h-3 w-3" style={{ color: themeColor }} />
-                                                        {format(new Date(order.fecha_venta), "dd/MM/yyyy HH:mm", { locale: es })}
-                                                    </div>
-                                                    {order.fecha_entrega ? (
-                                                        <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                                                            <Truck className="h-3 w-3" />
-                                                            {format(new Date(order.fecha_entrega), "dd/MM/yyyy", { locale: es })}
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-[10px] text-muted-foreground/50 italic ml-5">Sin fecha entrega</span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
+                                <Separator />
 
-                                            {/* Cliente */}
-                                            <TableCell className="px-4 py-4">
-                                                <div className="flex flex-col">
-                                                    <div className="flex items-center gap-2 font-semibold text-sm tracking-tight capitalize">
-                                                        <User className="h-3.5 w-3.5 text-muted-foreground/50" />
-                                                        {order.cliente_id?.nombre_completo || "Cliente Mostrador"}
-                                                    </div>
-                                                    {order.cliente_id?.documento_identificacion && (
-                                                        <span className="text-[10px] text-muted-foreground/60 ml-5 font-medium">
-                                                            {order.cliente_id.documento_identificacion}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
+                                {/* 3. Destinatario */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-medium">Destinatario</h4>
+                                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">Nombre completo</dt>
+                                            <dd>{selectedOrder.cliente_id?.nombre_completo || "-"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">Celular</dt>
+                                            <dd>{selectedOrder.cliente_id?.telefono || "-"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">DNI / RUC</dt>
+                                            <dd>{selectedOrder.cliente_id?.documento_identificacion || "-"}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="text-xs text-muted-foreground">Tipo</dt>
+                                            <dd className="capitalize">{selectedOrder.cliente_id?.tipo_cliente || "Natural"}</dd>
+                                        </div>
+                                    </dl>
+                                </div>
 
-                                            {/* Destino/Courier */}
-                                            <TableCell className="px-4 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-2 text-xs font-semibold">
-                                                        <MapPin className="h-3 w-3 text-primary/60" />
-                                                        <span className="text-muted-foreground uppercase tracking-tight">{order.departamento || "-"}</span>
-                                                    </div>
-                                                    {order.configurar_envio ? (
-                                                        order.courier_nombre && (
-                                                            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/70">
-                                                                <Truck className="h-3 w-3" />
-                                                                {order.courier_nombre}
-                                                            </div>
-                                                        )
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground/40 uppercase tracking-tighter">
-                                                            <Truck className="h-3 w-3 opacity-30" />
-                                                            Sin courier
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </TableCell>
+                                <Separator />
 
-                                            {/* Estado de Pedido - EDITABLE */}
-                                            <TableCell className="px-4 py-4">
-                                                <Select
-                                                    value={order.estado_pedido}
-                                                    onValueChange={async (value) => {
-                                                        const result = await updateOrder(order.id, { estado_pedido: value });
-                                                        if (result.data) {
-                                                            setLocalOrders(prev => prev.map(o =>
-                                                                o.id === order.id ? { ...o, estado_pedido: value } : o
-                                                            ));
-                                                            toast.success("Estado de pedido actualizado");
-                                                        } else {
-                                                            toast.error(result.error || "Error al actualizar");
-                                                        }
-                                                    }}
-                                                    disabled={!canUpdate}
-                                                >
-                                                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="h-2 w-2 rounded-full flex-shrink-0"
-                                                                style={{ backgroundColor: getStatusColor(order.estado_pedido, 'order') }}
-                                                            />
-                                                            <span className="text-sm font-medium truncate">
-                                                                {getStatusName(order.estado_pedido, 'order')}
-                                                            </span>
-                                                        </div>
-                                                    </SelectTrigger>
-                                                    <SelectContent position="popper" align="start">
-                                                        {orderStatuses.map((status) => (
-                                                            <SelectItem key={status.id} value={status.id}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div
-                                                                        className="h-2 w-2 rounded-full"
-                                                                        style={{ backgroundColor: status.color }}
-                                                                    />
-                                                                    {status.name}
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-
-                                            {/* Estado de Pago - EDITABLE */}
-                                            <TableCell className="px-4 py-4">
-                                                <Select
-                                                    value={order.estado_pago}
-                                                    onValueChange={async (value) => {
-                                                        const result = await updateOrder(order.id, { estado_pago: value });
-                                                        if (result.data) {
-                                                            setLocalOrders(prev => prev.map(o =>
-                                                                o.id === order.id ? { ...o, estado_pago: value } : o
-                                                            ));
-                                                            toast.success("Estado de pago actualizado");
-                                                        } else {
-                                                            toast.error(result.error || "Error al actualizar");
-                                                        }
-                                                    }}
-                                                    disabled={!canUpdate}
-                                                >
-                                                    <SelectTrigger className="h-10 w-[180px] bg-muted/10 border-border/40 font-medium rounded-lg px-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="h-2 w-2 rounded-full flex-shrink-0"
-                                                                style={{ backgroundColor: getStatusColor(order.estado_pago, 'payment') }}
-                                                            />
-                                                            <span className="text-sm font-medium truncate">
-                                                                {getStatusName(order.estado_pago, 'payment')}
-                                                            </span>
-                                                        </div>
-                                                    </SelectTrigger>
-                                                    <SelectContent position="popper" align="start">
-                                                        {paymentStatuses.map((status) => (
-                                                            <SelectItem key={status.id} value={status.id}>
-                                                                <div className="flex items-center gap-2">
-                                                                    <div
-                                                                        className="h-2 w-2 rounded-full"
-                                                                        style={{ backgroundColor: status.color }}
-                                                                    />
-                                                                    {status.name}
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-
-                                            {/* Total */}
-                                            <TableCell className="px-4 py-4 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="text-sm font-semibold text-green-600 dark:text-green-500 tabular-nums">
-                                                        S/ {Number(order.total).toFixed(2)}
-                                                    </span>
-                                                    {Number(order.monto_faltante) > 0 && (
-                                                        <span className="text-[10px] font-medium text-red-600 dark:text-red-500 tabular-nums tracking-tight">
-                                                            Faltante: S/ {Number(order.monto_faltante).toFixed(2)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-
-                                            {/* Acciones */}
-                                            <TableCell className="px-4 py-4">
-                                                <div className="flex items-center justify-end gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => toggleRow(order.id)}
-                                                        className={cn(
-                                                            "h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all",
-                                                            isExpanded && "text-primary bg-primary/10"
-                                                        )}
-                                                        title={isExpanded ? "Ocultar detalles" : "Ver detalles"}
-                                                    >
-                                                        {isExpanded ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                    </Button>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-all"
-                                                            >
-                                                                <MoreVertical className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-48">
-                                                            <DropdownMenuItem onClick={() => window.open(`/ticket/${order.id}`, '_blank')}>
-                                                                <Receipt className="h-4 w-4 mr-2" />
-                                                                Boleta Térmica
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => window.open(`/shipping-guide/${order.id}`, '_blank')}>
-                                                                <FileText className="h-4 w-4 mr-2" />
-                                                                Guía de Envío
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            {canDelete && (
-                                                                <DropdownMenuItem
-                                                                    onClick={() => setOrderToDelete(order.id)}
-                                                                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                                    Eliminar
-                                                                </DropdownMenuItem>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-
-                                        {isExpanded && (
-                                            <TableRow className="bg-muted/20">
-                                                <TableCell colSpan={8} className="p-6">
-                                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-top-2 duration-300">
-                                                        {/* Detalle de Productos */}
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase opacity-70">
-                                                                <Package className="h-4 w-4 text-primary" /> Detalle de Productos
-                                                            </div>
-                                                            <div className="space-y-2">
-                                                                {order.items?.map((item: any) => (
-                                                                    <div key={item.id} className="flex justify-between items-center text-sm p-3 bg-card rounded-lg border border-border/50 shadow-sm">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="font-semibold tracking-tight">{item.product_id?.nombre}</span>
-                                                                            <span className="text-[10px] text-muted-foreground font-medium tracking-tight">
-                                                                                Cant: {item.cantidad} x S/ {Number(item.precio_unitario).toFixed(2)}
-                                                                            </span>
-                                                                        </div>
-                                                                        <span className="font-semibold text-xs tabular-nums text-primary/80">S/ {Number(item.subtotal).toFixed(2)}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Logística y Envío */}
-                                                        <div className="space-y-4">
-                                                            <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase opacity-70">
-                                                                <Truck className="h-4 w-4 text-primary" /> Logística y Envío
-                                                            </div>
-                                                            <div className="bg-card p-5 rounded-lg border border-border/50 shadow-sm space-y-4">
-                                                                <div className="space-y-2">
-                                                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Contacto Cliente</p>
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex justify-between items-center text-xs">
-                                                                            <span className="text-muted-foreground">{order.cliente_id?.tipo_cliente === 'empresa' ? 'RUC:' : 'DNI/RUC:'}</span>
-                                                                            <span className="font-semibold">{order.cliente_id?.documento_identificacion || "-"}</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between items-center text-xs">
-                                                                            <span className="text-muted-foreground">Tipo:</span>
-                                                                            <span className="font-semibold capitalize">{order.cliente_id?.tipo_cliente || "persona"}</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between items-center text-xs">
-                                                                            <span className="text-muted-foreground">Nombre Completo:</span>
-                                                                            <span className="font-semibold text-right max-w-[180px] truncate">{order.cliente_id?.nombre_completo || "-"}</span>
-                                                                        </div>
-                                                                        <div className="flex justify-between items-center text-xs">
-                                                                            <span className="text-muted-foreground">Teléfono:</span>
-                                                                            <span className="font-semibold">{order.cliente_id?.telefono || "-"}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                {(order.departamento || order.provincia || order.distrito || order.direccion || order.ubicacion || order.fecha_entrega) && (
-                                                                    <>
-                                                                        <Separator className="bg-border/40" />
-                                                                        <div className="space-y-2">
-                                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Localización y Entrega</p>
-                                                                            <div className="space-y-2">
-                                                                                {order.fecha_entrega && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Fecha Entrega:</span>
-                                                                                        <span className="font-semibold">{format(new Date(order.fecha_entrega), "dd 'de' MMM, yyyy", { locale: es })}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.departamento && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Departamento:</span>
-                                                                                        <span className="font-semibold">{order.departamento}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.provincia && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Provincia:</span>
-                                                                                        <span className="font-semibold">{order.provincia}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.distrito && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Distrito:</span>
-                                                                                        <span className="font-semibold">{order.distrito}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.direccion && (
-                                                                                    <div className="flex flex-col gap-1 text-xs">
-                                                                                        <span className="text-muted-foreground">Dirección:</span>
-                                                                                        <span className="font-semibold bg-muted/30 p-2 rounded border border-border/20">{order.direccion}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.ubicacion && (
-                                                                                    <div className="flex flex-col gap-2 pt-1">
-                                                                                        <div className="flex justify-between items-center text-xs">
-                                                                                            <span className="text-muted-foreground">Ubicación GPS / Referencia:</span>
-                                                                                        </div>
-                                                                                        <Button
-                                                                                            variant="outline"
-                                                                                            size="sm"
-                                                                                            className="w-full h-8 text-[10px] uppercase font-bold gap-2"
-                                                                                            onClick={() => {
-                                                                                                const url = order.ubicacion.startsWith('http')
-                                                                                                    ? order.ubicacion
-                                                                                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.ubicacion)}`;
-                                                                                                window.open(url, '_blank');
-                                                                                            }}
-                                                                                        >
-                                                                                            <MapPin className="h-3 w-3" />
-                                                                                            Ver Mapa
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-
-                                                                {order.configurar_envio && (
-                                                                    <>
-                                                                        <Separator className="bg-border/40" />
-                                                                        <div className="space-y-2">
-                                                                            <div className="space-y-2">
-                                                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Datos del Courier</p>
-                                                                                <div className="space-y-2">
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Agencia:</span>
-                                                                                        <span className="font-semibold">{order.courier_nombre || "-"}</span>
-                                                                                    </div>
-                                                                                    {order.courier_provincia_dpto && (
-                                                                                        <div className="flex justify-between items-center text-xs">
-                                                                                            <span className="text-muted-foreground">Departamento:</span>
-                                                                                            <span className="font-semibold">{order.courier_provincia_dpto}</span>
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {order.courier_destino_agencia && (
-                                                                                        <div className="flex justify-between items-start text-xs">
-                                                                                            <span className="text-muted-foreground">Destino:</span>
-                                                                                            <span className="font-semibold text-right max-w-[140px]">{order.courier_destino_agencia}</span>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <Separator className="bg-border/40" />
-                                                                        <div className="space-y-2">
-                                                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground opacity-50">Seguimiento</p>
-                                                                            <div className="space-y-2">
-                                                                                {order.courier_nro_orden && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">N° Orden:</span>
-                                                                                        <span className="font-semibold">{order.courier_nro_orden}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.courier_codigo && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Código:</span>
-                                                                                        <span className="font-semibold">{order.courier_codigo}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                                {order.courier_clave && (
-                                                                                    <div className="flex justify-between items-center text-xs">
-                                                                                        <span className="text-muted-foreground">Clave:</span>
-                                                                                        <span className="font-semibold">{order.courier_clave}</span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Resumen de Operación */}
-                                                        <div className="space-y-6">
-                                                            <div className="space-y-4">
-                                                                <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase opacity-70">
-                                                                    <Receipt className="h-4 w-4 text-primary" /> Resumen de Operación
-                                                                </div>
-                                                                <div className="bg-card p-5 rounded-lg border border-border/50 shadow-sm space-y-4">
-                                                                    <div className="space-y-3">
-                                                                        <div className="flex justify-between items-center text-xs">
-                                                                            <span className="text-muted-foreground font-semibold">Método de Pago:</span>
-                                                                            <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded-md border font-medium">
-                                                                                <CreditCard className="h-3 w-3 text-primary" />
-                                                                                {typeof order.metodo_pago === 'object' ? order.metodo_pago.name : getPaymentMethodLabel(order.metodo_pago)}
-                                                                            </div>
-                                                                        </div>
-                                                                        <Separator className="bg-border/40" />
-                                                                        <div className="space-y-1.5">
-                                                                            <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                                <span className="text-muted-foreground opacity-60">Subtotal de Productos:</span>
-                                                                                <span>S/ {(order.items?.reduce((acc: number, item: any) => acc + Number(item.subtotal), 0) || 0).toFixed(2)}</span>
-                                                                            </div>
-
-                                                                            {Number(order.ajuste_total) !== 0 && (
-                                                                                <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                                    <span className="text-muted-foreground opacity-60">
-                                                                                        {Number(order.ajuste_total) < 0 ? "Descuento Aplicado:" : "Cargo Adicional:"}
-                                                                                    </span>
-                                                                                    <span className={Number(order.ajuste_total) < 0 ? "text-green-600" : "text-destructive"}>
-                                                                                        {Number(order.ajuste_total) < 0 ? `- S/ ${Math.abs(order.ajuste_total).toFixed(2)}` : `+ S/ ${Number(order.ajuste_total).toFixed(2)}`}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
-
-                                                                            {Number(order.costo_envio) > 0 && (
-                                                                                <div className="flex justify-between text-[11px] font-semibold tracking-tight">
-                                                                                    <span className="text-muted-foreground opacity-60 flex items-center gap-1">
-                                                                                        Envío {order.tipo_cobro_envio === 'destino' ? '(Pago Destino)' : '(Prepagado)'}:
-                                                                                    </span>
-                                                                                    <span className={order.tipo_cobro_envio === 'destino' ? "text-muted-foreground/50 line-through" : ""}>
-                                                                                        S/ {Number(order.costo_envio).toFixed(2)}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    <Separator className="bg-border/60" />
-                                                                    <div className="flex justify-between text-[11px] font-bold tracking-tight pt-1">
-                                                                        <span className="text-muted-foreground opacity-60">Total Final:</span>
-                                                                        <span className="text-foreground">S/ {Number(order.total).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                                                    </div>
-
-                                                                    <div className="space-y-3">
-                                                                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 border-y border-dashed border-border/50">
-                                                                            <div className="space-y-2">
-                                                                                <Label className="text-sm font-medium">Adelanto</Label>
-                                                                                <div className="relative">
-                                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">S/</span>
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        step="0.01"
-                                                                                        placeholder="0.00"
-                                                                                        readOnly={!canUpdate}
-                                                                                        value={
-                                                                                            editingAmounts[order.id]?.monto_adelanto !== undefined
-                                                                                                ? (editingAmounts[order.id]?.monto_adelanto === '0' || editingAmounts[order.id]?.monto_adelanto === '0.00' ? '' : editingAmounts[order.id]?.monto_adelanto)
-                                                                                                : (order.monto_adelanto && Number(order.monto_adelanto) > 0 ? Number(order.monto_adelanto).toFixed(2) : '')
-                                                                                        }
-                                                                                        onChange={(e) => handleAmountChange(order.id, 'monto_adelanto', e.target.value, Number(order.total))}
-                                                                                        className={cn(
-                                                                                            "h-10 pl-8 text-sm font-medium",
-                                                                                            !canUpdate && "bg-muted cursor-not-allowed"
-                                                                                        )}
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="space-y-2">
-                                                                                <Label className="text-sm font-medium text-destructive">Faltante</Label>
-                                                                                <div className="relative">
-                                                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-destructive">S/</span>
-                                                                                    <Input
-                                                                                        readOnly
-                                                                                        type="number"
-                                                                                        step="0.01"
-                                                                                        placeholder="0.00"
-                                                                                        value={
-                                                                                            editingAmounts[order.id]?.monto_faltante !== undefined
-                                                                                                ? editingAmounts[order.id]?.monto_faltante
-                                                                                                : (order.monto_faltante && order.monto_faltante > 0 ? Number(order.monto_faltante).toFixed(2) : '')
-                                                                                        }
-                                                                                        className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5 cursor-default"
-                                                                                    />
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                        {editingAmounts[order.id] && canUpdate && (
-                                                                            <Button
-                                                                                onClick={() => handleSaveAmounts(order.id)}
-                                                                                disabled={isSavingAmounts === order.id}
-                                                                                className="w-full"
-                                                                            >
-                                                                                {isSavingAmounts === order.id ? (
-                                                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                                                ) : (
-                                                                                    <span className="flex items-center gap-2">
-                                                                                        <CreditCard className="h-4 w-4" />
-                                                                                        Guardar Pagos
-                                                                                    </span>
-                                                                                )}
-                                                                            </Button>
-                                                                        )}
-                                                                    </div>
-
-                                                                    {/* Comprobantes / Vouchers */}
-                                                                    <div className="space-y-3 pt-2">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div className="flex items-center gap-2 text-[10px] font-bold tracking-widest text-muted-foreground uppercase opacity-60">
-                                                                                <ImageIcon className="h-3.5 w-3.5 text-primary" />
-                                                                                Comprobantes de Adelanto
-                                                                            </div>
-
-                                                                            {canUpdate && (
-                                                                                <div className="relative">
-                                                                                    <Input
-                                                                                        type="file"
-                                                                                        id={`history-voucher-${order.id}`}
-                                                                                        className="hidden"
-                                                                                        accept="image/*"
-                                                                                        onChange={(e) => handleVoucherUpload(e, order)}
-                                                                                        disabled={isUploadingVoucher === order.id}
-                                                                                    />
-                                                                                    <Label
-                                                                                        htmlFor={`history-voucher-${order.id}`}
-                                                                                        className={cn(
-                                                                                            "flex items-center gap-1.5 px-2 py-1 rounded-md border border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 cursor-pointer transition-all text-[10px] font-bold uppercase text-primary",
-                                                                                            isUploadingVoucher === order.id && "opacity-50 cursor-not-allowed"
-                                                                                        )}
-                                                                                    >
-                                                                                        {isUploadingVoucher === order.id ? (
-                                                                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                                                                        ) : (
-                                                                                            <Plus className="h-3 w-3" />
-                                                                                        )}
-                                                                                        Subir Más
-                                                                                    </Label>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-
-                                                                        {order.voucher && (Array.isArray(order.voucher) ? order.voucher.length > 0 : !!order.voucher) ? (
-                                                                            <div className="grid grid-cols-3 gap-2">
-                                                                                {(() => {
-                                                                                    const vouchers = Array.isArray(order.voucher) ? order.voucher : [order.voucher];
-                                                                                    return vouchers.map((v: any, idx: number) => {
-                                                                                        const fileId = typeof v === 'object' ? v.directus_files_id : v;
-                                                                                        if (!fileId) return null;
-                                                                                        return (
-                                                                                            <div key={fileId || idx} className="group relative aspect-square rounded-md overflow-hidden border border-border/50 bg-muted/30 hover:border-primary/50 transition-colors shadow-sm">
-                                                                                                <Image
-                                                                                                    src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}?width=150&height=150&fit=cover`}
-                                                                                                    alt={`Voucher ${idx + 1}`}
-                                                                                                    fill
-                                                                                                    className="object-cover"
-                                                                                                />
-                                                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                                                                                                    <a
-                                                                                                        href={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}`}
-                                                                                                        target="_blank"
-                                                                                                        rel="noopener noreferrer"
-                                                                                                        className="p-1.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-                                                                                                        title="Ver imagen"
-                                                                                                    >
-                                                                                                        <ExternalLink className="h-4 w-4 text-white" />
-                                                                                                    </a>
-                                                                                                    {canUpdate && (
-                                                                                                        <button
-                                                                                                            onClick={() => handleRemoveVoucher(order, fileId)}
-                                                                                                            className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-full transition-colors"
-                                                                                                            title="Eliminar comprobante"
-                                                                                                        >
-                                                                                                            <X className="h-4 w-4 text-white" />
-                                                                                                        </button>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    });
-                                                                                })()}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <div className="flex flex-col items-center justify-center py-6 border rounded-md border-dashed border-muted-foreground/20 bg-muted/5">
-                                                                                <Camera className="h-6 w-6 text-muted-foreground/20 mb-2" />
-                                                                                <p className="text-[10px] text-muted-foreground uppercase font-bold opacity-40">Sin comprobantes</p>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
+                                {/* 4. Entrega */}
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-medium">Entrega</h4>
+                                    <div className="text-sm space-y-1.5">
+                                        <p>
+                                            {selectedOrder.distrito || "-"} — {selectedOrder.provincia || "-"} — {selectedOrder.departamento || "-"}
+                                        </p>
+                                        {selectedOrder.direccion && (
+                                            <p className="text-muted-foreground text-xs leading-relaxed">
+                                                {selectedOrder.direccion}
+                                            </p>
                                         )}
-                                    </Fragment>
-                                );
-                            })
-                        )}
-                    </TableBody>
-                </Table>
+                                        {selectedOrder.ubicacion && (
+                                            <a
+                                                href={selectedOrder.ubicacion}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center text-xs text-blue-600 hover:underline"
+                                            >
+                                                Ver en mapa
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* 5. Resumen Económico */}
+                                <div className="space-y-4">
+                                    <h4 className="text-sm font-medium">Resumen económico</h4>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Total venta</span>
+                                            <span>S/ {Number(selectedOrder.total).toFixed(2)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Método de pago</span>
+                                            <span>
+                                                {typeof selectedOrder.metodo_pago === 'object' ? selectedOrder.metodo_pago.name : getPaymentMethodLabel(selectedOrder.metodo_pago)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <Separator className="opacity-50" />
+
+                                    {/* Edición rápida de adelanto */}
+                                    <div className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4 items-end">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] text-muted-foreground uppercase">Adelanto</Label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">S/</span>
+                                                    <Input
+                                                        type="number"
+                                                        value={editingAmounts[selectedOrder.id]?.monto_adelanto !== undefined ? editingAmounts[selectedOrder.id]?.monto_adelanto : Number(selectedOrder.monto_adelanto).toFixed(2)}
+                                                        onChange={(e) => handleAmountChange(selectedOrder.id, 'monto_adelanto', e.target.value, Number(selectedOrder.total))}
+                                                        className="h-8 pl-8 text-xs bg-muted/50"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] text-destructive uppercase">Faltante</Label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-destructive">S/</span>
+                                                    <Input
+                                                        readOnly
+                                                        value={editingAmounts[selectedOrder.id]?.monto_faltante !== undefined ? editingAmounts[selectedOrder.id]?.monto_faltante : Number(selectedOrder.monto_faltante).toFixed(2)}
+                                                        className="h-8 pl-8 text-xs text-right text-destructive bg-destructive/5 cursor-default"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {editingAmounts[selectedOrder.id] && (
+                                            <Button
+                                                size="sm"
+                                                className="w-full h-8 text-xs"
+                                                onClick={() => handleSaveAmounts(selectedOrder.id)}
+                                                disabled={isSavingAmounts === selectedOrder.id}
+                                            >
+                                                {isSavingAmounts === selectedOrder.id ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
+                                                Actualizar adelanto
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <Separator className="opacity-50" />
+                                </div>
+
+                                <Separator />
+
+                                {/* 6. Fecha y Hora */}
+                                <div className="pb-4">
+                                    <p className="text-[10px] text-muted-foreground text-center">
+                                        Pedido realizado el {format(new Date(selectedOrder.fecha_venta), "dd/MM/yyyy 'a las' HH:mm", { locale: es })}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
@@ -1177,21 +1077,350 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                     <AlertDialogHeader>
                         <AlertDialogTitle>¿Está seguro de eliminar esta orden?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Esta acción no se puede deshacer. Se eliminará la orden y sus items permanentemente del sistema.
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente la orden.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
                             disabled={isDeleting}
-                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold"
                         >
                             {isDeleting ? "Eliminando..." : "Eliminar"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+
+            {/* Popup de Edición / Detalles (Tuerca) */}
+            <Dialog open={!!orderToEdit} onOpenChange={(open) => !open && setOrderToEdit(null)}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+                            <Settings className="h-5 w-5 text-primary" />
+                            Gestión del Pedido
+                        </DialogTitle>
+                        <DialogDescription>
+                            Actualiza la información de entrega, pagos y detalles del pedido.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {orderToEdit && (
+                        <>
+                            <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2 -mr-2">
+                                {/* ¿Quién entrega? */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-medium">Empresa de transporte</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Shalom', 'Olva', 'Dinsides'].map((courier) => (
+                                            <Button
+                                                key={courier}
+                                                variant={orderToEdit.courier_nombre === courier ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => setOrderToEdit({ ...orderToEdit, courier_nombre: courier })}
+                                                className="h-8"
+                                            >
+                                                {courier}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* ¿Qué envías? */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm font-medium">Resumen de productos</Label>
+                                        <Button variant="outline" size="sm" className="h-8">
+                                            Editar items
+                                        </Button>
+                                    </div>
+                                    <div className="rounded-md border divide-y bg-muted/10">
+                                        {orderToEdit.items?.map((item: any) => (
+                                            <div key={item.id} className="flex justify-between items-center p-3 text-sm">
+                                                <div>
+                                                    <p className="font-medium">{item.product_id?.nombre}</p>
+                                                    <p className="text-xs text-muted-foreground">S/ {Number(item.precio_unitario).toFixed(2)} x {item.cantidad}</p>
+                                                </div>
+                                                <p className="font-medium">S/ {Number(item.subtotal).toFixed(2)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Observación */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-notas" className="text-sm font-medium">Observación de la orden</Label>
+                                    <textarea
+                                        id="edit-notas"
+                                        className="w-full min-h-[80px] bg-transparent border border-input rounded-md p-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all resize-none font-normal"
+                                        placeholder="Escribe alguna observación o nota interna..."
+                                        value={orderToEdit.notas || ""}
+                                        onChange={(e) => setOrderToEdit({ ...orderToEdit, notas: e.target.value })}
+                                    />
+                                </div>
+
+                                {/* Recibe */}
+                                <div className="space-y-3">
+                                    <Label className="text-sm">Recibe:</Label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Nombre</Label>
+                                            <Input
+                                                value={orderToEdit.cliente_id?.nombre_completo || ""}
+                                                onChange={(e) => {
+                                                    const updated = { ...orderToEdit };
+                                                    updated.cliente_id = { ...updated.cliente_id, nombre_completo: e.target.value };
+                                                    setOrderToEdit(updated);
+                                                }}
+                                                className="h-10"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Contacto (Teléfono)</Label>
+                                            <Input
+                                                value={orderToEdit.cliente_id?.telefono || ""}
+                                                onChange={(e) => {
+                                                    const updated = { ...orderToEdit };
+                                                    updated.cliente_id = { ...updated.cliente_id, telefono: e.target.value };
+                                                    setOrderToEdit(updated);
+                                                }}
+                                                className="h-10"
+                                                placeholder="999 999 999"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Destino */}
+                                <div className="space-y-3">
+                                    <Label className="text-sm">Destino:</Label>
+                                    <div className="space-y-3">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Departamento</Label>
+                                            <Input
+                                                value={orderToEdit.departamento || ""}
+                                                onChange={(e) => setOrderToEdit({ ...orderToEdit, departamento: e.target.value })}
+                                                className="h-10"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs text-muted-foreground">Provincia</Label>
+                                                <Input
+                                                    value={orderToEdit.provincia || ""}
+                                                    onChange={(e) => setOrderToEdit({ ...orderToEdit, provincia: e.target.value })}
+                                                    className="h-10"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-xs text-muted-foreground">Distrito</Label>
+                                                <Input
+                                                    value={orderToEdit.distrito || ""}
+                                                    onChange={(e) => setOrderToEdit({ ...orderToEdit, distrito: e.target.value })}
+                                                    className="h-10"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Dirección</Label>
+                                            <Input
+                                                value={orderToEdit.direccion || ""}
+                                                onChange={(e) => setOrderToEdit({ ...orderToEdit, direccion: e.target.value })}
+                                                className="h-10"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Separator />
+
+                                {/* Pagos y Balance */}
+                                <div className="space-y-4 pt-2">
+                                    <div className="grid grid-cols-2 gap-8 items-start">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm">Método de pago</Label>
+                                            <Select
+                                                value={typeof orderToEdit.metodo_pago === 'object' ? orderToEdit.metodo_pago?.id : orderToEdit.metodo_pago}
+                                                onValueChange={(val) => setOrderToEdit({ ...orderToEdit, metodo_pago: val })}
+                                            >
+                                                <SelectTrigger className="h-9">
+                                                    <SelectValue placeholder="Seleccionar" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="efectivo">Efectivo</SelectItem>
+                                                    <SelectItem value="transferencia">Transferencia</SelectItem>
+                                                    <SelectItem value="yape">Yape</SelectItem>
+                                                    <SelectItem value="plin">Plin</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="text-right">
+                                            <p className="text-xs text-muted-foreground">Total Venta</p>
+                                            <p className="text-2xl font-semibold tracking-tight">S/ {Number(orderToEdit.total).toFixed(2)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-8 items-end">
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium">Adelanto</Label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">S/</span>
+                                                <Input
+                                                    type="number"
+                                                    value={orderToEdit.monto_adelanto}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        setOrderToEdit({
+                                                            ...orderToEdit,
+                                                            monto_adelanto: val,
+                                                            monto_faltante: Math.max(0, Number(orderToEdit.total) - val)
+                                                        });
+                                                    }}
+                                                    className="h-10 pl-8 text-sm font-medium"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-sm font-medium text-destructive">Faltante</Label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-destructive">S/</span>
+                                                <Input
+                                                    readOnly
+                                                    className="h-10 pl-8 text-sm font-medium text-right text-destructive bg-destructive/5"
+                                                    value={Number(orderToEdit.monto_faltante).toFixed(2)}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <Separator />
+
+                                    {/* Vouchers (POS Style) */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <Camera className="h-4 w-4" />
+                                            <Label className="text-sm font-semibold">Comprobantes de Pago</Label>
+                                        </div>
+
+                                        {(orderToEdit.voucher ? (Array.isArray(orderToEdit.voucher) ? orderToEdit.voucher : [orderToEdit.voucher]) : []).length > 0 && (
+                                            <div className="grid grid-cols-4 gap-2 border p-2 rounded-xl bg-muted/5 min-h-[60px]">
+                                                {(orderToEdit.voucher ? (Array.isArray(orderToEdit.voucher) ? orderToEdit.voucher : [orderToEdit.voucher]) : []).map((v: any) => {
+                                                    const fileId = typeof v === 'object' ? v.directus_files_id : v;
+                                                    if (!fileId) return null;
+                                                    return (
+                                                        <div key={fileId} className="aspect-square relative rounded-lg overflow-hidden border group bg-background">
+                                                            <Image
+                                                                src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}?width=100&height=100&fit=cover`}
+                                                                alt="Voucher"
+                                                                fill
+                                                                className="object-cover cursor-pointer"
+                                                                onClick={() => window.open(`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileId}`, '_blank')}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveVoucher(orderToEdit, fileId)}
+                                                                className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            >
+                                                                <X className="h-3 w-3" />
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <div className="relative group">
+                                            <Input
+                                                type="file"
+                                                id="voucher-upload-edit"
+                                                className="hidden"
+                                                accept="image/*"
+                                                multiple
+                                                onChange={(e) => handleVoucherUpload(e, orderToEdit)}
+                                                disabled={isUploadingVoucher === orderToEdit.id}
+                                            />
+                                            <Label
+                                                htmlFor="voucher-upload-edit"
+                                                className={cn(
+                                                    "flex flex-col items-center justify-center w-full h-20 border-2 border-dashed rounded-xl cursor-pointer transition-all",
+                                                    (orderToEdit.voucher ? (Array.isArray(orderToEdit.voucher) ? orderToEdit.voucher : [orderToEdit.voucher]) : []).length > 0
+                                                        ? "border-green-500/30 bg-green-500/5 hover:bg-green-500/10"
+                                                        : "border-muted-foreground/20 bg-muted/5 hover:bg-muted/10 hover:border-primary/30",
+                                                    isUploadingVoucher === orderToEdit.id && "opacity-50 cursor-not-allowed"
+                                                )}
+                                            >
+                                                {isUploadingVoucher === orderToEdit.id ? (
+                                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center">
+                                                        <Upload className="h-5 w-5 text-muted-foreground/40 mb-1 group-hover:text-primary transition-colors" />
+                                                        <span className="text-[10px] font-bold text-muted-foreground/60 uppercase group-hover:text-primary transition-colors">
+                                                            {(orderToEdit.voucher ? (Array.isArray(orderToEdit.voucher) ? orderToEdit.voucher : [orderToEdit.voucher]) : []).length > 0 ? "Agregar más imágenes" : "Subir Comprobante(s)"}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </Label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="flex justify-between mt-6">
+                                <Button variant="outline" onClick={() => setOrderToEdit(null)}>
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    onClick={async () => {
+                                        try {
+                                            // Preparar datos del cliente
+                                            const clienteData: any = {};
+                                            if (orderToEdit.cliente_id?.nombre_completo) {
+                                                clienteData.nombre_completo = orderToEdit.cliente_id.nombre_completo;
+                                            }
+                                            if (orderToEdit.cliente_id?.telefono) {
+                                                clienteData.telefono = orderToEdit.cliente_id.telefono;
+                                            }
+
+                                            // Actualizar cliente si hay cambios
+                                            if (Object.keys(clienteData).length > 0 && orderToEdit.cliente_id?.id) {
+                                                await updateOrder(orderToEdit.cliente_id.id, clienteData);
+                                            }
+
+                                            // Actualizar orden
+                                            await updateOrder(orderToEdit.id, {
+                                                courier_nombre: orderToEdit.courier_nombre,
+                                                notas: orderToEdit.notas,
+                                                departamento: orderToEdit.departamento,
+                                                provincia: orderToEdit.provincia,
+                                                distrito: orderToEdit.distrito,
+                                                direccion: orderToEdit.direccion,
+                                                monto_adelanto: orderToEdit.monto_adelanto,
+                                                monto_faltante: orderToEdit.monto_faltante,
+                                                metodo_pago: orderToEdit.metodo_pago?.id || orderToEdit.metodo_pago
+                                            });
+
+                                            // Actualizar estado local
+                                            setLocalOrders(prev => prev.map(o =>
+                                                o.id === orderToEdit.id ? orderToEdit : o
+                                            ));
+
+                                            toast.success("Pedido actualizado con éxito");
+                                            setOrderToEdit(null);
+                                        } catch (error) {
+                                            toast.error("Error al actualizar el pedido");
+                                            console.error(error);
+                                        }
+                                    }}
+                                >
+                                    Guardar Cambios
+                                </Button>
+                            </DialogFooter>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div >
     );
 }
