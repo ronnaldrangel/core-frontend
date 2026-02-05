@@ -117,11 +117,6 @@ export function Sidebar({
             permission: "orders.read",
         },
         {
-            title: "Kanban",
-            href: `/dashboard/${currentWorkspaceId}/orders/kanban`,
-            permission: "orders.update",
-        },
-        {
             title: "Analytics",
             href: `/dashboard/${currentWorkspaceId}/orders/analytics`,
             permission: "orders.update",
