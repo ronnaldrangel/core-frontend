@@ -129,7 +129,15 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
     const [descripcionCorta, setDescripcionCorta] = useState("");
     const [descripcionNormal, setDescripcionNormal] = useState("");
     const [stock, setStock] = useState(0);
-    const [variantes, setVariantes] = useState<{ nombre: string; sku: string; precio: string; stock: number }[]>([]);
+    const [variantes, setVariantes] = useState<{
+        nombre: string;
+        sku: string;
+        precio: string;
+        stock: number;
+        imagen?: string;
+        imagen_file?: File | null;
+        imagen_preview?: string | null;
+    }[]>([]);
 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -169,10 +177,11 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
             setDescripcionNormal(product.descripcion_normal || "");
             setStock(product.stock);
 
-            // Formatear precios de variantes si existen
+            // Formatear precios y cargar imagenes de variantes si existen
             const formattedVariantes = (product.variantes_producto || []).map((v: any) => ({
                 ...v,
-                precio: v.precio ? Number(v.precio).toFixed(2) : ""
+                precio: v.precio ? Number(v.precio).toFixed(2) : "",
+                imagen_preview: v.imagen ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${v.imagen}` : null
             }));
             setVariantes(formattedVariantes);
 
@@ -219,7 +228,21 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
     };
 
     const addVariante = () => {
-        setVariantes([...variantes, { nombre: "", sku: "", precio: "", stock: 0 }]);
+        setVariantes([...variantes, { nombre: "", sku: "", precio: "", stock: 0, imagen_file: null, imagen_preview: null }]);
+    };
+
+    const handleVariantImageChange = (index: number, file: File) => {
+        const newVariantes = [...variantes];
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            newVariantes[index] = {
+                ...newVariantes[index],
+                imagen_file: file,
+                imagen_preview: reader.result as string
+            };
+            setVariantes(newVariantes);
+        };
+        reader.readAsDataURL(file);
     };
 
     const removeVariante = (index: number) => {
@@ -252,6 +275,31 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                 currentImageId = uploadedFile.id;
             }
 
+            // Subir imágenes de variantes si existen
+            const updatedVariantes = await Promise.all(variantes.map(async (v) => {
+                if (v.imagen_file) {
+                    const formData = new FormData();
+                    formData.append("file", v.imagen_file);
+                    const { data: uploadedFile, error: uploadError } = await uploadFile(formData);
+                    if (!uploadError && uploadedFile) {
+                        return {
+                            nombre: v.nombre,
+                            sku: v.sku,
+                            precio: parseFloat(Number(v.precio).toFixed(2)) || 0,
+                            stock: parseInt(v.stock as any) || 0,
+                            imagen: uploadedFile.id
+                        };
+                    }
+                }
+                return {
+                    nombre: v.nombre,
+                    sku: v.sku,
+                    precio: parseFloat(Number(v.precio).toFixed(2)) || 0,
+                    stock: parseInt(v.stock as any) || 0,
+                    imagen: v.imagen || null
+                };
+            }));
+
             const data = {
                 nombre,
                 sku,
@@ -262,11 +310,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                 descripcion_corta: descripcionCorta,
                 descripcion_normal: descripcionNormal,
                 stock: stock,
-                variantes_producto: variantes.map(v => ({
-                    ...v,
-                    precio: parseFloat(Number(v.precio).toFixed(2)) || 0,
-                    stock: parseInt(v.stock as any) || 0
-                })),
+                variantes_producto: updatedVariantes,
                 workspace: workspaceId,
                 status: "published",
                 imagen: currentImageId,
@@ -294,7 +338,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
     return (
         <>
             <Dialog open={isOpen} onOpenChange={onClose}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[95vw] md:max-w-2xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-2xl font-bold">
                             {product ? "Editar Producto" : "Nuevo Producto"}
@@ -544,6 +588,33 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                                 <div className="grid gap-3">
                                     {variantes.map((v, i) => (
                                         <div key={i} className="flex gap-2 items-end border p-4 rounded-xl bg-muted/20 border-border/50 group">
+                                            <div className="w-16 space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold">Imagen</Label>
+                                                <div
+                                                    onClick={() => {
+                                                        const input = document.createElement('input');
+                                                        input.type = 'file';
+                                                        input.accept = 'image/*';
+                                                        input.onchange = (e: any) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) {
+                                                                handleVariantImageChange(i, file);
+                                                            }
+                                                        };
+                                                        input.click();
+                                                    }}
+                                                    className="h-9 w-16 rounded border bg-background flex items-center justify-center cursor-pointer overflow-hidden relative group/img"
+                                                >
+                                                    {v.imagen_preview ? (
+                                                        <img src={v.imagen_preview} className="object-cover w-full h-full" alt="" />
+                                                    ) : (
+                                                        <ImageIcon className="h-4 w-4 text-muted-foreground/40" />
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Upload className="h-3 w-3 text-white" />
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <div className="flex-1 space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold">Identificador (Talla/Color)</Label>
                                                 <Input
