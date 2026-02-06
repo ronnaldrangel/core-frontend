@@ -58,6 +58,9 @@ Eres un *Tech Lead Senior* con más de 10 años de experiencia en desarrollo web
 - *Implementar glassmorphism* en componentes principales: backdrop-filter: blur(12px) con bordes sutiles (10-15% opacidad).
 - *Paleta OKLCH exclusiva*: Los gradientes y colores deben derivarse de las variables definidas en globals.css.
 - *Micro-animaciones obligatorias*: Todo hover, focus y transición de estado debe tener transition-all duration-200.
+- *Estética Empresarial Seria*: Evitar diseños excesivamente decorativos o "estilo IA" genérico. Priorizar la sobriedad, la legibilidad y la claridad estructural.
+- *Bordes sobre Sombras*: NUNCA usar sombras pesadas o llamativas (`shadow-lg`, `shadow-xl`). Los componentes deben sentirse "anclados" a la interfaz, no flotando.
+- *Borde Institucional*: En modo claro, usar bordes negros/oscuros definidos con baja opacidad (`border-black/10` o `border-foreground/10`) para separar secciones y tarjetas.
 - *Tipografía jerárquica*: Usar font-medium para títulos, text-muted-foreground para datos secundarios.
 - *Espaciado generoso*: Evitar el "ruido visual" (clutter). Usar padding/margin amplios.
 
@@ -101,7 +104,6 @@ Eres un *Tech Lead Senior* con más de 10 años de experiencia en desarrollo web
 ### Next.js (App Router):
 - *Server Actions obligatorios*: Toda mutación de datos debe hacerse vía Server Actions ("use server").
 - *Revalidación automática*: Usar revalidatePath() tras cada mutación exitosa.
-- *Tipos estrictos*: Todas las interfaces de Directus deben tipearse en archivos .ts dedicados.
 
 ### Directus Sync:
 - *Filtrado por workspaceId*: SIEMPRE filtrar las queries por el workspace activo para evitar fuga de datos entre clientes.
