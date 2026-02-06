@@ -47,21 +47,34 @@ import {
     MessageSquare,
     Send,
     Settings,
-    Upload
+    Upload,
+    Minus,
+    ShoppingCart,
+    Pencil,
+    Check,
 } from "lucide-react";
 import Image from "next/image";
 import { DEPARTAMENTOS, PROVINCIAS, DISTRITOS } from "@/lib/peru-locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ShalomAgencySelect } from "@/components/dashboard/shalom/agency-select";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteOrder, updateOrder, OrderStatus, PaymentStatus, CourierType } from "@/lib/order-actions";
 import { updateClient } from "@/lib/client-actions";
-import { uploadFile } from "@/lib/product-actions";
+
+import { uploadFile, Product } from "@/lib/product-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/components/providers/rbac-provider";
+import { createOrderMessage, getOrderMessages } from "@/lib/message-actions";
+import { subscribeToOrderMessages, playNotificationSound } from "@/lib/websocket";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { OrderMessage } from "@/types/messages";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -102,11 +115,13 @@ interface OrderTableProps {
     couriers: CourierType[];
     paymentMethods: any[];
     themeColor?: string;
+    currentUserId: string;
+    products: Product[];
 }
 type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | "custom";
 
 
-export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, paymentMethods, themeColor = "#6366F1" }: OrderTableProps) {
+export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, paymentMethods, themeColor = "#6366F1", currentUserId, products = [] }: OrderTableProps) {
     const { hasPermission } = useRBAC();
     const canUpdate = hasPermission("orders.update");
     const canDelete = hasPermission("orders.delete");
@@ -133,40 +148,248 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
     const [isUploadingVoucher, setIsUploadingVoucher] = useState<string | null>(null);
     const [editingAmounts, setEditingAmounts] = useState<Record<string, { monto_adelanto?: string; monto_faltante?: string }>>({});
     const [isSavingAmounts, setIsSavingAmounts] = useState<string | null>(null);
-    const [noteDraft, setNoteDraft] = useState("");
-    const [isSavingNote, setIsSavingNote] = useState(false);
 
-    // Update noteDraft when selectedOrder changes
+    // Estados para mensajería
+    const [orderMessages, setOrderMessages] = useState<OrderMessage[]>([]);
+    const [newMessage, setNewMessage] = useState("");
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
+    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+
+    // Cargar mensajes cuando se selecciona una orden
     useEffect(() => {
         if (selectedOrder) {
-            setNoteDraft(selectedOrder.notas || "");
+            loadMessages(selectedOrder.id);
+        } else {
+            setOrderMessages([]);
         }
     }, [selectedOrder]);
 
-    const handleSaveNote = async () => {
-        if (!selectedOrder || isSavingNote) return;
-
+    const loadMessages = async (orderId: string) => {
+        setIsLoadingMessages(true);
         try {
-            setIsSavingNote(true);
-            const result = await updateOrder(selectedOrder.id, { notas: noteDraft });
-
+            const result = await getOrderMessages(orderId, selectedOrder.workspace_id);
             if (result.data) {
-                toast.success("Comentario guardado");
-                // Update local orders
-                setLocalOrders(prev => prev.map(o =>
-                    o.id === selectedOrder.id ? { ...o, notas: noteDraft } : o
-                ));
-                // Update selected order reference
-                setSelectedOrder((prev: any) => prev ? { ...prev, notas: noteDraft } : null);
-            } else {
-                toast.error(result.error || "Error al guardar comentario");
+                setOrderMessages(result.data);
             }
         } catch (error) {
-            toast.error("Error al guardar comentario");
+            console.error("Error loading messages:", error);
         } finally {
-            setIsSavingNote(false);
+            setIsLoadingMessages(false);
         }
     };
+
+    // Suscribirse a nuevos mensajes en tiempo real
+    useEffect(() => {
+        if (!selectedOrder) return;
+
+        const unsubscribe = subscribeToOrderMessages(
+            selectedOrder.id,
+            selectedOrder.workspace_id,
+            (newMessages) => {
+                setOrderMessages((prev) => {
+                    const existingIds = new Set(prev.map((m) => m.id));
+                    const uniqueNewMessages = newMessages.filter(
+                        (m) => !existingIds.has(m.id)
+                    );
+
+                    if (uniqueNewMessages.length > 0) {
+                        playNotificationSound();
+                        return [...prev, ...uniqueNewMessages];
+                    }
+
+                    return prev;
+                });
+            },
+            (error) => {
+                console.error("Polling error:", error);
+            }
+        );
+
+        return unsubscribe;
+    }, [selectedOrder]);
+
+    const [isEditingItems, setIsEditingItems] = useState(false);
+    const [itemSearchTerm, setItemSearchTerm] = useState("");
+
+    // Filtrar productos para el buscador del modal
+    const filteredProducts = useMemo(() => {
+        if (!itemSearchTerm) return [];
+        return products.filter(product =>
+            product.nombre.toLowerCase().includes(itemSearchTerm.toLowerCase()) ||
+            product.sku?.toLowerCase().includes(itemSearchTerm.toLowerCase())
+        ).slice(0, 5); // Limitar a 5 resultados
+    }, [products, itemSearchTerm]);
+
+    // Añadir producto a la orden en edición
+    const addProductToOrder = (product: Product) => {
+        if (!orderToEdit) return;
+
+        const existingItemIndex = orderToEdit.items?.findIndex((item: any) =>
+            (item.product_id?.id || item.product_id) === product.id
+        );
+
+        let newItems = [...(orderToEdit.items || [])];
+
+        if (existingItemIndex >= 0) {
+            // Incrementar cantidad
+            newItems[existingItemIndex] = {
+                ...newItems[existingItemIndex],
+                cantidad: Number(newItems[existingItemIndex].cantidad) + 1,
+                subtotal: (Number(newItems[existingItemIndex].cantidad) + 1) * Number(newItems[existingItemIndex].precio_unitario)
+            };
+        } else {
+            // Nuevo ítem
+            newItems.push({
+                product_id: product, // Guardamos el objeto completo para mostrar nombre/precio
+                cantidad: 1,
+                precio_unitario: product.precio_venta || 0,
+                subtotal: product.precio_venta || 0
+            });
+        }
+
+        // Recalcular total de la orden
+        const newTotal = newItems.reduce((acc, item) => acc + Number(item.subtotal), 0);
+        const newFaltante = Math.max(0, newTotal - (Number(orderToEdit.monto_adelanto) || 0));
+
+        setOrderToEdit({
+            ...orderToEdit,
+            items: newItems,
+            total: newTotal,
+            monto_faltante: newFaltante
+        });
+        setItemSearchTerm(""); // Limpiar búsqueda después de agregar
+    };
+
+    // Actualizar cantidad de ítem
+    const updateOrderQuantity = (index: number, delta: number) => {
+        if (!orderToEdit || !orderToEdit.items) return;
+
+        let newItems = [...orderToEdit.items];
+        const item = newItems[index];
+        const newQuantity = Number(item.cantidad) + delta;
+
+        if (newQuantity <= 0) {
+            // Eliminar si llega a 0
+            newItems.splice(index, 1);
+        } else {
+            newItems[index] = {
+                ...item,
+                cantidad: newQuantity,
+                subtotal: newQuantity * Number(item.precio_unitario)
+            };
+        }
+
+        const newTotal = newItems.reduce((acc, curr) => acc + Number(curr.subtotal), 0);
+        const newFaltante = Math.max(0, newTotal - (Number(orderToEdit.monto_adelanto) || 0));
+
+        setOrderToEdit({
+            ...orderToEdit,
+            items: newItems,
+            total: newTotal,
+            monto_faltante: newFaltante
+        });
+    };
+
+
+    // Añadir producto a la orden en edición
+    /* DUPLICADO ELIMINADO
+    const addProductToOrder = (product: Product) => {
+        if (!orderToEdit) return;
+
+        const existingItemIndex = orderToEdit.items?.findIndex((item: any) =>
+            (item.product_id?.id || item.product_id) === product.id
+        );
+
+        let newItems = [...(orderToEdit.items || [])];
+
+        if (existingItemIndex >= 0) {
+            // Incrementar cantidad
+            newItems[existingItemIndex] = {
+                ...newItems[existingItemIndex],
+                cantidad: Number(newItems[existingItemIndex].cantidad) + 1,
+                subtotal: (Number(newItems[existingItemIndex].cantidad) + 1) * Number(newItems[existingItemIndex].precio_unitario)
+            };
+        } else {
+            // Nuevo ítem
+            newItems.push({
+                product_id: product, // Guardamos el objeto completo para mostrar nombre/precio
+                cantidad: 1,
+                precio_unitario: product.precio_venta || 0,
+                subtotal: product.precio_venta || 0
+            });
+        }
+
+        // Recalcular total de la orden
+        const newTotal = newItems.reduce((acc, item) => acc + Number(item.subtotal), 0);
+
+        setOrderToEdit({
+            ...orderToEdit,
+            items: newItems,
+            total: newTotal
+        });
+        setItemSearchTerm(""); // Limpiar búsqueda después de agregar
+    };
+
+    // Actualizar cantidad de ítem
+    const updateOrderQuantity = (index: number, delta: number) => {
+        if (!orderToEdit || !orderToEdit.items) return;
+
+        let newItems = [...orderToEdit.items];
+        const item = newItems[index];
+        const newQuantity = Number(item.cantidad) + delta;
+
+        if (newQuantity <= 0) {
+            // Eliminar si llega a 0
+            newItems.splice(index, 1);
+        } else {
+            newItems[index] = {
+                ...item,
+                cantidad: newQuantity,
+                subtotal: newQuantity * Number(item.precio_unitario)
+            };
+        }
+
+        const newTotal = newItems.reduce((acc, curr) => acc + Number(curr.subtotal), 0);
+
+        setOrderToEdit({
+            ...orderToEdit,
+            items: newItems,
+            total: newTotal
+        });
+    }; */
+
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !selectedOrder || isSendingMessage) return;
+
+        setIsSendingMessage(true);
+        try {
+            const result = await createOrderMessage({
+                order_id: selectedOrder.id,
+                message: newMessage.trim(),
+                workspace_id: selectedOrder.workspace_id,
+            });
+
+            if (result.error) {
+                toast.error(result.error);
+                return;
+            }
+
+            setNewMessage("");
+            // El mensaje aparecerá automáticamente vía polling
+        } catch (error: any) {
+            toast.error(error.message || "Error al enviar mensaje");
+        } finally {
+            setIsSendingMessage(false);
+        }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
 
     const handleVoucherUpload = async (e: React.ChangeEvent<HTMLInputElement>, order: any) => {
         const files = Array.from(e.target.files || []);
@@ -907,26 +1130,122 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                             </div>
 
                             <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-                                {/* 1. Comentarios / Notas */}
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-medium">Notas del pedido</h4>
-                                    <div className="space-y-2">
-                                        <textarea
-                                            className="w-full min-h-[80px] bg-transparent border border-input rounded-md p-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all resize-none"
-                                            placeholder="Añadir una nota interna..."
-                                            value={noteDraft}
-                                            onChange={(e) => setNoteDraft(e.target.value)}
-                                        />
-                                        <div className="flex justify-end">
-                                            <Button
-                                                size="sm"
-                                                onClick={handleSaveNote}
-                                                disabled={isSavingNote || noteDraft === (selectedOrder.notas || "")}
-                                                className="h-8"
-                                            >
-                                                {isSavingNote ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
-                                                Guardar nota
-                                            </Button>
+                                {/* 1. Mensajería del pedido */}
+                                <div className="space-y-0">
+                                    {/* Área de mensajes */}
+                                    <div className="rounded-lg bg-transparent overflow-hidden">
+                                        <ScrollArea className="h-[300px] px-1 py-4">
+                                            {isLoadingMessages ? (
+                                                <div className="flex items-center justify-center h-full">
+                                                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                                </div>
+                                            ) : orderMessages.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                                                    <MessageSquare className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                                                    <p className="text-sm text-muted-foreground">
+                                                        No hay mensajes aún
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground/60 mt-1">
+                                                        Inicia la conversación enviando un mensaje
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {orderMessages.map((message) => {
+                                                        const user = message.user_created;
+                                                        const hasName = user?.first_name || user?.last_name;
+                                                        const displayName = hasName
+                                                            ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                                            : user?.email?.split('@')[0] || "Usuario"; // Fallback a parte del email o "Usuario"
+
+                                                        const initials = hasName
+                                                            ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase()
+                                                            : (user?.email?.[0] || "U").toUpperCase();
+
+                                                        const isOwnMessage = user?.id === currentUserId;
+
+                                                        return (
+                                                            <div
+                                                                key={message.id}
+                                                                className={cn(
+                                                                    "flex gap-3 animate-in slide-in-from-bottom-2 duration-300",
+                                                                    isOwnMessage && "flex-row-reverse"
+                                                                )}
+                                                            >
+                                                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                                                    <AvatarFallback
+                                                                        className={cn(
+                                                                            "text-xs font-bold",
+                                                                            isOwnMessage ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                                                                        )}
+                                                                    >
+                                                                        {initials}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+
+                                                                <div
+                                                                    className={cn(
+                                                                        "flex flex-col gap-1 max-w-[80%]",
+                                                                        isOwnMessage && "items-end"
+                                                                    )}
+                                                                >
+                                                                    <div className={cn(
+                                                                        "flex items-center gap-2 text-xs text-muted-foreground",
+                                                                        isOwnMessage && "flex-row-reverse"
+                                                                    )}>
+                                                                        <span className="font-medium">
+                                                                            {isOwnMessage ? "Tú" : displayName}
+                                                                        </span>
+                                                                        <span>•</span>
+                                                                        <span>
+                                                                            {format(new Date(message.date_created), "dd/MM HH:mm", { locale: es })}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <div
+                                                                        className={cn(
+                                                                            "rounded-2xl px-4 py-2 text-sm shadow-sm w-fit",
+                                                                            isOwnMessage
+                                                                                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                                                                                : "bg-muted/30 border rounded-tl-sm"
+                                                                        )}
+                                                                    >
+                                                                        <p className="whitespace-pre-wrap break-words leading-relaxed">
+                                                                            {message.message}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </ScrollArea>
+
+                                        {/* Input para nuevo mensaje */}
+                                        <div className="pt-2">
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    placeholder="Escribe un mensaje..."
+                                                    value={newMessage}
+                                                    onChange={(e) => setNewMessage(e.target.value)}
+                                                    onKeyDown={handleKeyPress}
+                                                    disabled={isSendingMessage}
+                                                    className="flex-1 h-9"
+                                                />
+                                                <Button
+                                                    onClick={handleSendMessage}
+                                                    disabled={!newMessage.trim() || isSendingMessage}
+                                                    size="sm"
+                                                    className="h-9 px-3"
+                                                >
+                                                    {isSendingMessage ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Send className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1145,86 +1464,85 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                     {orderToEdit && (
                         <>
                             <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2 -mr-2">
-                                {/* ¿Quién entrega? */}
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-medium">Empresa de transporte</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Shalom', 'Olva', 'Dinsides'].map((courier) => (
-                                            <Button
-                                                key={courier}
-                                                variant={orderToEdit.courier_nombre === courier ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => setOrderToEdit({ ...orderToEdit, courier_nombre: courier })}
-                                                className="h-8"
-                                            >
-                                                {courier}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* ¿Qué envías? */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label className="text-sm font-medium">Resumen de productos</Label>
-                                        <Button variant="outline" size="sm" className="h-8">
-                                            Editar items
-                                        </Button>
-                                    </div>
-                                    <div className="rounded-md border divide-y bg-muted/10">
-                                        {orderToEdit.items?.map((item: any) => (
-                                            <div key={item.id} className="flex justify-between items-center p-3 text-sm">
-                                                <div>
-                                                    <p className="font-medium">{item.product_id?.nombre}</p>
-                                                    <p className="text-xs text-muted-foreground">S/ {Number(item.precio_unitario).toFixed(2)} x {item.cantidad}</p>
-                                                </div>
-                                                <p className="font-medium">S/ {Number(item.subtotal).toFixed(2)}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* Observación */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="edit-notas" className="text-sm font-medium">Observación de la orden</Label>
-                                    <textarea
-                                        id="edit-notas"
-                                        className="w-full min-h-[80px] bg-transparent border border-input rounded-md p-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-all resize-none font-normal"
-                                        placeholder="Escribe alguna observación o nota interna..."
-                                        value={orderToEdit.notas || ""}
-                                        onChange={(e) => setOrderToEdit({ ...orderToEdit, notas: e.target.value })}
-                                    />
-                                </div>
+
+
+
 
                                 {/* Recibe */}
                                 <div className="space-y-3">
                                     <Label className="text-sm">Recibe:</Label>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs text-muted-foreground">Nombre</Label>
+
+                                    {/* Documento de Identificación */}
+                                    <div className="space-y-1.5 relative">
+                                        <Label className="text-sm font-medium">DNI / RUC</Label>
+                                        <div className="relative">
                                             <Input
+                                                placeholder="Número de documento"
+                                                className="h-10 text-sm font-medium pr-8"
+                                                value={orderToEdit.cliente_id?.documento_identificacion || ""}
+                                                onChange={(e) => {
+                                                    const updated = { ...orderToEdit };
+                                                    updated.cliente_id = { ...updated.cliente_id, documento_identificacion: e.target.value };
+                                                    setOrderToEdit(updated);
+                                                }}
+                                                maxLength={11}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Tipo & Nombre */}
+                                    <div className="grid grid-cols-[1fr_3fr] gap-3">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-sm font-medium">Tipo</Label>
+                                            <Select
+                                                value={orderToEdit.cliente_id?.tipo_cliente || "persona"}
+                                                onValueChange={(val) => {
+                                                    const updated = { ...orderToEdit };
+                                                    updated.cliente_id = { ...updated.cliente_id, tipo_cliente: val };
+                                                    setOrderToEdit(updated);
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-10 text-sm font-medium">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="persona">Persona</SelectItem>
+                                                    <SelectItem value="empresa">Empresa</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label className="text-sm font-medium">Nombre Completo</Label>
+                                            <Input
+                                                placeholder="Nombre del Cliente"
+                                                className="h-10 text-sm font-medium"
                                                 value={orderToEdit.cliente_id?.nombre_completo || ""}
                                                 onChange={(e) => {
                                                     const updated = { ...orderToEdit };
                                                     updated.cliente_id = { ...updated.cliente_id, nombre_completo: e.target.value };
                                                     setOrderToEdit(updated);
                                                 }}
-                                                className="h-10"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs text-muted-foreground">Contacto (Teléfono)</Label>
-                                            <Input
-                                                value={orderToEdit.cliente_id?.telefono || ""}
-                                                onChange={(e) => {
-                                                    const updated = { ...orderToEdit };
-                                                    updated.cliente_id = { ...updated.cliente_id, telefono: e.target.value };
-                                                    setOrderToEdit(updated);
-                                                }}
-                                                className="h-10"
-                                                placeholder="999 999 999"
-                                            />
-                                        </div>
+                                    </div>
+
+                                    {/* Telefono */}
+                                    <div className="space-y-1.5">
+                                        <Label className="text-sm font-medium">Teléfono</Label>
+                                        <PhoneInput
+                                            placeholder="+51 987 654 321"
+                                            defaultCountry="PE"
+                                            className="h-10 text-sm font-medium"
+                                            value={orderToEdit.cliente_id?.telefono || ""}
+                                            onChange={(value) => {
+                                                const updated = { ...orderToEdit };
+                                                updated.cliente_id = { ...updated.cliente_id, telefono: value };
+                                                setOrderToEdit(updated);
+                                            }}
+                                        />
                                     </div>
                                 </div>
 
@@ -1240,33 +1558,287 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 className="h-10"
                                             />
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-xs text-muted-foreground">Provincia</Label>
-                                                <Input
-                                                    value={orderToEdit.provincia || ""}
-                                                    onChange={(e) => setOrderToEdit({ ...orderToEdit, provincia: e.target.value })}
-                                                    className="h-10"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-xs text-muted-foreground">Distrito</Label>
-                                                <Input
-                                                    value={orderToEdit.distrito || ""}
-                                                    onChange={(e) => setOrderToEdit({ ...orderToEdit, distrito: e.target.value })}
-                                                    className="h-10"
-                                                />
-                                            </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs text-muted-foreground">Provincia</Label>
+                                            <Input
+                                                value={orderToEdit.provincia || ""}
+                                                onChange={(e) => setOrderToEdit({ ...orderToEdit, provincia: e.target.value })}
+                                                className="h-10"
+                                            />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-xs text-muted-foreground">Dirección</Label>
+                                            <Label className="text-xs text-muted-foreground">Distrito</Label>
                                             <Input
-                                                value={orderToEdit.direccion || ""}
-                                                onChange={(e) => setOrderToEdit({ ...orderToEdit, direccion: e.target.value })}
+                                                value={orderToEdit.distrito || ""}
+                                                onChange={(e) => setOrderToEdit({ ...orderToEdit, distrito: e.target.value })}
                                                 className="h-10"
                                             />
                                         </div>
                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Dirección</Label>
+                                        <Input
+                                            value={orderToEdit.direccion || ""}
+                                            onChange={(e) => setOrderToEdit({ ...orderToEdit, direccion: e.target.value })}
+                                            className="h-10"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Envio */}
+                                <div className="space-y-4 pt-4 border-t border-dashed">
+                                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/5 capitalize">
+                                        <Checkbox
+                                            id="shipping"
+                                            checked={!!orderToEdit.configurar_envio}
+                                            onCheckedChange={(val) => setOrderToEdit({ ...orderToEdit, configurar_envio: !!val })}
+                                        />
+                                        <Label htmlFor="shipping" className="text-sm font-medium cursor-pointer">Configurar Envío / Courier</Label>
+                                    </div>
+
+                                    {orderToEdit.configurar_envio && (
+                                        <div className="space-y-6 pt-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-sm font-medium">Tipo de Cobro</Label>
+                                                <div className="flex bg-muted/50 p-1 rounded-lg border border-border/50 w-fit">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={cn(
+                                                            "h-8 text-[10px] font-black uppercase px-4 transition-all duration-200 rounded-md",
+                                                            orderToEdit.tipo_cobro_envio === "adicional"
+                                                                ? "bg-background text-primary shadow-sm hover:bg-background"
+                                                                : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                                                        )}
+                                                        onClick={() => setOrderToEdit({ ...orderToEdit, tipo_cobro_envio: "adicional" })}
+                                                    >
+                                                        Adicional
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className={cn(
+                                                            "h-8 text-[10px] font-black uppercase px-4 transition-all duration-200 rounded-md ml-1",
+                                                            orderToEdit.tipo_cobro_envio === "incluido"
+                                                                ? "bg-background text-primary shadow-sm hover:bg-background"
+                                                                : "text-muted-foreground hover:text-foreground hover:bg-transparent"
+                                                        )}
+                                                        onClick={() => setOrderToEdit({ ...orderToEdit, tipo_cobro_envio: "incluido" })}
+                                                    >
+                                                        Incluido
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Costo Envío</Label>
+                                                    <Input
+                                                        type="number"
+                                                        className="h-10 text-sm w-full"
+                                                        placeholder="0.00"
+                                                        value={orderToEdit.costo_envio === 0 ? "" : (orderToEdit.costo_envio || "")}
+                                                        onChange={(e) => setOrderToEdit({ ...orderToEdit, costo_envio: Number(e.target.value) })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Courier</Label>
+                                                    <Select
+                                                        value={orderToEdit.courier_nombre || ""}
+                                                        onValueChange={(val) => setOrderToEdit({ ...orderToEdit, courier_nombre: val })}
+                                                    >
+                                                        <SelectTrigger className="h-10 font-medium w-full">
+                                                            <SelectValue placeholder="Seleccionar" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {couriers.map((type: any) => (
+                                                                <SelectItem key={type.id} value={type.value}>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
+                                                                        {type.name}
+                                                                    </div>
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-sm font-medium">Destino / Agencia (Referencia)</Label>
+                                                    {orderToEdit.courier_nombre === "SHALOM" ? (
+                                                        <ShalomAgencySelect
+                                                            value={orderToEdit.courier_destino_agencia || ""}
+                                                            onValueChange={(val) => setOrderToEdit({ ...orderToEdit, courier_destino_agencia: val })}
+                                                        />
+                                                    ) : (
+                                                        <Input
+                                                            className="h-10 text-sm"
+                                                            placeholder="Ej: Agencia Shalom Av. Grau"
+                                                            value={orderToEdit.courier_destino_agencia || ""}
+                                                            onChange={(e) => setOrderToEdit({ ...orderToEdit, courier_destino_agencia: e.target.value })}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 pt-2 border-t border-dashed">
+                                                <div className="flex items-center gap-2">
+                                                    <Truck className="h-3.5 w-3.5" />
+                                                    <Label className="text-sm font-medium">Seguimiento ({orderToEdit.courier_nombre || "Courier"})</Label>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <Input
+                                                        placeholder="Nro. Orden"
+                                                        className="h-10 text-sm"
+                                                        value={orderToEdit.courier_nro_orden || ""}
+                                                        onChange={(e) => setOrderToEdit({ ...orderToEdit, courier_nro_orden: e.target.value })}
+                                                    />
+                                                    <Input
+                                                        placeholder="Código de Envío"
+                                                        className="h-10 text-sm"
+                                                        value={orderToEdit.courier_codigo || ""}
+                                                        onChange={(e) => setOrderToEdit({ ...orderToEdit, courier_codigo: e.target.value })}
+                                                    />
+                                                </div>
+                                                <Input
+                                                    placeholder="Clave"
+                                                    type="text"
+                                                    className="h-10 text-sm"
+                                                    value={orderToEdit.courier_clave || ""}
+                                                    onChange={(e) => setOrderToEdit({ ...orderToEdit, courier_clave: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Separator />
+
+                                {/* ¿Qué envías? */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm font-medium">Productos</Label>
+                                        {!isEditingItems && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8"
+                                                onClick={() => setIsEditingItems(true)}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5 mr-2" />
+                                                Editar items
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {isEditingItems ? (
+                                        <div className="space-y-4 rounded-lg border p-4 bg-muted/10 border-dashed border-muted-foreground/20 animate-in fade-in zoom-in-95 duration-200">
+                                            {/* Header del Editor */}
+                                            <div className="flex items-center justify-between pb-2 border-b border-dashed border-muted-foreground/20">
+                                                <h4 className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Modificar Contenido</h4>
+                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingItems(false)} className="h-7 text-xs hover:bg-primary/10 hover:text-primary">
+                                                    <Check className="h-3.5 w-3.5 mr-1.5" /> Finalizar edición
+                                                </Button>
+                                            </div>
+
+                                            {/* Buscador de productos */}
+                                            <div className="relative z-20">
+                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                                                <Input
+                                                    placeholder="Buscar producto para agregar..."
+                                                    value={itemSearchTerm}
+                                                    onChange={(e) => setItemSearchTerm(e.target.value)}
+                                                    className="pl-9 h-9 w-full text-sm bg-background"
+                                                    autoFocus
+                                                />
+                                                {filteredProducts.length > 0 && (
+                                                    <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-xl overflow-hidden py-1 z-50">
+                                                        {filteredProducts.map(product => (
+                                                            <button
+                                                                key={product.id}
+                                                                onClick={() => addProductToOrder(product)}
+                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex justify-between items-center group transition-colors"
+                                                            >
+                                                                <span className="font-medium group-hover:text-primary">{product.nombre}</span>
+                                                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">S/ {product.precio_venta}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Lista editable */}
+                                            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                                                {orderToEdit.items?.map((item: any, idx: number) => (
+                                                    <div key={idx} className="flex justify-between items-center bg-background border rounded-md p-2 shadow-sm">
+                                                        <div className="flex-1 min-w-0 pr-2">
+                                                            <p className="text-sm font-medium truncate leading-none mb-1">
+                                                                {item.product_id?.nombre || item.product_id?.name || "Producto desconocido"}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                S/ {Number(item.precio_unitario).toFixed(2)} c/u
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 bg-muted/30 rounded-md p-0.5 border">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive rounded-sm"
+                                                                onClick={() => updateOrderQuantity(idx, -1)}
+                                                            >
+                                                                <Minus className="h-3 w-3" />
+                                                            </Button>
+                                                            <span className="w-8 text-center text-sm font-medium tabular-nums">{item.cantidad}</span>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-6 w-6 hover:bg-primary/10 hover:text-primary rounded-sm"
+                                                                onClick={() => updateOrderQuantity(idx, 1)}
+                                                            >
+                                                                <Plus className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {(!orderToEdit.items || orderToEdit.items.length === 0) && (
+                                                    <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-md">
+                                                        El pedido está vacío
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Total en edición */}
+                                            <div className="flex justify-between items-center pt-3 border-t border-dashed">
+                                                <span className="text-sm font-medium text-muted-foreground">Nueva suma total:</span>
+                                                <span className="text-lg font-bold text-primary tracking-tight">
+                                                    S/ {Number(orderToEdit.total || 0).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="rounded-md border divide-y bg-muted/10 transition-all hover:bg-muted/20">
+                                            {orderToEdit.items?.map((item: any) => (
+                                                <div key={item.id} className="flex justify-between items-center p-3 text-sm">
+                                                    <div>
+                                                        <p className="font-medium">{item.product_id?.nombre || item.product_id?.name || "Producto"}</p>
+                                                        <p className="text-xs text-muted-foreground">S/ {Number(item.precio_unitario).toFixed(2)} x {item.cantidad}</p>
+                                                    </div>
+                                                    <p className="font-medium tabular-nums">S/ {Number(item.subtotal).toFixed(2)}</p>
+                                                </div>
+                                            ))}
+                                            <div className="p-3 flex justify-between items-center bg-background/50 text-sm border-t">
+                                                <span className="font-medium text-muted-foreground">Total</span>
+                                                <span className="font-bold">S/ {Number(orderToEdit.total || 0).toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <Separator />
@@ -1419,6 +1991,15 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                             if (orderToEdit.cliente_id?.telefono) {
                                                 clienteData.telefono = orderToEdit.cliente_id.telefono;
                                             }
+                                            if (orderToEdit.cliente_id?.tipo_documento_identificacion) {
+                                                clienteData.tipo_documento_identificacion = orderToEdit.cliente_id.tipo_documento_identificacion;
+                                            }
+                                            if (orderToEdit.cliente_id?.documento_identificacion) {
+                                                clienteData.documento_identificacion = orderToEdit.cliente_id.documento_identificacion;
+                                            }
+                                            if (orderToEdit.cliente_id?.tipo_cliente) {
+                                                clienteData.tipo_cliente = orderToEdit.cliente_id.tipo_cliente;
+                                            }
 
                                             // Actualizar cliente si hay cambios
                                             if (Object.keys(clienteData).length > 0 && orderToEdit.cliente_id?.id) {
@@ -1443,6 +2024,22 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 direccion: orderToEdit.direccion,
                                                 monto_adelanto: orderToEdit.monto_adelanto,
                                                 monto_faltante: orderToEdit.monto_faltante,
+                                                total: orderToEdit.total,
+                                                configurar_envio: orderToEdit.configurar_envio,
+                                                tipo_cobro_envio: orderToEdit.tipo_cobro_envio,
+                                                costo_envio: orderToEdit.costo_envio,
+                                                courier_destino_agencia: orderToEdit.courier_destino_agencia,
+                                                courier_nro_orden: orderToEdit.courier_nro_orden,
+                                                courier_codigo: orderToEdit.courier_codigo,
+                                                courier_clave: orderToEdit.courier_clave,
+                                                items: orderToEdit.items?.map((item: any) => ({
+                                                    id: item.id?.includes('temp-') ? undefined : item.id,
+                                                    product_id: item.product_id?.id || item.product_id,
+                                                    cantidad: item.cantidad,
+                                                    precio_unitario: item.precio_unitario,
+                                                    subtotal: item.subtotal,
+                                                    variante_seleccionada: item.variante_seleccionada || null
+                                                }))
                                             };
 
                                             // Solo incluir metodo_pago si tiene un ID válido (UUID)

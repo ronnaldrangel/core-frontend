@@ -1,7 +1,7 @@
 "use server";
 
 import { directus, directusAdmin } from "./directus";
-import { createItem, createItems, readItems, readItem, updateItem, deleteItem } from "@directus/sdk";
+import { createItem, createItems, readItems, readItem, updateItem, deleteItem, deleteItems } from "@directus/sdk";
 import { revalidatePath } from "next/cache";
 import { getMyPermissions } from "./rbac-actions";
 
@@ -471,14 +471,83 @@ export async function updateOrder(id: string, data: any) {
             return { data: null, error: "No tienes permiso para actualizar pedidos" };
         }
 
-        const order = await directusAdmin.request(
-            updateItem("orders", id, data)
-        );
-        revalidatePath(`/dashboard`);
-        return { data: order, error: null };
+        // Logic for Stock and Items
+        if (data.items && Array.isArray(data.items)) {
+            // 1. Get Old Items
+            const oldOrder = await directusAdmin.request(readItem("orders", id, {
+                fields: ["items.*"]
+            })) as any;
+            const oldItems = oldOrder?.items || [];
+
+            // 2. Perform Update (Directus handles upsert of items in the array)
+            const updatedOrder = await directusAdmin.request(updateItem("orders", id, data));
+
+            // 3. Handle Deletions (Items in oldItems but not in data.items)
+            const newIds = data.items.map((i: any) => i.id).filter(Boolean);
+            const idsToDelete = oldItems
+                .filter((old: any) => !newIds.includes(old.id))
+                .map((old: any) => old.id);
+
+            if (idsToDelete.length > 0) {
+                await directusAdmin.request(deleteItems("order_items", idsToDelete));
+            }
+
+            // 4. Stock Reversion (Old Items) - Add back the old quantity
+            for (const item of oldItems) {
+                await updateProductStock(item.product_id, item.cantidad, item.variante_seleccionada, true);
+            }
+
+            // 5. Stock Deduction (New Items) - Subtract the new quantity
+            for (const item of data.items) {
+                await updateProductStock(item.product_id, item.cantidad, item.variante_seleccionada, false);
+            }
+
+            revalidatePath(`/dashboard`);
+            return { data: updatedOrder, error: null };
+        } else {
+            // Standard update without items
+            const order = await directusAdmin.request(
+                updateItem("orders", id, data)
+            );
+            revalidatePath(`/dashboard`);
+            return { data: order, error: null };
+        }
     } catch (error: any) {
         console.error("Error updating order:", error);
         const errorMessage = error.errors?.[0]?.message || error.message || "Error al actualizar la orden";
         return { data: null, error: errorMessage };
+    }
+}
+
+// Helper to update product stock
+async function updateProductStock(productId: string | any, quantity: number, variant: string | undefined, isRevert: boolean) {
+    try {
+        const id = typeof productId === 'object' ? productId.id : productId;
+
+        const product = await directusAdmin.request(readItem("products", id, {
+            fields: ["id", "stock", "variantes_producto"]
+        })) as any;
+
+        if (product) {
+            const updateData: any = {};
+            const delta = isRevert ? quantity : -quantity; // Positive to add back, negative to subtract
+
+            if (variant && Array.isArray(product.variantes_producto)) {
+                const updatedVariantes = product.variantes_producto.map((v: any) => {
+                    if (v.nombre === variant || v.sku === variant) {
+                        return { ...v, stock: (Number(v.stock) || 0) + delta };
+                    }
+                    return v;
+                });
+                updateData.variantes_producto = updatedVariantes;
+            }
+
+            // Update base stock
+            updateData.stock = (Number(product.stock) || 0) + delta;
+
+            await directusAdmin.request(updateItem("products", product.id, updateData));
+        }
+    } catch (stockError) {
+        console.error(`Error actualizando stock para producto ${productId}:`, stockError);
     }
 }

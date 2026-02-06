@@ -129,12 +129,8 @@ export function Sidebar({
             href: `/dashboard/${currentWorkspaceId}/settings`,
             permission: "settings.manage",
         },
-        {
-            title: "Mensajes",
-            href: `/dashboard/${currentWorkspaceId}/orders/messages`,
-            permission: "settings.manage",
-        },
     ];
+
 
     // Filter items based on permissions
     const visibleBeforeProducts = sidebarItemsBeforeProducts.filter(item =>

@@ -4,6 +4,7 @@ import { getWorkspaceBySlug } from "@/lib/workspace-actions";
 import { getOrdersByWorkspace } from "@/lib/order-history-actions";
 import { getOrderStatuses, getPaymentStatuses, getCourierTypes, getPaymentMethods } from "@/lib/order-actions";
 import { getMyPermissions } from "@/lib/rbac-actions";
+import { getProductsByWorkspace } from "@/lib/product-actions";
 import { OrderTable } from "@/components/dashboard/orders/order-table";
 
 interface OrdersPageProps {
@@ -28,12 +29,13 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
     }
 
     // Fetch data in parallel
-    const [ordersResult, orderStatusesResult, paymentStatusesResult, courierTypesResult, paymentMethodsResult] = await Promise.all([
+    const [ordersResult, orderStatusesResult, paymentStatusesResult, courierTypesResult, paymentMethodsResult, productsResult] = await Promise.all([
         getOrdersByWorkspace(workspace.id),
         getOrderStatuses(workspace.id),
         getPaymentStatuses(workspace.id),
         getCourierTypes(workspace.id),
-        getPaymentMethods(workspace.id)
+        getPaymentMethods(workspace.id),
+        getProductsByWorkspace(workspace.id)
     ]);
 
     const orders = ordersResult.data || [];
@@ -41,6 +43,7 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
     const paymentStatuses = paymentStatusesResult.data || [];
     const courierTypes = courierTypesResult.data || [];
     const paymentMethods = paymentMethodsResult.data || [];
+    const products = productsResult.data || [];
 
     return (
         <div className="space-y-6">
@@ -57,7 +60,9 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
                 paymentStatuses={paymentStatuses}
                 couriers={courierTypes}
                 paymentMethods={paymentMethods}
+                products={products}
                 themeColor={workspace.color}
+                currentUserId={session.user.id!}
             />
         </div>
     );
