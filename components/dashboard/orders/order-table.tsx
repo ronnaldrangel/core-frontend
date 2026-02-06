@@ -57,6 +57,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { deleteOrder, updateOrder, OrderStatus, PaymentStatus, CourierType } from "@/lib/order-actions";
+import { updateClient } from "@/lib/client-actions";
 import { uploadFile } from "@/lib/product-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -99,12 +100,13 @@ interface OrderTableProps {
     orderStatuses: OrderStatus[];
     paymentStatuses: PaymentStatus[];
     couriers: CourierType[];
+    paymentMethods: any[];
     themeColor?: string;
 }
 type DatePreset = "all" | "yesterday" | "today" | "3days" | "7days" | "month" | "custom";
 
 
-export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, themeColor = "#6366F1" }: OrderTableProps) {
+export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, paymentMethods, themeColor = "#6366F1" }: OrderTableProps) {
     const { hasPermission } = useRBAC();
     const canUpdate = hasPermission("orders.update");
     const canDelete = hasPermission("orders.delete");
@@ -717,6 +719,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                         setLocalOrders(prev => prev.map(o =>
                                                                             o.id === order.id ? { ...o, estado_pedido: value } : o
                                                                         ));
+                                                                        // Actualizar sidebar si esta orden está seleccionada
+                                                                        if (selectedOrder?.id === order.id) {
+                                                                            setSelectedOrder((prev: any) => prev ? { ...prev, estado_pedido: value } : null);
+                                                                        }
                                                                         toast.success("Estado de pedido actualizado");
                                                                     } else {
                                                                         toast.error(result.error || "Error al actualizar");
@@ -763,6 +769,10 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                                         setLocalOrders(prev => prev.map(o =>
                                                                             o.id === order.id ? { ...o, estado_pago: value } : o
                                                                         ));
+                                                                        // Actualizar sidebar si esta orden está seleccionada
+                                                                        if (selectedOrder?.id === order.id) {
+                                                                            setSelectedOrder((prev: any) => prev ? { ...prev, estado_pago: value } : null);
+                                                                        }
                                                                         toast.success("Estado de pago actualizado");
                                                                     } else {
                                                                         toast.error(result.error || "Error al actualizar");
@@ -923,23 +933,112 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
                                 <Separator />
 
-                                {/* 2. Productos */}
+                                {/* 2. Productos y Resumen - Estilo Boleta */}
                                 <div className="space-y-3">
-                                    <h4 className="text-sm font-medium">Productos</h4>
-                                    <div className="divide-y border-t border-b">
+                                    <h4 className="text-sm font-semibold">
+                                        Detalle de Venta
+                                    </h4>
+
+                                    {/* Lista de productos estilo boleta */}
+                                    <div className="space-y-2">
                                         {selectedOrder.items?.map((item: any) => (
-                                            <div key={item.id} className="py-3 flex justify-between items-start text-sm">
-                                                <div className="space-y-0.5">
-                                                    <p>{item.product_id?.nombre}</p>
+                                            <div key={item.id} className="flex justify-between items-start gap-3 text-sm">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium leading-tight">
+                                                        {item.product_id?.nombre}
+                                                    </p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {item.cantidad} x S/ {Number(item.precio_unitario).toFixed(2)}
+                                                        {item.cantidad} × S/ {Number(item.precio_unitario).toFixed(2)}
                                                     </p>
                                                 </div>
-                                                <p className="tabular-nums text-right">
-                                                    S/ {Number(item.subtotal).toFixed(2)}
-                                                </p>
+                                                <div className="text-right flex-shrink-0">
+                                                    <p className="font-semibold tabular-nums">
+                                                        S/ {Number(item.subtotal).toFixed(2)}
+                                                    </p>
+                                                </div>
                                             </div>
                                         ))}
+                                    </div>
+
+                                    {/* Línea divisoria */}
+                                    <div className="border-t border-dashed border-border/60 my-3" />
+
+                                    {/* Subtotales */}
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Subtotal productos</span>
+                                            <span className="tabular-nums font-medium">
+                                                S/ {(Number(selectedOrder.total) - (selectedOrder.tipo_cobro_envio === 'destino' ? 0 : Number(selectedOrder.costo_envio || 0))).toFixed(2)}
+                                            </span>
+                                        </div>
+
+                                        {selectedOrder.configurar_envio && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-muted-foreground">
+                                                    Costo de envío
+                                                    {selectedOrder.tipo_cobro_envio === 'destino' && (
+                                                        <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-medium">
+                                                            A destino
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="tabular-nums font-medium">
+                                                    {selectedOrder.tipo_cobro_envio === 'destino'
+                                                        ? 'S/ 0.00'
+                                                        : `S/ ${Number(selectedOrder.costo_envio || 0).toFixed(2)}`
+                                                    }
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Adelanto */}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Adelanto</span>
+                                            <span className="tabular-nums font-medium">
+                                                S/ {Number(selectedOrder.monto_adelanto).toFixed(2)}
+                                            </span>
+                                        </div>
+
+                                        {/* Faltante */}
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Faltante</span>
+                                            <span className="tabular-nums font-medium">
+                                                S/ {Number(selectedOrder.monto_faltante).toFixed(2)}
+                                            </span>
+                                        </div>
+
+
+                                    </div>
+
+                                    {/* Línea divisoria doble */}
+                                    <div className="border-t-2 border-border/70 my-3" />
+
+                                    {/* Total */}
+                                    <div className="flex justify-between items-center py-2">
+                                        <span className="text-sm font-bold">TOTAL</span>
+                                        <span className="text-base font-bold tabular-nums text-primary">
+                                            S/ {Number(selectedOrder.total).toFixed(2)}
+                                        </span>
+                                    </div>
+
+                                    {/* Método de pago */}
+                                    <div className="flex justify-between items-center text-sm pb-3 border-b border-dashed border-border/60">
+                                        <span className="text-muted-foreground">Método de pago</span>
+                                        <span className="font-semibold">
+                                            {(() => {
+                                                // Si es un objeto con name, usarlo directamente
+                                                if (typeof selectedOrder.metodo_pago === 'object' && selectedOrder.metodo_pago?.name) {
+                                                    return selectedOrder.metodo_pago.name;
+                                                }
+                                                // Si es un string (UUID), buscar en paymentMethods
+                                                if (typeof selectedOrder.metodo_pago === 'string') {
+                                                    const method = paymentMethods.find(m => m.id === selectedOrder.metodo_pago);
+                                                    return method?.name || selectedOrder.metodo_pago;
+                                                }
+                                                return '-';
+                                            })()}
+                                        </span>
+
                                     </div>
                                 </div>
 
@@ -993,69 +1092,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                             </a>
                                         )}
                                     </div>
-                                </div>
-
-                                <Separator />
-
-                                {/* 5. Resumen Económico */}
-                                <div className="space-y-4">
-                                    <h4 className="text-sm font-medium">Resumen económico</h4>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Total venta</span>
-                                            <span>S/ {Number(selectedOrder.total).toFixed(2)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Método de pago</span>
-                                            <span>
-                                                {typeof selectedOrder.metodo_pago === 'object' ? selectedOrder.metodo_pago.name : getPaymentMethodLabel(selectedOrder.metodo_pago)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <Separator className="opacity-50" />
-
-                                    {/* Edición rápida de adelanto */}
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4 items-end">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-muted-foreground uppercase">Adelanto</Label>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">S/</span>
-                                                    <Input
-                                                        type="number"
-                                                        value={editingAmounts[selectedOrder.id]?.monto_adelanto !== undefined ? editingAmounts[selectedOrder.id]?.monto_adelanto : Number(selectedOrder.monto_adelanto).toFixed(2)}
-                                                        onChange={(e) => handleAmountChange(selectedOrder.id, 'monto_adelanto', e.target.value, Number(selectedOrder.total))}
-                                                        className="h-8 pl-8 text-xs bg-muted/50"
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] text-destructive uppercase">Faltante</Label>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-destructive">S/</span>
-                                                    <Input
-                                                        readOnly
-                                                        value={editingAmounts[selectedOrder.id]?.monto_faltante !== undefined ? editingAmounts[selectedOrder.id]?.monto_faltante : Number(selectedOrder.monto_faltante).toFixed(2)}
-                                                        className="h-8 pl-8 text-xs text-right text-destructive bg-destructive/5 cursor-default"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        {editingAmounts[selectedOrder.id] && (
-                                            <Button
-                                                size="sm"
-                                                className="w-full h-8 text-xs"
-                                                onClick={() => handleSaveAmounts(selectedOrder.id)}
-                                                disabled={isSavingAmounts === selectedOrder.id}
-                                            >
-                                                {isSavingAmounts === selectedOrder.id ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : null}
-                                                Actualizar adelanto
-                                            </Button>
-                                        )}
-                                    </div>
-
-                                    <Separator className="opacity-50" />
                                 </div>
 
                                 <Separator />
@@ -1248,10 +1284,11 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                     <SelectValue placeholder="Seleccionar" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                                                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                                                    <SelectItem value="yape">Yape</SelectItem>
-                                                    <SelectItem value="plin">Plin</SelectItem>
+                                                    {paymentMethods.map((method) => (
+                                                        <SelectItem key={method.id} value={method.id}>
+                                                            {method.name}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -1385,11 +1422,19 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
 
                                             // Actualizar cliente si hay cambios
                                             if (Object.keys(clienteData).length > 0 && orderToEdit.cliente_id?.id) {
-                                                await updateOrder(orderToEdit.cliente_id.id, clienteData);
+                                                // Agregar workspace_id para la validación de permisos
+                                                clienteData.workspace_id = orderToEdit.workspace_id;
+                                                const clientResult = await updateClient(orderToEdit.cliente_id.id, clienteData);
+                                                if (clientResult.error) {
+                                                    toast.error(`Error al actualizar cliente: ${clientResult.error}`);
+                                                    return;
+                                                }
+                                                console.log('Cliente actualizado:', clientResult.data);
                                             }
 
+
                                             // Actualizar orden
-                                            await updateOrder(orderToEdit.id, {
+                                            const orderUpdateData: any = {
                                                 courier_nombre: orderToEdit.courier_nombre,
                                                 notas: orderToEdit.notas,
                                                 departamento: orderToEdit.departamento,
@@ -1398,13 +1443,40 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, t
                                                 direccion: orderToEdit.direccion,
                                                 monto_adelanto: orderToEdit.monto_adelanto,
                                                 monto_faltante: orderToEdit.monto_faltante,
-                                                metodo_pago: orderToEdit.metodo_pago?.id || orderToEdit.metodo_pago
-                                            });
+                                            };
+
+                                            // Solo incluir metodo_pago si tiene un ID válido (UUID)
+                                            if (orderToEdit.metodo_pago) {
+                                                // Si es un objeto con id, usar el id
+                                                if (typeof orderToEdit.metodo_pago === 'object' && orderToEdit.metodo_pago.id) {
+                                                    orderUpdateData.metodo_pago = orderToEdit.metodo_pago.id;
+                                                }
+                                                // Si es directamente un string (UUID), usarlo
+                                                else if (typeof orderToEdit.metodo_pago === 'string') {
+                                                    orderUpdateData.metodo_pago = orderToEdit.metodo_pago;
+                                                }
+                                            }
+
+
+                                            const orderResult = await updateOrder(orderToEdit.id, orderUpdateData);
+
+
+                                            if (orderResult.error) {
+                                                toast.error(`Error al actualizar orden: ${orderResult.error}`);
+                                                return;
+                                            }
+
+                                            console.log('Orden actualizada:', orderResult.data);
 
                                             // Actualizar estado local
                                             setLocalOrders(prev => prev.map(o =>
                                                 o.id === orderToEdit.id ? orderToEdit : o
                                             ));
+
+                                            // Actualizar sidebar si esta orden está seleccionada
+                                            if (selectedOrder?.id === orderToEdit.id) {
+                                                setSelectedOrder(orderToEdit);
+                                            }
 
                                             toast.success("Pedido actualizado con éxito");
                                             setOrderToEdit(null);
