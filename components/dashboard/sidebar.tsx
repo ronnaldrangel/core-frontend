@@ -16,6 +16,7 @@ import {
     ChevronDown,
     ListChecks,
     FolderKanban,
+    MessageSquare,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { useState } from "react";
@@ -67,6 +68,12 @@ export function Sidebar({
             href: `/dashboard/${currentWorkspaceId}`,
             icon: LayoutDashboard,
             permission: "dashboard.read",
+        },
+        {
+            title: "Mensajería",
+            href: `/dashboard/${currentWorkspaceId}/messages`,
+            icon: MessageSquare,
+            permission: "orders.read",
         },
         {
             title: "Miembros",
@@ -127,6 +134,11 @@ export function Sidebar({
         {
             title: "General",
             href: `/dashboard/${currentWorkspaceId}/settings`,
+            permission: "settings.manage",
+        },
+        {
+            title: "Mensajes WhatsApp",
+            href: `/dashboard/${currentWorkspaceId}/orders/messages`,
             permission: "settings.manage",
         },
     ];
