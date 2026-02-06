@@ -571,6 +571,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                     order.cliente_id?.email?.toLowerCase().includes(searchLower);
 
                 const matchesOrder =
+                    order.numero_correlativo?.toString().toLowerCase().includes(searchLower) ||
                     order.id.toLowerCase().includes(searchLower) ||
                     order.courier_destino_agencia?.toLowerCase().includes(searchLower) ||
                     order.courier_provincia_dpto?.toLowerCase().includes(searchLower);
@@ -871,7 +872,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                     {/* ID */}
                                                     <TableCell className="px-4 py-4 focus-within:z-10">
                                                         <div className="text-xs font-mono font-semibold text-primary/80">
-                                                            {order.id.slice(0, 8).toUpperCase()}
+                                                            {order.numero_correlativo ? `N° ${String(order.numero_correlativo).padStart(4, '0')}` : "-"}
                                                         </div>
                                                     </TableCell>
 
@@ -1108,7 +1109,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                     </h3>
                                     <div className="flex items-center gap-2 mt-2">
                                         <span className="text-xs text-muted-foreground/60 uppercase bg-muted px-2 py-0.5 rounded">
-                                            OF-{selectedOrder.id.slice(0, 8).toUpperCase()}
+                                            {selectedOrder.numero_correlativo ? `N° ${String(selectedOrder.numero_correlativo).padStart(4, '0')}` : "-"}
                                         </span>
                                         <div
                                             className="h-2 w-2 rounded-full"

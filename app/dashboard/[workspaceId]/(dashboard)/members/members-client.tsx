@@ -10,10 +10,11 @@ import {
     sendInvitation,
     cancelInvitation
 } from "@/lib/invitation-actions";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
     Select,
     SelectContent,
@@ -48,17 +49,17 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-    Users,
     UserPlus,
     MoreHorizontal,
-    Shield,
     Edit,
-    Eye,
     Trash2,
     Crown,
     Mail,
     Clock,
-    X
+    X,
+    CheckCircle2,
+    Shield,
+    Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -206,10 +207,12 @@ export function MembersClient({
             name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Sin nombre' : 'Usuario',
             email: user?.email || 'Sin email',
             initials: user?.first_name?.[0]?.toUpperCase() || 'U',
+            isOwner: false,
         };
     };
 
     const formatDate = (dateString: string) => {
+        if (!dateString) return "-";
         const date = new Date(dateString);
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
@@ -222,6 +225,93 @@ export function MembersClient({
         if (diffDays < 7) return `hace ${diffDays}d`;
         return date.toLocaleDateString();
     };
+
+    // --- Unified Data Preparation ---
+
+    interface UnifiedRow {
+        id: string;
+        type: 'owner' | 'member' | 'invitation';
+        user: {
+            name: string;
+            email: string;
+            initials: string;
+            id?: string;
+        };
+        roleName: string;
+        status: 'active' | 'pending';
+        date: string;
+        raw: any;
+        isCurrentUser: boolean;
+        avatarColor?: string;
+    }
+
+    const allRows: UnifiedRow[] = [];
+
+    // 1. Owner
+    if (owner) {
+        allRows.push({
+            id: 'owner',
+            type: 'owner',
+            user: {
+                name: `${owner.first_name || ''} ${owner.last_name || ''}`.trim(),
+                email: owner.email,
+                initials: owner.first_name?.[0]?.toUpperCase() || 'O',
+                id: owner.id
+            },
+            roleName: 'Propietario',
+            status: 'active',
+            date: '', // Owner doesn't typically show date or we don't have it easily
+            raw: owner,
+            isCurrentUser: owner.id === currentUserId
+        });
+    }
+
+    // 2. Members (excluding owner if they happen to be in the members list, usually separate)
+    members.forEach((member: any) => {
+        const info = getMemberInfo(member);
+        // Skip if this member record is somehow the owner (data integrity check, usually owner is separate)
+        if (info.id === owner?.id) return;
+
+        const roleName = member.role_id?.name || 'Visualizador';
+
+        allRows.push({
+            id: member.id,
+            type: 'member',
+            user: {
+                name: info.name,
+                email: info.email,
+                initials: info.initials,
+                id: info.id
+            },
+            roleName,
+            status: 'active',
+            date: member.date_created,
+            raw: member,
+            isCurrentUser: info.id === currentUserId
+        });
+    });
+
+    // 3. Invitations
+    pendingInvitations.forEach((invitation) => {
+        const roleId = typeof invitation.role === 'object' ? (invitation.role as any).id : invitation.role;
+        const roleName = rbacRoles.find(r => r.id === roleId)?.name || 'viewer';
+        const email = typeof invitation.invited_user_id === 'object' ? invitation.invited_user_id?.email : invitation.invited_user_id;
+
+        allRows.push({
+            id: invitation.id,
+            type: 'invitation',
+            user: {
+                name: email, // Use email as name for invited users
+                email: email,
+                initials: '?',
+            },
+            roleName,
+            status: 'pending',
+            date: invitation.date_created,
+            raw: invitation,
+            isCurrentUser: false
+        });
+    });
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -291,7 +381,7 @@ export function MembersClient({
                 )}
             </div>
 
-            {/* Members List */}
+            {/* Unified Table */}
             <Card>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
@@ -299,192 +389,129 @@ export function MembersClient({
                             <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
                                 <tr>
                                     <th className="px-4 py-3 min-w-[280px]">Usuario</th>
+                                    <th className="px-4 py-3">Estado</th>
                                     <th className="px-4 py-3">Rol</th>
+                                    <th className="px-4 py-3">Fecha</th>
                                     <th className="px-4 py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
-                                {/* Owner Row */}
-                                <tr className="hover:bg-muted/30 transition-colors group">
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-9 w-9 bg-yellow-500 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-white">
-                                                {owner?.first_name?.[0]?.toUpperCase() || "O"}
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-semibold text-foreground">
-                                                        {owner ? `${owner.first_name || ''} ${owner.last_name || ''}`.trim() : 'Propietario'}
-                                                    </span>
-                                                    {owner?.id === currentUserId && (
-                                                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                                            Tú
+                                {allRows.map((row) => (
+                                    <tr key={row.id} className="hover:bg-muted/30 transition-colors group">
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className={cn(
+                                                    "h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 border",
+                                                    row.type === 'owner' ? "bg-yellow-500 text-white border-yellow-600" :
+                                                        row.type === 'invitation' ? "bg-muted/50 border-dashed text-muted-foreground" :
+                                                            "bg-muted text-muted-foreground"
+                                                )}>
+                                                    {row.type === 'invitation' ? '?' : row.user.initials}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={cn("font-semibold", row.type === 'invitation' ? "text-muted-foreground" : "text-foreground")}>
+                                                            {row.user.name}
                                                         </span>
-                                                    )}
+                                                        {row.isCurrentUser && (
+                                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                Tú
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-xs text-muted-foreground">{row.user.email}</span>
                                                 </div>
-                                                <span className="text-xs text-muted-foreground">{owner?.email || 'Sin email'}</span>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200/50 dark:border-yellow-700/50">
-                                            <Crown className="h-3.5 w-3.5" />
-                                            Propietario
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-right"></td>
-                                </tr>
-
-                                {/* Other Members */}
-                                {members.map((member) => {
-                                    const info = getMemberInfo(member);
-                                    const isCurrentUser = info.id === currentUserId;
-                                    const roleName = member.role_id?.name || 'Visualizador';
-
-                                    return (
-                                        <tr key={member.id} className="hover:bg-muted/30 transition-colors group">
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-9 w-9 bg-muted rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-muted-foreground border">
-                                                        {info.initials}
-                                                    </div>
-                                                    <div className="flex flex-col">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-semibold text-foreground">{info.name}</span>
-                                                            {isCurrentUser && (
-                                                                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                                                                    Tú
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <span className="text-xs text-muted-foreground">{info.email}</span>
-                                                    </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {row.status === 'active' ? (
+                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 w-fit">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    Activo
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1 border-dashed w-fit">
+                                                    <Clock className="h-3 w-3" />
+                                                    Pendiente
+                                                </Badge>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {row.type === 'owner' ? (
+                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200/50 dark:border-yellow-700/50">
+                                                    <Crown className="h-3.5 w-3.5" />
+                                                    Propietario
                                                 </div>
-                                            </td>
-                                            <td className="px-4 py-3">
+                                            ) : (
                                                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
-                                                    {roleName}
+                                                    {row.roleName}
                                                 </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                {isAdmin && !isCurrentUser && (
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-48">
-                                                            <DropdownMenuItem
-                                                                onClick={() => {
-                                                                    setMemberToEdit(member);
-                                                                    setEditRole(member.role_id?.id || member.role_id);
-                                                                }}
-                                                            >
-                                                                <Edit className="h-4 w-4 mr-2" />
-                                                                Cambiar rol
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem
-                                                                className="text-destructive focus:text-destructive"
-                                                                onClick={() => setMemberToDelete(member)}
-                                                            >
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Eliminar del workspace
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-muted-foreground text-xs">
+                                            {row.type === 'invitation' ? formatDate(row.date) : (row.date ? formatDate(row.date) : '-')}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {isAdmin && !row.isCurrentUser && row.type !== 'owner' && (
+                                                <>
+                                                    {row.type === 'member' && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-muted">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" className="w-48">
+                                                                <DropdownMenuItem
+                                                                    onClick={() => {
+                                                                        setMemberToEdit(row.raw);
+                                                                        setEditRole(row.raw.role_id?.id || row.raw.role_id);
+                                                                    }}
+                                                                >
+                                                                    <Edit className="h-4 w-4 mr-2" />
+                                                                    Cambiar rol
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive"
+                                                                    onClick={() => setMemberToDelete(row.raw)}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                                    Eliminar del workspace
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
+
+                                                    {row.type === 'invitation' && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+                                                            onClick={() => setInvitationToCancel(row.raw)}
+                                                            disabled={isPending}
+                                                        >
+                                                            <X className="h-3.5 w-3.5" />
+                                                            Cancelar
+                                                        </Button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {allRows.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground italic">
+                                            No hay miembros ni invitaciones.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Pending Invitations Section */}
-            <div>
-                <div className="flex items-center gap-2 mb-4 mt-8">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <h2 className="text-xl font-bold tracking-tight">Invitaciones Pendientes</h2>
-                </div>
-
-                <Card>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left border-collapse">
-                                <thead className="bg-muted/50 text-muted-foreground font-medium border-b">
-                                    <tr>
-                                        <th className="px-4 py-3 min-w-[280px]">Email</th>
-                                        <th className="px-4 py-3">Rol Invitado</th>
-                                        <th className="px-4 py-3">Fecha</th>
-                                        <th className="px-4 py-3 text-right">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {pendingInvitations.length > 0 ? (
-                                        pendingInvitations.map((invitation) => {
-                                            const roleId = typeof invitation.role === 'object' ? (invitation.role as any).id : invitation.role;
-                                            const roleName = rbacRoles.find(r => r.id === roleId)?.name || 'viewer';
-
-                                            return (
-                                                <tr key={invitation.id} className="hover:bg-muted/30 transition-colors group">
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-9 w-9 bg-muted/50 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 text-muted-foreground border border-dashed">
-                                                                ?
-                                                            </div>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium text-foreground">
-                                                                    {typeof invitation.invited_user_id === 'object'
-                                                                        ? invitation.invited_user_id?.email
-                                                                        : invitation.invited_user_id}
-                                                                </span>
-                                                                <span className="text-[10px] text-blue-500 font-semibold uppercase tracking-wider">Esperando respuesta</span>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border bg-gray-50 text-gray-700">
-                                                            {roleName}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                                                        {formatDate(invitation.date_created)}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        {isAdmin && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 gap-1.5 text-destructive hover:bg-destructive/10"
-                                                                onClick={() => setInvitationToCancel(invitation)}
-                                                                disabled={isPending}
-                                                            >
-                                                                <X className="h-3.5 w-3.5" />
-                                                                Cancelar
-                                                            </Button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    ) : (
-                                        <tr>
-                                            <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">
-                                                No hay invitaciones pendientes.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
 
             {/* Dialogs */}
             <Dialog open={!!memberToEdit} onOpenChange={(open) => !open && setMemberToEdit(null)}>
