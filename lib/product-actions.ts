@@ -5,19 +5,40 @@ import { readItems, createItem, updateItem, deleteItem, readItem, uploadFiles } 
 import { revalidatePath } from "next/cache";
 import { getMyPermissions } from "./rbac-actions";
 
+export interface ProductVariant {
+    id: string;
+    workspace_id: string;
+    product_id: string;
+    nombre: string;
+    sku?: string | null;
+    precio?: number | null;
+    precio_compra?: number | null;
+    stock: number;
+    stock_minimo?: number | null;
+    imagen?: any | null;
+    atributos?: Record<string, any> | null;
+    status: 'published' | 'draft' | 'archived';
+    user_created?: string;
+    date_created?: string;
+    user_updated?: string;
+    date_updated?: string;
+}
+
 export interface Product {
     id: string;
     status: string;
     workspace: string; // ID del workspace
     nombre: string;
+    tipo_producto?: 'simple' | 'variable'; // ✅ NUEVO
     sku: string;
     precio_venta: string | number | null;
     precio_compra: string | number | null;
     imagen: any | null;
     descripcion_corta: string | null;
     descripcion_normal: string | null;
-    stock: number;
-    variantes_producto: any[] | null;
+    stock: number; // Solo para productos simples
+    variantes?: ProductVariant[]; // ✅ NUEVO: Relación O2M
+    variantes_producto: any[] | null; // ⚠️ DEPRECATED: Mantener temporalmente
     pack2: string | number | null;
     pack3: string | number | null;
     category?: string | any | null;
@@ -54,16 +75,44 @@ export async function getProductsByWorkspace(workspaceId: string) {
             return { data: null, error: "No tienes permiso para ver productos" };
         }
 
-        const products = await directusAdmin.request(
-            readItems("products", {
-                filter: {
-                    workspace: { _eq: workspaceId }
-                },
-                fields: ["*"],
-                sort: ["-date_created"]
-            })
-        );
-        return { data: products as Product[], error: null };
+        // Intentar cargar con variantes primero, si falla cargar sin ellas
+        try {
+            const products = await directusAdmin.request(
+                readItems("products", {
+                    filter: {
+                        workspace: { _eq: workspaceId }
+                    },
+                    fields: [
+                        "*",
+                        // ✅ Intentar cargar variantes como relación O2M
+                        "variantes.id",
+                        "variantes.nombre",
+                        "variantes.sku",
+                        "variantes.precio",
+                        "variantes.stock",
+                        "variantes.stock_minimo",
+                        "variantes.imagen",
+                        "variantes.atributos",
+                        "variantes.status"
+                    ],
+                    sort: ["-date_created"]
+                })
+            );
+            return { data: products as Product[], error: null };
+        } catch (variantError) {
+            // Si falla (relación no existe), cargar solo los campos básicos
+            console.warn("No se pudieron cargar variantes relacionadas, usando solo campos básicos");
+            const products = await directusAdmin.request(
+                readItems("products", {
+                    filter: {
+                        workspace: { _eq: workspaceId }
+                    },
+                    fields: ["*"],
+                    sort: ["-date_created"]
+                })
+            );
+            return { data: products as Product[], error: null };
+        }
     } catch (error) {
         console.error("Error fetching products:", error);
         return { data: null, error: "Error al cargar los productos" };

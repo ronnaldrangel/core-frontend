@@ -18,116 +18,133 @@ export interface OrderItem {
 export interface Order {
     id: string;
     workspace_id: string;
-    cliente_id: string | null;
+    cliente_id: string | any;
+    metodo_pago: string | any;
     fecha_venta: string;
     total: number;
-    metodo_pago: any;
-    status: string;
-    numero_correlativo?: number;
-    estado_pago?: string;
-    estado_pedido?: string;
-    monto_adelanto?: number;
-    monto_faltante?: number;
+    monto_adelanto: number;
+    monto_faltante: number;
+    estado_pago: string;
+    estado_pedido: string;
+    voucher: any;
+    items?: OrderItem[];
+    // Logística
+    provincia?: string;
+    departamento?: string;
+    distrito?: string;
+    direccion?: string;
+    courier_nombre?: string;
     configurar_envio?: boolean;
     tipo_cobro_envio?: string;
     costo_envio?: number;
-    courier_nombre?: string;
-    courier_provincia_dpto?: string;
     courier_destino_agencia?: string;
     courier_nro_orden?: string;
     courier_codigo?: string;
     courier_clave?: string;
-    ajuste_total?: number;
-    voucher?: any;
-    items?: OrderItem[];
-    fecha_entrega?: string;
-    departamento?: string;
-    provincia?: string;
-    distrito?: string;
-    direccion?: string;
-    ubicacion?: string;
-    user_created?: any;
-    date_created?: string;
 }
 
-export async function createOrder(orderData: Partial<Order>, items: OrderItem[]) {
-    try {
-        if (!orderData.workspace_id) return { data: null, error: "Workspace no especificado" };
+export interface OrderStatus {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+    default_message?: string;
+}
 
-        // Verificar permisos
+export interface PaymentStatus {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+}
+
+export interface CourierType {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+}
+
+export async function createOrder(data: any) {
+    try {
+        const { items, numero_correlativo, ...orderData } = data;
+
+        if (!orderData.workspace_id) {
+            return { data: null, error: "Workspace ID es requerido" };
+        }
+
+        // 1. Verificar permisos
         const permissions = await getMyPermissions(orderData.workspace_id);
         if (!permissions.includes("*") && !permissions.includes("orders.create")) {
             return { data: null, error: "No tienes permiso para crear pedidos" };
         }
 
-        // 1. Crear la orden principal
-        const order = await directusAdmin.request(
-            createItem("orders", {
-                workspace_id: orderData.workspace_id,
-                cliente_id: orderData.cliente_id,
-                total: orderData.total,
-                metodo_pago: orderData.metodo_pago,
-                status: "paid",
-                fecha_venta: new Date().toISOString(),
-                estado_pago: orderData.estado_pago,
-                estado_pedido: orderData.estado_pedido,
-                monto_adelanto: orderData.monto_adelanto || 0,
-                monto_faltante: orderData.monto_faltante || 0,
-                configurar_envio: orderData.configurar_envio || false,
-                tipo_cobro_envio: orderData.tipo_cobro_envio || "adicional",
-                costo_envio: orderData.costo_envio || 0,
-                courier_nombre: orderData.courier_nombre,
-                courier_provincia_dpto: orderData.courier_provincia_dpto,
-                courier_destino_agencia: orderData.courier_destino_agencia,
-                courier_nro_orden: orderData.courier_nro_orden,
-                courier_codigo: orderData.courier_codigo,
-                courier_clave: orderData.courier_clave,
-                ajuste_total: orderData.ajuste_total || 0,
-                voucher: orderData.voucher,
-                fecha_entrega: orderData.fecha_entrega,
-                departamento: orderData.departamento,
-                provincia: orderData.provincia,
-                distrito: orderData.distrito,
-                direccion: orderData.direccion,
-                ubicacion: orderData.ubicacion,
-            })
-        );
+        // 2. Crear la Orden Base
+        const order = await directusAdmin.request(createItem("orders", orderData)) as any;
 
-        // 2. Crear los items de la orden vinculados al ID de la orden creada
-        const itemsWithOrderId = items.map(item => ({
+        // Si hay items, crearlos uno por uno (o en lote si se prefiere) vinculado a la orden
+        const itemsWithOrderId = items.map((item: any) => ({
             ...item,
-            order_id: (order as any).id
+            order_id: order.id,
+            // Asegurarse de que el product_id sea solo el ID si viene como objeto
+            product_id: typeof item.product_id === 'object' ? item.product_id.id : item.product_id
         }));
 
         await directusAdmin.request(createItems("order_items", itemsWithOrderId));
 
-        // 3. Reducir Stock de Productos
+        // 3. Reducir Stock de Productos (CADA PRODUCTO/VARIANTE TIENE SU STOCK INDIVIDUAL)
         for (const item of items) {
             try {
                 const product = await directusAdmin.request(readItem("products", item.product_id, {
-                    fields: ["id", "stock", "variantes_producto"]
+                    fields: ["id", "stock", "nombre", "variantes_producto"]
                 })) as any;
 
-                if (product) {
-                    const updateData: any = {};
+                if (!product) {
+                    console.error(`Producto ${item.product_id} no encontrado`);
+                    continue;
+                }
 
-                    if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
-                        const updatedVariantes = product.variantes_producto.map((v: any) => {
-                            if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
-                                return { ...v, stock: (Number(v.stock) || 0) - item.cantidad };
+                // ✅ Si se vendió una VARIANTE específica
+                if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
+                    const updatedVariantes = product.variantes_producto.map((v: any) => {
+                        if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
+                            const currentStock = Number(v.stock) || 0;
+                            const newStock = currentStock - item.cantidad;
+
+                            // ⚠️ VALIDACIÓN: No permitir stock negativo
+                            if (newStock < 0) {
+                                throw new Error(`Stock insuficiente para variante "${v.nombre}" de "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
                             }
-                            return v;
-                        });
-                        updateData.variantes_producto = updatedVariantes;
+
+                            return { ...v, stock: newStock };
+                        }
+                        return v;
+                    });
+
+                    await directusAdmin.request(updateItem("products", product.id, {
+                        variantes_producto: updatedVariantes
+                    }));
+                } else {
+                    // ✅ Si se vendió el PRODUCTO BASE (sin variante)
+                    const currentStock = Number(product.stock) || 0;
+                    const newStock = currentStock - item.cantidad;
+
+                    // ⚠️ VALIDACIÓN: No permitir stock negativo
+                    if (newStock < 0) {
+                        throw new Error(`Stock insuficiente para "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
                     }
 
-                    // Siempre intentamos reducir el stock base si existe
-                    updateData.stock = (Number(product.stock) || 0) - item.cantidad;
-
-                    await directusAdmin.request(updateItem("products", product.id, updateData));
+                    await directusAdmin.request(updateItem("products", product.id, {
+                        stock: newStock
+                    }));
                 }
-            } catch (stockError) {
+            } catch (stockError: any) {
                 console.error(`Error actualizando stock para producto ${item.product_id}:`, stockError);
+                // Re-lanzar el error para que createOrder lo capture
+                throw stockError;
             }
         }
 
@@ -141,99 +158,19 @@ export async function createOrder(orderData: Partial<Order>, items: OrderItem[])
     }
 }
 
-export interface OrderStatus {
-    id: string;
-    workspace_id: string;
-    name: string;
-    value: string;
-    color: string;
-    sort?: number;
-    default_message?: string;
-}
-
-export async function updateOrderStatus(id: string, data: Partial<OrderStatus>) {
-    try {
-        const statusRecord = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
-        if (!statusRecord) return { data: null, error: "Estado no encontrado" };
-
-        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        const status = await directusAdmin.request(
-            updateItem("order_statuses", id, data)
-        );
-        revalidatePath(`/dashboard`);
-        return { data: status, error: null };
-    } catch (error: any) {
-        console.error("Error updating order status:", error);
-        return { data: null, error: "Error al actualizar el estado de pedido" };
-    }
-}
-
 export async function getOrderStatuses(workspaceId: string) {
     try {
         const statuses = await directusAdmin.request(
             readItems("order_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
-                sort: ["sort"]
+                sort: ["sort"] as any
             })
         );
-        return { data: statuses as OrderStatus[], error: null };
+        return { data: statuses as any[], error: null };
     } catch (error: any) {
         console.error("Error fetching order statuses:", error);
-        return { data: [], error: "Error al obtener los estados de pedido" };
+        return { data: [], error: error.message || "Error al cargar los estados de pedido" };
     }
-}
-
-export async function createOrderStatus(data: Partial<OrderStatus>) {
-    try {
-        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
-
-        const permissions = await getMyPermissions(data.workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        const status = await directusAdmin.request(
-            createItem("order_statuses", data)
-        );
-        revalidatePath(`/dashboard`);
-        return { data: status, error: null };
-    } catch (error: any) {
-        console.error("Error creating order status:", error);
-        return { data: null, error: "Error al crear el estado de pedido" };
-    }
-}
-
-export async function deleteOrderStatus(id: string) {
-    try {
-        const statusRecord = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
-        if (!statusRecord) return { success: false, error: "Estado no encontrado" };
-
-        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        await directusAdmin.request(deleteItem("order_statuses", id));
-        revalidatePath(`/dashboard`);
-        return { success: true, error: null };
-    } catch (error: any) {
-        console.error("Error deleting order status:", error);
-        return { success: false, error: "Error al eliminar el estado de pedido" };
-    }
-}
-
-// Payment Status Actions
-export interface PaymentStatus {
-    id: string;
-    workspace_id: string;
-    name: string;
-    value: string;
-    color: string;
-    sort?: number;
 }
 
 export async function getPaymentStatuses(workspaceId: string) {
@@ -241,63 +178,14 @@ export async function getPaymentStatuses(workspaceId: string) {
         const statuses = await directusAdmin.request(
             readItems("payment_statuses", {
                 filter: { workspace_id: { _eq: workspaceId } },
-                sort: ["sort"]
+                sort: ["sort"] as any
             })
         );
-        return { data: statuses as PaymentStatus[], error: null };
+        return { data: statuses as any[], error: null };
     } catch (error: any) {
         console.error("Error fetching payment statuses:", error);
-        return { data: [], error: "Error al obtener los estados de pago" };
+        return { data: [], error: error.message || "Error al cargar los estados de pago" };
     }
-}
-
-export async function createPaymentStatus(data: Partial<PaymentStatus>) {
-    try {
-        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
-
-        const permissions = await getMyPermissions(data.workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        const status = await directusAdmin.request(
-            createItem("payment_statuses", data)
-        );
-        revalidatePath(`/dashboard`);
-        return { data: status, error: null };
-    } catch (error: any) {
-        console.error("Error creating payment status:", error);
-        return { data: null, error: "Error al crear el estado de pago" };
-    }
-}
-
-export async function deletePaymentStatus(id: string) {
-    try {
-        const statusRecord = await directusAdmin.request(readItem("payment_statuses", id, { fields: ["workspace_id"] }));
-        if (!statusRecord) return { success: false, error: "Estado no encontrado" };
-
-        const permissions = await getMyPermissions((statusRecord as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        await directusAdmin.request(deleteItem("payment_statuses", id));
-        revalidatePath(`/dashboard`);
-        return { success: true, error: null };
-    } catch (error: any) {
-        console.error("Error deleting payment status:", error);
-        return { success: false, error: "Error al eliminar el estado de pago" };
-    }
-}
-
-// Courier Type Actions
-export interface CourierType {
-    id: string;
-    workspace_id: string;
-    name: string;
-    value: string;
-    color: string;
-    sort?: number;
 }
 
 export async function getCourierTypes(workspaceId: string) {
@@ -305,136 +193,65 @@ export async function getCourierTypes(workspaceId: string) {
         const types = await directusAdmin.request(
             readItems("courier_types", {
                 filter: { workspace_id: { _eq: workspaceId } },
-                sort: ["sort"]
+                sort: ["sort"] as any
             })
         );
-        return { data: types as CourierType[], error: null };
+        return { data: types as any[], error: null };
     } catch (error: any) {
         console.error("Error fetching courier types:", error);
-        return { data: [], error: "Error al obtener los tipos de courier" };
+        return { data: [], error: error.message || "Error al cargar los tipos de courier" };
     }
-}
-
-export async function createCourierType(data: Partial<CourierType>) {
-    try {
-        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
-
-        const permissions = await getMyPermissions(data.workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        const type = await directusAdmin.request(
-            createItem("courier_types", data)
-        );
-        revalidatePath(`/dashboard`);
-        return { data: type, error: null };
-    } catch (error: any) {
-        console.error("Error creating courier type:", error);
-        return { data: null, error: "Error al crear el tipo de courier" };
-    }
-}
-
-export async function deleteCourierType(id: string) {
-    try {
-        const typeRecord = await directusAdmin.request(readItem("courier_types", id, { fields: ["workspace_id"] }));
-        if (!typeRecord) return { success: false, error: "Tipo de courier no encontrado" };
-
-        const permissions = await getMyPermissions((typeRecord as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        await directusAdmin.request(deleteItem("courier_types", id));
-        revalidatePath(`/dashboard`);
-        return { success: true, error: null };
-    } catch (error: any) {
-        console.error("Error deleting courier type:", error);
-        return { success: false, error: "Error al eliminar el tipo de courier" };
-    }
-}
-
-// Payment Method Actions
-export interface PaymentMethod {
-    id: string;
-    workspace_id: string;
-    name: string;
-    value: string;
-    color: string;
-    sort?: number;
 }
 
 export async function getPaymentMethods(workspaceId: string) {
     try {
         const methods = await directusAdmin.request(
             readItems("payment_methods", {
-                filter: { workspace_id: { _eq: workspaceId } },
-                sort: ["sort"]
+                filter: { workspace_id: { _eq: workspaceId } }
             })
         );
-        return { data: methods as PaymentMethod[], error: null };
+        return { data: methods as any[], error: null };
     } catch (error: any) {
         console.error("Error fetching payment methods:", error);
-        return { data: [], error: "Error al obtener los métodos de pago" };
+        return { data: [], error: error.message || "Error al cargar los métodos de pago" };
     }
 }
 
-export async function createPaymentMethod(data: Partial<PaymentMethod>) {
+export async function getOrdersByWorkspace(workspaceId: string) {
     try {
-        if (!data.workspace_id) return { data: null, error: "Workspace no especificado" };
-
-        const permissions = await getMyPermissions(data.workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { data: null, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        const method = await directusAdmin.request(
-            createItem("payment_methods", data)
+        const orders = await directusAdmin.request(
+            readItems("orders", {
+                filter: { workspace_id: { _eq: workspaceId } },
+                fields: [
+                    "*",
+                    "cliente_id.*",
+                    "metodo_pago.*",
+                    "items.*",
+                    "items.product_id.*"
+                ],
+                sort: ["-date_created"] as any
+            })
         );
-        revalidatePath(`/dashboard`);
-        return { data: method, error: null };
+        return { data: orders as any[], error: null };
     } catch (error: any) {
-        console.error("Error creating payment method:", error);
-        return { data: null, error: "Error al crear el método de pago" };
+        console.error("Error fetching orders:", error);
+        return { data: [], error: error.message || "Error al cargar los pedidos" };
     }
 }
-
-export async function deletePaymentMethod(id: string) {
-    try {
-        const methodRecord = await directusAdmin.request(readItem("payment_methods", id, { fields: ["workspace_id"] }));
-        if (!methodRecord) return { success: false, error: "Método no encontrado" };
-
-        const permissions = await getMyPermissions((methodRecord as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
-            return { success: false, error: "No tienes permiso para gestionar configuraciones" };
-        }
-
-        await directusAdmin.request(deleteItem("payment_methods", id));
-        revalidatePath(`/dashboard`);
-        return { success: true, error: null };
-    } catch (error: any) {
-        console.error("Error deleting payment method:", error);
-        return { success: false, error: "Error al eliminar el método de pago" };
-    }
-}
-
 
 export async function getOrderById(id: string) {
     try {
         const order = await directusAdmin.request(
             readItem("orders", id, {
-                fields: ["*", { items: ["*", { product_id: ["nombre"] }] }, "cliente_id.*", "user_created.*", "metodo_pago.*"],
+                fields: [
+                    "*",
+                    "cliente_id.*",
+                    "metodo_pago.*",
+                    "items.*",
+                    "items.product_id.*"
+                ]
             })
         );
-
-        if (!order) return { data: null, error: "Orden no encontrada" };
-
-        // Verificar permisos
-        const permissions = await getMyPermissions((order as any).workspace_id);
-        if (!permissions.includes("*") && !permissions.includes("orders.read")) {
-            return { data: null, error: "No tienes permiso para ver esta orden" };
-        }
-
         return { data: order as any, error: null };
     } catch (error: any) {
         console.error("Error fetching order by id:", error);
@@ -471,83 +288,16 @@ export async function updateOrder(id: string, data: any) {
             return { data: null, error: "No tienes permiso para actualizar pedidos" };
         }
 
-        // Logic for Stock and Items
-        if (data.items && Array.isArray(data.items)) {
-            // 1. Get Old Items
-            const oldOrder = await directusAdmin.request(readItem("orders", id, {
-                fields: ["items.*"]
-            })) as any;
-            const oldItems = oldOrder?.items || [];
+        // Clean up data to ensure it only has order fields, no items
+        const { items, total, numero_correlativo, ...orderData } = data;
 
-            // 2. Perform Update (Directus handles upsert of items in the array)
-            const updatedOrder = await directusAdmin.request(updateItem("orders", id, data));
+        const updatedOrder = await directusAdmin.request(updateItem("orders", id, orderData));
 
-            // 3. Handle Deletions (Items in oldItems but not in data.items)
-            const newIds = data.items.map((i: any) => i.id).filter(Boolean);
-            const idsToDelete = oldItems
-                .filter((old: any) => !newIds.includes(old.id))
-                .map((old: any) => old.id);
-
-            if (idsToDelete.length > 0) {
-                await directusAdmin.request(deleteItems("order_items", idsToDelete));
-            }
-
-            // 4. Stock Reversion (Old Items) - Add back the old quantity
-            for (const item of oldItems) {
-                await updateProductStock(item.product_id, item.cantidad, item.variante_seleccionada, true);
-            }
-
-            // 5. Stock Deduction (New Items) - Subtract the new quantity
-            for (const item of data.items) {
-                await updateProductStock(item.product_id, item.cantidad, item.variante_seleccionada, false);
-            }
-
-            revalidatePath(`/dashboard`);
-            return { data: updatedOrder, error: null };
-        } else {
-            // Standard update without items
-            const order = await directusAdmin.request(
-                updateItem("orders", id, data)
-            );
-            revalidatePath(`/dashboard`);
-            return { data: order, error: null };
-        }
+        revalidatePath(`/dashboard`);
+        return { data: updatedOrder, error: null };
     } catch (error: any) {
         console.error("Error updating order:", error);
         const errorMessage = error.errors?.[0]?.message || error.message || "Error al actualizar la orden";
         return { data: null, error: errorMessage };
-    }
-}
-
-// Helper to update product stock
-async function updateProductStock(productId: string | any, quantity: number, variant: string | undefined, isRevert: boolean) {
-    try {
-        const id = typeof productId === 'object' ? productId.id : productId;
-
-        const product = await directusAdmin.request(readItem("products", id, {
-            fields: ["id", "stock", "variantes_producto"]
-        })) as any;
-
-        if (product) {
-            const updateData: any = {};
-            const delta = isRevert ? quantity : -quantity; // Positive to add back, negative to subtract
-
-            if (variant && Array.isArray(product.variantes_producto)) {
-                const updatedVariantes = product.variantes_producto.map((v: any) => {
-                    if (v.nombre === variant || v.sku === variant) {
-                        return { ...v, stock: (Number(v.stock) || 0) + delta };
-                    }
-                    return v;
-                });
-                updateData.variantes_producto = updatedVariantes;
-            }
-
-            // Update base stock
-            updateData.stock = (Number(product.stock) || 0) + delta;
-
-            await directusAdmin.request(updateItem("products", product.id, updateData));
-        }
-    } catch (stockError) {
-        console.error(`Error actualizando stock para producto ${productId}:`, stockError);
     }
 }

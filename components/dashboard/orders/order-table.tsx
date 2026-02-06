@@ -71,6 +71,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/components/providers/rbac-provider";
 import { createOrderMessage, getOrderMessages } from "@/lib/message-actions";
+import { getVariants } from "@/lib/product-utils"; // ✅ Movido a utils
+import type { ProductVariant } from "@/lib/product-actions";
 import { subscribeToOrderMessages, playNotificationSound } from "@/lib/websocket";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -210,40 +212,87 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [itemSearchTerm, setItemSearchTerm] = useState("");
+    const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set()); // Para controlar qué productos están expandidos
 
-    // Filtrar productos para el buscador del modal
+    // Filtrar productos para el buscador del modal (CON BÚSQUEDA POR VARIANTE)
     const filteredProducts = useMemo(() => {
         if (!itemSearchTerm) return [];
-        return products.filter(product =>
-            product.nombre.toLowerCase().includes(itemSearchTerm.toLowerCase()) ||
-            product.sku?.toLowerCase().includes(itemSearchTerm.toLowerCase())
-        ).slice(0, 5); // Limitar a 5 resultados
+
+        const searchLower = itemSearchTerm.toLowerCase();
+
+        return products.filter(product => {
+            // Buscar en nombre del producto
+            if (product.nombre.toLowerCase().includes(searchLower)) return true;
+
+            // Buscar en SKU
+            if (product.sku?.toLowerCase().includes(searchLower)) return true;
+
+            // ✅ BUSCAR EN NOMBRES DE VARIANTES
+            if (product.variantes_producto && Array.isArray(product.variantes_producto)) {
+                const hasMatchingVariant = (product.variantes_producto as any[]).some(variant =>
+                    variant.nombre?.toLowerCase().includes(searchLower)
+                );
+                if (hasMatchingVariant) return true;
+            }
+
+            return false;
+        }).slice(0, 10); // Aumenté a 10 resultados para mostrar más variantes
     }, [products, itemSearchTerm]);
 
-    // Añadir producto a la orden en edición
-    const addProductToOrder = (product: Product) => {
+    // Helper: Verifica si una variante coincide con la búsqueda
+    const variantMatchesSearch = (variantName: string) => {
+        if (!itemSearchTerm) return false;
+        return variantName.toLowerCase().includes(itemSearchTerm.toLowerCase());
+    };
+
+    // Añadir producto a la orden en edición (CON SOPORTE PARA VARIANTES)
+    const addProductToOrder = (product: Product, variantName?: string) => {
         if (!orderToEdit) return;
 
-        const existingItemIndex = orderToEdit.items?.findIndex((item: any) =>
-            (item.product_id?.id || item.product_id) === product.id
-        );
+        // ⚠️ VALIDACIÓN DE STOCK: Similar al POS
+        const variant = variantName && product.variantes_producto
+            ? (product.variantes_producto as any[]).find(v => v.nombre === variantName)
+            : null;
+
+        const stockToCheck = variant ? variant.stock : product.stock;
+        const priceToUse = variant ? (variant.precio || product.precio_venta) : product.precio_venta;
+
+        if (stockToCheck <= 0) {
+            toast.error(variant ? `Variante "${variantName}" agotada` : "Producto agotado");
+            return;
+        }
+
+        // Buscar si este product+variant ya existe
+        const existingItemIndex = orderToEdit.items?.findIndex((item: any) => {
+            const itemProductId = item.product_id?.id || item.product_id;
+            const itemVariant = item.variante_seleccionada || null;
+            return itemProductId === product.id && itemVariant === (variantName || null);
+        });
 
         let newItems = [...(orderToEdit.items || [])];
 
         if (existingItemIndex >= 0) {
-            // Incrementar cantidad
+            const currentQty = Number(newItems[existingItemIndex].cantidad);
+
+            // ⚠️ VALIDAR STOCK antes de incrementar
+            if (currentQty >= stockToCheck) {
+                toast.warning(`Solo hay ${stockToCheck} unidades disponibles`);
+                return;
+            }
+
             newItems[existingItemIndex] = {
                 ...newItems[existingItemIndex],
-                cantidad: Number(newItems[existingItemIndex].cantidad) + 1,
-                subtotal: (Number(newItems[existingItemIndex].cantidad) + 1) * Number(newItems[existingItemIndex].precio_unitario)
+                cantidad: currentQty + 1,
+                subtotal: (currentQty + 1) * Number(newItems[existingItemIndex].precio_unitario)
             };
         } else {
             // Nuevo ítem
             newItems.push({
-                product_id: product, // Guardamos el objeto completo para mostrar nombre/precio
+                product_id: product,
+                variante_seleccionada: variantName || null,
                 cantidad: 1,
-                precio_unitario: product.precio_venta || 0,
-                subtotal: product.precio_venta || 0
+                precio_unitario: priceToUse || 0,
+                subtotal: priceToUse || 0
             });
         }
 
@@ -257,20 +306,37 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
             total: newTotal,
             monto_faltante: newFaltante
         });
-        setItemSearchTerm(""); // Limpiar búsqueda después de agregar
+        setItemSearchTerm("");
+        toast.success("Producto agregado");
     };
 
-    // Actualizar cantidad de ítem
+    // Actualizar cantidad de ítem (CON VALIDACIÓN DE STOCK)
     const updateOrderQuantity = (index: number, delta: number) => {
         if (!orderToEdit || !orderToEdit.items) return;
 
-        let newItems = [...orderToEdit.items];
-        const item = newItems[index];
+        const item = orderToEdit.items[index];
         const newQuantity = Number(item.cantidad) + delta;
 
+        // ⚠️ VALIDACIÓN DE STOCK: Verificar antes de incrementar
+        if (delta > 0) {
+            const product = item.product_id;
+            const variant = item.variante_seleccionada && product.variantes_producto
+                ? (product.variantes_producto as any[]).find(v => v.nombre === item.variante_seleccionada)
+                : null;
+
+            const stockLimit = variant ? variant.stock : product.stock;
+
+            if (newQuantity > stockLimit) {
+                toast.warning(`Solo hay ${stockLimit} unidades disponibles`);
+                return;
+            }
+        }
+
+        let newItems = [...orderToEdit.items];
+
         if (newQuantity <= 0) {
-            // Eliminar si llega a 0
             newItems.splice(index, 1);
+            toast.success("Producto eliminado");
         } else {
             newItems[index] = {
                 ...item,
@@ -1266,6 +1332,9 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-medium leading-tight">
                                                         {item.product_id?.nombre}
+                                                        {item.variante_seleccionada && (
+                                                            <span className="text-muted-foreground"> ({item.variante_seleccionada})</span>
+                                                        )}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {item.cantidad} × S/ {Number(item.precio_unitario).toFixed(2)}
@@ -1726,120 +1795,30 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <Label className="text-sm font-medium">Productos</Label>
-                                        {!isEditingItems && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8"
-                                                onClick={() => setIsEditingItems(true)}
-                                            >
-                                                <Pencil className="h-3.5 w-3.5 mr-2" />
-                                                Editar items
-                                            </Button>
-                                        )}
                                     </div>
 
-                                    {isEditingItems ? (
-                                        <div className="space-y-4 rounded-lg border p-4 bg-muted/10 border-dashed border-muted-foreground/20 animate-in fade-in zoom-in-95 duration-200">
-                                            {/* Header del Editor */}
-                                            <div className="flex items-center justify-between pb-2 border-b border-dashed border-muted-foreground/20">
-                                                <h4 className="font-medium text-xs text-muted-foreground uppercase tracking-wider">Modificar Contenido</h4>
-                                                <Button size="sm" variant="ghost" onClick={() => setIsEditingItems(false)} className="h-7 text-xs hover:bg-primary/10 hover:text-primary">
-                                                    <Check className="h-3.5 w-3.5 mr-1.5" /> Finalizar edición
-                                                </Button>
-                                            </div>
-
-                                            {/* Buscador de productos */}
-                                            <div className="relative z-20">
-                                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                                                <Input
-                                                    placeholder="Buscar producto para agregar..."
-                                                    value={itemSearchTerm}
-                                                    onChange={(e) => setItemSearchTerm(e.target.value)}
-                                                    className="pl-9 h-9 w-full text-sm bg-background"
-                                                    autoFocus
-                                                />
-                                                {filteredProducts.length > 0 && (
-                                                    <div className="absolute top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-xl overflow-hidden py-1 z-50">
-                                                        {filteredProducts.map(product => (
-                                                            <button
-                                                                key={product.id}
-                                                                onClick={() => addProductToOrder(product)}
-                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex justify-between items-center group transition-colors"
-                                                            >
-                                                                <span className="font-medium group-hover:text-primary">{product.nombre}</span>
-                                                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">S/ {product.precio_venta}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Lista editable */}
-                                            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                                                {orderToEdit.items?.map((item: any, idx: number) => (
-                                                    <div key={idx} className="flex justify-between items-center bg-background border rounded-md p-2 shadow-sm">
-                                                        <div className="flex-1 min-w-0 pr-2">
-                                                            <p className="text-sm font-medium truncate leading-none mb-1">
-                                                                {item.product_id?.nombre || item.product_id?.name || "Producto desconocido"}
-                                                            </p>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                S/ {Number(item.precio_unitario).toFixed(2)} c/u
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 bg-muted/30 rounded-md p-0.5 border">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive rounded-sm"
-                                                                onClick={() => updateOrderQuantity(idx, -1)}
-                                                            >
-                                                                <Minus className="h-3 w-3" />
-                                                            </Button>
-                                                            <span className="w-8 text-center text-sm font-medium tabular-nums">{item.cantidad}</span>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-6 w-6 hover:bg-primary/10 hover:text-primary rounded-sm"
-                                                                onClick={() => updateOrderQuantity(idx, 1)}
-                                                            >
-                                                                <Plus className="h-3 w-3" />
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                                {(!orderToEdit.items || orderToEdit.items.length === 0) && (
-                                                    <div className="text-center py-6 text-muted-foreground text-sm border border-dashed rounded-md">
-                                                        El pedido está vacío
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Total en edición */}
-                                            <div className="flex justify-between items-center pt-3 border-t border-dashed">
-                                                <span className="text-sm font-medium text-muted-foreground">Nueva suma total:</span>
-                                                <span className="text-lg font-bold text-primary tracking-tight">
-                                                    S/ {Number(orderToEdit.total || 0).toFixed(2)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className="rounded-md border divide-y bg-muted/10 transition-all hover:bg-muted/20">
-                                            {orderToEdit.items?.map((item: any) => (
-                                                <div key={item.id} className="flex justify-between items-center p-3 text-sm">
-                                                    <div>
-                                                        <p className="font-medium">{item.product_id?.nombre || item.product_id?.name || "Producto"}</p>
-                                                        <p className="text-xs text-muted-foreground">S/ {Number(item.precio_unitario).toFixed(2)} x {item.cantidad}</p>
-                                                    </div>
-                                                    <p className="font-medium tabular-nums">S/ {Number(item.subtotal).toFixed(2)}</p>
+                                    <div className="rounded-md border divide-y bg-muted/10 transition-all hover:bg-muted/20">
+                                        {orderToEdit.items?.map((item: any) => (
+                                            <div key={item.id} className="flex justify-between items-center p-3 text-sm">
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {item.product_id?.nombre || item.product_id?.name || "Producto"}
+                                                        {item.variante_seleccionada && (
+                                                            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold uppercase tracking-tight">
+                                                                {item.variante_seleccionada}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">S/ {Number(item.precio_unitario).toFixed(2)} x {item.cantidad}</p>
                                                 </div>
-                                            ))}
-                                            <div className="p-3 flex justify-between items-center bg-background/50 text-sm border-t">
-                                                <span className="font-medium text-muted-foreground">Total</span>
-                                                <span className="font-bold">S/ {Number(orderToEdit.total || 0).toFixed(2)}</span>
+                                                <p className="font-medium tabular-nums">S/ {Number(item.subtotal).toFixed(2)}</p>
                                             </div>
+                                        ))}
+                                        <div className="p-3 flex justify-between items-center bg-background/50 text-sm border-t">
+                                            <span className="font-medium text-muted-foreground">Total</span>
+                                            <span className="font-bold">S/ {Number(orderToEdit.total || 0).toFixed(2)}</span>
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
 
                                 <Separator />
@@ -1850,7 +1829,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                         <div className="space-y-2">
                                             <Label className="text-sm">Método de pago</Label>
                                             <Select
-                                                value={typeof orderToEdit.metodo_pago === 'object' ? orderToEdit.metodo_pago?.id : orderToEdit.metodo_pago}
+                                                value={orderToEdit.metodo_pago ? (typeof orderToEdit.metodo_pago === 'object' ? orderToEdit.metodo_pago.id : orderToEdit.metodo_pago) : undefined}
                                                 onValueChange={(val) => setOrderToEdit({ ...orderToEdit, metodo_pago: val })}
                                             >
                                                 <SelectTrigger className="h-9">
@@ -2017,15 +1996,16 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
                                             // Actualizar orden
                                             const orderUpdateData: any = {
+                                                workspace_id: orderToEdit.workspace_id,
                                                 courier_nombre: orderToEdit.courier_nombre,
-                                                notas: orderToEdit.notas,
+
                                                 departamento: orderToEdit.departamento,
                                                 provincia: orderToEdit.provincia,
                                                 distrito: orderToEdit.distrito,
                                                 direccion: orderToEdit.direccion,
                                                 monto_adelanto: orderToEdit.monto_adelanto,
                                                 monto_faltante: orderToEdit.monto_faltante,
-                                                total: orderToEdit.total,
+
                                                 configurar_envio: orderToEdit.configurar_envio,
                                                 tipo_cobro_envio: orderToEdit.tipo_cobro_envio,
                                                 costo_envio: orderToEdit.costo_envio,
@@ -2033,14 +2013,6 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 courier_nro_orden: orderToEdit.courier_nro_orden,
                                                 courier_codigo: orderToEdit.courier_codigo,
                                                 courier_clave: orderToEdit.courier_clave,
-                                                items: orderToEdit.items?.map((item: any) => ({
-                                                    id: item.id?.includes('temp-') ? undefined : item.id,
-                                                    product_id: item.product_id?.id || item.product_id,
-                                                    cantidad: item.cantidad,
-                                                    precio_unitario: item.precio_unitario,
-                                                    subtotal: item.subtotal,
-                                                    variante_seleccionada: item.variante_seleccionada || null
-                                                }))
                                             };
 
                                             // Solo incluir metodo_pago si tiene un ID válido (UUID)
@@ -2054,6 +2026,8 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                     orderUpdateData.metodo_pago = orderToEdit.metodo_pago;
                                                 }
                                             }
+
+                                            console.log('Enviando actualización de orden:', orderUpdateData);
 
 
                                             const orderResult = await updateOrder(orderToEdit.id, orderUpdateData);

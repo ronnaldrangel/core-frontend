@@ -310,6 +310,7 @@ export function POSSystem({
             ? (product.variantes_producto as any[]).find(v => v.nombre === vName)
             : null;
 
+        // ⚠️ STOCK INDIVIDUAL: Cada producto/variante tiene su propio stock
         const stockToCheck = variant ? variant.stock : product.stock;
 
         if (stockToCheck <= 0) {
@@ -317,6 +318,7 @@ export function POSSystem({
             return;
         }
 
+        // Cantidad ya en carrito de ESTE item específico (variante o base)
         const existingItemQty = cart.find(item =>
             item.id === product.id && (item.selectedVariant || null) === vName
         )?.quantity || 0;
@@ -352,6 +354,7 @@ export function POSSystem({
             if (item.id === id && (item.selectedVariant || null) === vName) {
                 const newQty = Math.max(0, item.quantity + delta);
 
+                // ⚠️ STOCK INDIVIDUAL: Verificar el stock de este item específico
                 let stockLimit = item.stock;
                 if (item.selectedVariant && item.variantes_producto) {
                     const variant = (item.variantes_producto as any[]).find(v => v.nombre === item.selectedVariant);
