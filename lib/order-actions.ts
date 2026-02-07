@@ -68,13 +68,22 @@ export interface CourierType {
     color: string;
 }
 
+export interface PaymentMethod {
+    id: string;
+    workspace_id: string;
+    name: string;
+    value: string;
+    color: string;
+}
+
 export async function createOrder(data: any) {
     try {
         const { items = [], numero_correlativo, ...orderData } = data;
 
-        // Ajuste de fecha para evitar problemas de zona horaria
-        if (orderData.fecha_venta) {
-            orderData.fecha_venta = orderData.fecha_venta.split('T')[0];
+        // Eliminamos el split('T')[0] que causaba desfases de zona horaria (mostraba el día anterior)
+        // Directus manejará el timestamp correctamente si enviamos el ISO string completo o el default NOW()
+        if (!orderData.fecha_venta) {
+            // Si no viene fecha, dejamos que el default de Directus actúe o podríamos asignar new Date()
         }
 
         if (!orderData.workspace_id) {

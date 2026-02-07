@@ -592,6 +592,7 @@ export function POSSystem({
             const { data: order, error } = await createOrder({
                 workspace_id: workspaceId,
                 cliente_id: finalClientId, // Use resolved ID
+                fecha_venta: new Date().toISOString(),
                 total: totalWithAdjustments,
                 metodo_pago: paymentMethod,
                 estado_pago: paymentStatus,
@@ -615,7 +616,8 @@ export function POSSystem({
                 distrito: orderDist,
                 direccion: orderAddress,
                 ubicacion: orderLocation,
-            }, orderItems);
+                items: orderItems,
+            });
 
             if (error) throw new Error(error);
 
