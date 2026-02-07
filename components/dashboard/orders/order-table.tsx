@@ -797,7 +797,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
             <div className="flex flex-1 gap-4 overflow-hidden">
                 <div className={cn(
                     "flex flex-col gap-4 transition-all duration-300 ease-in-out",
-                    selectedOrder ? "w-[60%] lg:w-[70%]" : "w-full"
+                    selectedOrder ? "hidden md:flex w-full md:w-[60%] lg:w-[70%]" : "w-full"
                 )}>
                     {/* Filtros y Buscador - Una sola fila */}
                     <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -1163,7 +1163,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
                 {/* Panel de Detalles al mismo plano */}
                 {selectedOrder && (
-                    <div className="w-[40%] lg:w-[30%] border rounded-lg border-border/50 bg-card shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="w-full md:w-[40%] lg:w-[30%] border rounded-lg border-border/50 bg-card shadow-sm overflow-hidden flex flex-col animate-in fade-in slide-in-from-right-4 duration-300 h-full">
                         <div className="flex flex-col h-full bg-background overflow-y-auto">
                             <div className="sticky top-0 z-10 p-6 border-b bg-muted/10 backdrop-blur-md flex items-center justify-between">
                                 <div className="space-y-1">
@@ -1520,8 +1520,8 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
             {/* Popup de Edición / Detalles (Tuerca) */}
             <Dialog open={!!orderToEdit} onOpenChange={(open) => !open && setOrderToEdit(null)}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
+                <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] p-0 flex flex-col gap-0">
+                    <DialogHeader className="px-6 py-4 border-b">
                         <DialogTitle className="text-xl font-semibold flex items-center gap-2">
                             <Settings className="h-5 w-5 text-primary" />
                             Gestión del Pedido
@@ -1533,7 +1533,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
                     {orderToEdit && (
                         <>
-                            <div className="space-y-6 overflow-y-auto max-h-[60vh] pr-2 -mr-2">
+                            <div className="space-y-6 overflow-y-auto flex-1 p-6">
 
 
 
@@ -1563,7 +1563,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                     </div>
 
                                     {/* Tipo & Nombre */}
-                                    <div className="grid grid-cols-[1fr_3fr] gap-3">
+                                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_3fr] gap-3">
                                         <div className="space-y-1.5">
                                             <Label className="text-sm font-medium">Tipo</Label>
                                             <Select
@@ -1629,7 +1629,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                             />
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-xs text-muted-foreground">Provincia</Label>
                                             <Input
@@ -1704,7 +1704,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div className="space-y-1.5">
                                                     <Label className="text-sm font-medium">Costo Envío</Label>
                                                     <Input
@@ -1763,7 +1763,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                     <Label className="text-sm font-medium">Seguimiento ({orderToEdit.courier_nombre || "Courier"})</Label>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     <Input
                                                         placeholder="Nro. Orden"
                                                         className="h-10 text-sm"
@@ -1825,7 +1825,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
 
                                 {/* Pagos y Balance */}
                                 <div className="space-y-4 pt-2">
-                                    <div className="grid grid-cols-2 gap-8 items-start">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 items-start">
                                         <div className="space-y-2">
                                             <Label className="text-sm">Método de pago</Label>
                                             <Select
@@ -1851,7 +1851,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-8 items-end">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8 items-end">
                                         <div className="space-y-2">
                                             <Label className="text-sm font-medium">Adelanto</Label>
                                             <div className="relative">
@@ -1956,7 +1956,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                 </div>
                             </div>
 
-                            <DialogFooter className="flex justify-between mt-6">
+                            <DialogFooter className="flex flex-col-reverse sm:flex-row justify-between gap-3 p-6 border-t mt-0">
                                 <Button variant="outline" onClick={() => setOrderToEdit(null)}>
                                     Cancelar
                                 </Button>
