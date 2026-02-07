@@ -604,7 +604,7 @@ export function POSSystem({
                     precio_unitario: unitPrice,
                     subtotal: lineSubtotal,
                     variante_seleccionada: item.selectedVariant,
-                    variant_id: variantId
+                    variant_id: variantId || undefined
                 };
             });
 
