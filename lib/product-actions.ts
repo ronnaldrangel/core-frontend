@@ -75,44 +75,20 @@ export async function getProductsByWorkspace(workspaceId: string) {
             return { data: null, error: "No tienes permiso para ver productos" };
         }
 
-        // Intentar cargar con variantes primero, si falla cargar sin ellas
-        try {
-            const products = await directusAdmin.request(
-                readItems("products", {
-                    filter: {
-                        workspace: { _eq: workspaceId }
-                    },
-                    fields: [
-                        "*",
-                        // ✅ Intentar cargar variantes como relación O2M
-                        "variantes.id",
-                        "variantes.nombre",
-                        "variantes.sku",
-                        "variantes.precio",
-                        "variantes.stock",
-                        "variantes.stock_minimo",
-                        "variantes.imagen",
-                        "variantes.atributos",
-                        "variantes.status"
-                    ],
-                    sort: ["-date_created"]
-                })
-            );
-            return { data: products as Product[], error: null };
-        } catch (variantError) {
-            // Si falla (relación no existe), cargar solo los campos básicos
-            console.warn("No se pudieron cargar variantes relacionadas, usando solo campos básicos");
-            const products = await directusAdmin.request(
-                readItems("products", {
-                    filter: {
-                        workspace: { _eq: workspaceId }
-                    },
-                    fields: ["*"],
-                    sort: ["-date_created"]
-                })
-            );
-            return { data: products as Product[], error: null };
-        }
+        const products = await directusAdmin.request(
+            readItems("products", {
+                filter: {
+                    workspace: { _eq: workspaceId }
+                },
+                fields: [
+                    "*",
+                    // Aseguramos traer el campo JSON de variantes si existe
+                    "variantes_producto"
+                ],
+                sort: ["-date_created"]
+            })
+        );
+        return { data: products as Product[], error: null };
     } catch (error) {
         console.error("Error fetching products:", error);
         return { data: null, error: "Error al cargar los productos" };

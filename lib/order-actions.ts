@@ -70,7 +70,12 @@ export interface CourierType {
 
 export async function createOrder(data: any) {
     try {
-        const { items, numero_correlativo, ...orderData } = data;
+        const { items = [], numero_correlativo, ...orderData } = data;
+
+        // Ajuste de fecha para evitar problemas de zona horaria
+        if (orderData.fecha_venta) {
+            orderData.fecha_venta = orderData.fecha_venta.split('T')[0];
+        }
 
         if (!orderData.workspace_id) {
             return { data: null, error: "Workspace ID es requerido" };
@@ -86,65 +91,67 @@ export async function createOrder(data: any) {
         const order = await directusAdmin.request(createItem("orders", orderData)) as any;
 
         // Si hay items, crearlos uno por uno (o en lote si se prefiere) vinculado a la orden
-        const itemsWithOrderId = items.map((item: any) => ({
-            ...item,
-            order_id: order.id,
-            // Asegurarse de que el product_id sea solo el ID si viene como objeto
-            product_id: typeof item.product_id === 'object' ? item.product_id.id : item.product_id
-        }));
+        if (Array.isArray(items) && items.length > 0) {
+            const itemsWithOrderId = items.map((item: any) => ({
+                ...item,
+                order_id: order.id,
+                // Asegurarse de que el product_id sea solo el ID si viene como objeto
+                product_id: typeof item.product_id === 'object' ? item.product_id.id : item.product_id
+            }));
 
-        await directusAdmin.request(createItems("order_items", itemsWithOrderId));
+            await directusAdmin.request(createItems("order_items", itemsWithOrderId));
 
-        // 3. Reducir Stock de Productos (CADA PRODUCTO/VARIANTE TIENE SU STOCK INDIVIDUAL)
-        for (const item of items) {
-            try {
-                const product = await directusAdmin.request(readItem("products", item.product_id, {
-                    fields: ["id", "stock", "nombre", "variantes_producto"]
-                })) as any;
+            // 3. Reducir Stock de Productos (CADA PRODUCTO/VARIANTE TIENE SU STOCK INDIVIDUAL)
+            for (const item of items) {
+                try {
+                    const product = await directusAdmin.request(readItem("products", item.product_id, {
+                        fields: ["id", "stock", "nombre", "variantes_producto"]
+                    })) as any;
 
-                if (!product) {
-                    console.error(`Producto ${item.product_id} no encontrado`);
-                    continue;
-                }
-
-                // ✅ Si se vendió una VARIANTE específica
-                if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
-                    const updatedVariantes = product.variantes_producto.map((v: any) => {
-                        if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
-                            const currentStock = Number(v.stock) || 0;
-                            const newStock = currentStock - item.cantidad;
-
-                            // ⚠️ VALIDACIÓN: No permitir stock negativo
-                            if (newStock < 0) {
-                                throw new Error(`Stock insuficiente para variante "${v.nombre}" de "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
-                            }
-
-                            return { ...v, stock: newStock };
-                        }
-                        return v;
-                    });
-
-                    await directusAdmin.request(updateItem("products", product.id, {
-                        variantes_producto: updatedVariantes
-                    }));
-                } else {
-                    // ✅ Si se vendió el PRODUCTO BASE (sin variante)
-                    const currentStock = Number(product.stock) || 0;
-                    const newStock = currentStock - item.cantidad;
-
-                    // ⚠️ VALIDACIÓN: No permitir stock negativo
-                    if (newStock < 0) {
-                        throw new Error(`Stock insuficiente para "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
+                    if (!product) {
+                        console.error(`Producto ${item.product_id} no encontrado`);
+                        continue;
                     }
 
-                    await directusAdmin.request(updateItem("products", product.id, {
-                        stock: newStock
-                    }));
+                    // ✅ Si se vendió una VARIANTE específica
+                    if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
+                        const updatedVariantes = product.variantes_producto.map((v: any) => {
+                            if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
+                                const currentStock = Number(v.stock) || 0;
+                                const newStock = currentStock - item.cantidad;
+
+                                // ⚠️ VALIDACIÓN: No permitir stock negativo
+                                if (newStock < 0) {
+                                    throw new Error(`Stock insuficiente para variante "${v.nombre}" de "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
+                                }
+
+                                return { ...v, stock: newStock };
+                            }
+                            return v;
+                        });
+
+                        await directusAdmin.request(updateItem("products", product.id, {
+                            variantes_producto: updatedVariantes
+                        }));
+                    } else {
+                        // ✅ Si se vendió el PRODUCTO BASE (sin variante)
+                        const currentStock = Number(product.stock) || 0;
+                        const newStock = currentStock - item.cantidad;
+
+                        // ⚠️ VALIDACIÓN: No permitir stock negativo
+                        if (newStock < 0) {
+                            throw new Error(`Stock insuficiente para "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
+                        }
+
+                        await directusAdmin.request(updateItem("products", product.id, {
+                            stock: newStock
+                        }));
+                    }
+                } catch (stockError: any) {
+                    console.error(`Error actualizando stock para producto ${item.product_id}:`, stockError);
+                    // Re-lanzar el error para que createOrder lo capture
+                    throw stockError;
                 }
-            } catch (stockError: any) {
-                console.error(`Error actualizando stock para producto ${item.product_id}:`, stockError);
-                // Re-lanzar el error para que createOrder lo capture
-                throw stockError;
             }
         }
 
@@ -227,7 +234,15 @@ export async function getOrdersByWorkspace(workspaceId: string) {
                     "cliente_id.*",
                     "metodo_pago.*",
                     "items.*",
-                    "items.product_id.*"
+                    "items.id",
+                    "items.cantidad",
+                    "items.precio_unitario",
+                    "items.subtotal",
+                    "items.variante_seleccionada",
+                    "items.product_id.id",
+                    "items.product_id.nombre",
+                    "items.product_id.sku",
+                    "items.product_id.imagen"
                 ],
                 sort: ["-date_created"] as any
             })
@@ -248,7 +263,15 @@ export async function getOrderById(id: string) {
                     "cliente_id.*",
                     "metodo_pago.*",
                     "items.*",
-                    "items.product_id.*"
+                    "items.id",
+                    "items.cantidad",
+                    "items.precio_unitario",
+                    "items.subtotal",
+                    "items.variante_seleccionada",
+                    "items.product_id.id",
+                    "items.product_id.nombre",
+                    "items.product_id.sku",
+                    "items.product_id.imagen"
                 ]
             })
         );
