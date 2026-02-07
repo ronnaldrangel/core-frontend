@@ -18,12 +18,14 @@ export interface OrderItem {
 export interface Order {
     id: string;
     workspace_id: string;
+    numero_correlativo?: string | number;
     cliente_id: string | any;
     metodo_pago: string | any;
     fecha_venta: string;
     total: number;
     monto_adelanto: number;
     monto_faltante: number;
+    ajuste_total?: number;
     estado_pago: string;
     estado_pedido: string;
     voucher: any;
@@ -327,5 +329,159 @@ export async function updateOrder(id: string, data: any) {
         console.error("Error updating order:", error);
         const errorMessage = error.errors?.[0]?.message || error.message || "Error al actualizar la orden";
         return { data: null, error: errorMessage };
+    }
+}
+
+export async function updateOrderStatusConfig(id: string, data: any) {
+    try {
+        const status = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
+        if (!status) return { data: null, error: "Estado no encontrado" };
+
+        const permissions = await getMyPermissions((status as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para configurar estados" };
+        }
+
+        const updatedStatus = await directusAdmin.request(updateItem("order_statuses", id, data));
+        return { data: updatedStatus, error: null };
+    } catch (error: any) {
+        console.error("Error updating order status:", error);
+        return { data: null, error: "Error al actualizar el mensaje del estado" };
+    }
+}
+
+// --- Order Statuses CRUD ---
+
+export async function createOrderStatus(data: any) {
+    try {
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso para crear estados" };
+        }
+        const result = await directusAdmin.request(createItem("order_statuses", data));
+        revalidatePath(`/dashboard`);
+        return { data: result, error: null };
+    } catch (error: any) {
+        return { data: null, error: "Error al crear estado" };
+    }
+}
+
+export async function deleteOrderStatus(id: string) {
+    try {
+        const item = await directusAdmin.request(readItem("order_statuses", id, { fields: ["workspace_id"] }));
+        if (!item) return { success: false, error: "No encontrado" };
+
+        const permissions = await getMyPermissions((item as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso" };
+        }
+
+        await directusAdmin.request(deleteItem("order_statuses", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        return { success: false, error: "Error al eliminar estado" };
+    }
+}
+
+// --- Payment Statuses CRUD ---
+
+export async function createPaymentStatus(data: any) {
+    try {
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso" };
+        }
+        const result = await directusAdmin.request(createItem("payment_statuses", data));
+        revalidatePath(`/dashboard`);
+        return { data: result, error: null };
+    } catch (error: any) {
+        return { data: null, error: "Error al crear estado de pago" };
+    }
+}
+
+export async function deletePaymentStatus(id: string) {
+    try {
+        const item = await directusAdmin.request(readItem("payment_statuses", id, { fields: ["workspace_id"] }));
+        if (!item) return { success: false, error: "No encontrado" };
+
+        const permissions = await getMyPermissions((item as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso" };
+        }
+
+        await directusAdmin.request(deleteItem("payment_statuses", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        return { success: false, error: "Error al eliminar estado de pago" };
+    }
+}
+
+// --- Courier Types CRUD ---
+
+export async function createCourierType(data: any) {
+    try {
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso" };
+        }
+        const result = await directusAdmin.request(createItem("courier_types", data));
+        revalidatePath(`/dashboard`);
+        return { data: result, error: null };
+    } catch (error: any) {
+        return { data: null, error: "Error al crear tipo de courier" };
+    }
+}
+
+export async function deleteCourierType(id: string) {
+    try {
+        const item = await directusAdmin.request(readItem("courier_types", id, { fields: ["workspace_id"] }));
+        if (!item) return { success: false, error: "No encontrado" };
+
+        const permissions = await getMyPermissions((item as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso" };
+        }
+
+        await directusAdmin.request(deleteItem("courier_types", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        return { success: false, error: "Error al eliminar tipo de courier" };
+    }
+}
+
+// --- Payment Methods CRUD ---
+
+export async function createPaymentMethod(data: any) {
+    try {
+        const permissions = await getMyPermissions(data.workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { data: null, error: "No tienes permiso" };
+        }
+        const result = await directusAdmin.request(createItem("payment_methods", data));
+        revalidatePath(`/dashboard`);
+        return { data: result, error: null };
+    } catch (error: any) {
+        return { data: null, error: "Error al crear método de pago" };
+    }
+}
+
+export async function deletePaymentMethod(id: string) {
+    try {
+        const item = await directusAdmin.request(readItem("payment_methods", id, { fields: ["workspace_id"] }));
+        if (!item) return { success: false, error: "No encontrado" };
+
+        const permissions = await getMyPermissions((item as any).workspace_id);
+        if (!permissions.includes("*") && !permissions.includes("settings.manage")) {
+            return { success: false, error: "No tienes permiso" };
+        }
+
+        await directusAdmin.request(deleteItem("payment_methods", id));
+        revalidatePath(`/dashboard`);
+        return { success: true, error: null };
+    } catch (error: any) {
+        return { success: false, error: "Error al eliminar método de pago" };
     }
 }

@@ -66,8 +66,8 @@ export function TicketView({ order, workspace }: TicketViewProps) {
                     <p><span className="font-bold">Tel:</span> {(order.cliente_id as any)?.telefono}</p>
                 )}
                 {/* Direccion de envio si existe */}
-                {order.courier_provincia_dpto && (
-                    <p><span className="font-bold">Destino:</span> {order.courier_provincia_dpto} - {order.courier_destino_agencia}</p>
+                {(order.departamento || order.provincia) && (
+                    <p><span className="font-bold">Destino:</span> {order.departamento && order.provincia ? `${order.departamento} - ${order.provincia}` : (order.departamento || order.provincia)}{order.courier_destino_agencia ? ` - ${order.courier_destino_agencia}` : ""}</p>
                 )}
             </div>
 

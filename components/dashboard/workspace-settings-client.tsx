@@ -1235,7 +1235,7 @@ export function WorkspaceSettingsClient({ workspace, role, initialOrderStatuses,
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>¿Borrar este workspace?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Esta acción borrará permanentemente <span className="font-bold text-foreground">"{workspace.name}"</span> y todos sus datos.
+                                        Esta acción borrará permanentemente <span className="font-bold text-foreground">&quot;{workspace.name}&quot;</span> y todos sus datos.
                                         Para confirmar, escribe el nombre del workspace:
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>

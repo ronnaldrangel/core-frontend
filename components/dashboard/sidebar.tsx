@@ -16,7 +16,7 @@ import {
     ChevronDown,
     ListChecks,
     FolderKanban,
-    MessageSquare,
+
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import { useState } from "react";
@@ -54,7 +54,6 @@ export function Sidebar({
     const pathname = usePathname();
     const { hasPermission, isLoading } = useRBAC();
     const [productosOpen, setProductosOpen] = useState(pathname.includes("/products") || pathname.includes("/categories"));
-    const [pedidosOpen, setPedidosOpen] = useState(pathname.includes("/orders") && !pathname.includes("/messages"));
     const [settingsOpen, setSettingsOpen] = useState(pathname.includes("/settings") || pathname.includes("/messages"));
 
     const logoUrl = workspaceLogo
@@ -69,12 +68,7 @@ export function Sidebar({
             icon: LayoutDashboard,
             permission: "dashboard.read",
         },
-        {
-            title: "Mensajería",
-            href: `/dashboard/${currentWorkspaceId}/messages`,
-            icon: MessageSquare,
-            permission: "orders.read",
-        },
+
         {
             title: "Miembros",
             href: `/dashboard/${currentWorkspaceId}/members`,
@@ -90,6 +84,12 @@ export function Sidebar({
     ];
 
     const sidebarItemsAfterProducts = [
+        {
+            title: "Pedidos",
+            href: `/dashboard/${currentWorkspaceId}/orders`,
+            icon: Receipt,
+            permission: "orders.read",
+        },
         {
             title: "Punto de Venta",
             href: `/dashboard/${currentWorkspaceId}/pos`,
@@ -117,18 +117,7 @@ export function Sidebar({
         },
     ];
 
-    const pedidosSubItems = [
-        {
-            title: "Tabla",
-            href: `/dashboard/${currentWorkspaceId}/orders`,
-            permission: "orders.read",
-        },
-        {
-            title: "Analytics",
-            href: `/dashboard/${currentWorkspaceId}/orders/analytics`,
-            permission: "orders.update",
-        },
-    ];
+
 
     const settingsSubItems = [
         {
@@ -159,11 +148,7 @@ export function Sidebar({
 
     const hasProductsAccess = visibleProductsSubItems.length > 0;
 
-    const visiblePedidosSubItems = pedidosSubItems.filter(item =>
-        !item.permission || hasPermission(item.permission)
-    );
 
-    const hasPedidosAccess = visiblePedidosSubItems.length > 0;
 
     const visibleSettingsSubItems = settingsSubItems.filter(item =>
         !item.permission || hasPermission(item.permission)
@@ -282,53 +267,7 @@ export function Sidebar({
                         </div>
                     )}
 
-                    {/* Pedidos Dropdown */}
-                    {hasPedidosAccess && (
-                        <div className="space-y-1">
-                            <button
-                                onClick={() => setPedidosOpen(!pedidosOpen)}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary w-full",
-                                    pathname.includes("/orders")
-                                        ? "bg-muted text-primary"
-                                        : "text-muted-foreground"
-                                )}
-                            >
-                                <Receipt className="h-4 w-4" />
-                                <span className="flex-1 text-left">Pedidos</span>
-                                <ChevronDown
-                                    className={cn(
-                                        "h-4 w-4 transition-transform duration-200",
-                                        pedidosOpen ? "rotate-180" : ""
-                                    )}
-                                />
-                            </button>
 
-                            {/* Sub-items de Pedidos */}
-                            {pedidosOpen && (
-                                <div className="ml-4 space-y-1">
-                                    {visiblePedidosSubItems.map((subItem) => {
-                                        const isActive = pathname === subItem.href;
-                                        return (
-                                            <Link
-                                                key={subItem.href}
-                                                href={subItem.href}
-                                                onClick={onItemClick}
-                                                className={cn(
-                                                    "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary",
-                                                    isActive
-                                                        ? "bg-muted text-primary"
-                                                        : "text-muted-foreground"
-                                                )}
-                                            >
-                                                {subItem.title}
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    )}
 
                     {/* Items después de Productos */}
                     {visibleAfterProducts.map((item) => {

@@ -13,15 +13,11 @@ function VerifyEmailContent() {
     const token = searchParams.get("token")
     const hasCalled = useRef(false)
 
-    const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
-    const [message, setMessage] = useState("Verificando tu cuenta...")
+    const [status, setStatus] = useState<"loading" | "success" | "error">(token ? "loading" : "error")
+    const [message, setMessage] = useState(token ? "Verificando tu cuenta..." : "Falta el token de verificación.")
 
     useEffect(() => {
-        if (!token) {
-            setStatus("error")
-            setMessage("Falta el token de verificación.")
-            return
-        }
+        if (!token) return
 
         if (hasCalled.current) return
         hasCalled.current = true

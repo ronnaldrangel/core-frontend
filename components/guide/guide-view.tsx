@@ -34,7 +34,9 @@ export function GuideView({ order, workspace }: GuideViewProps) {
                     <span className="font-bold uppercase underline">DESTINO:</span>
                 </div>
                 <p className="text-sm font-black uppercase text-center py-1">
-                    {order.courier_provincia_dpto || "S/N PROVINCIA"}
+                    {order.departamento && order.provincia
+                        ? `${order.departamento} - ${order.provincia}`
+                        : (order.departamento || order.provincia || "S/N PROVINCIA")}
                 </p>
                 <p className="text-center italic">
                     {order.courier_destino_agencia || "Agencia Principal"}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { OrderStatus, updateOrderStatus } from "@/lib/order-actions";
+import { OrderStatus, updateOrderStatusConfig } from "@/lib/order-actions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +33,7 @@ export function OrderStatusMessages({ initialStatuses, workspaceId }: OrderStatu
     const handleSave = async (status: OrderStatus) => {
         setIsSaving(status.id);
         try {
-            const result = await updateOrderStatus(status.id, {
+            const result = await updateOrderStatusConfig(status.id, {
                 default_message: status.default_message
             });
 

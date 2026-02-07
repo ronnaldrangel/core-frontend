@@ -83,7 +83,7 @@ export function ShippingGuideView({ order, workspace }: ShippingGuideViewProps) 
                         </div>
                         <div className="border-b-2 border-zinc-200 pb-2">
                             <p className="text-[10px] md:text-xs font-black uppercase text-zinc-500">Destino (Provincia/Dpto):</p>
-                            <p className="text-xl md:text-3xl font-black uppercase mt-1 break-words">{order.courier_provincia_dpto || "LIMA"}</p>
+                            <p className="text-xl md:text-3xl font-black uppercase mt-1 break-words">{order.departamento && order.provincia ? `${order.departamento} - ${order.provincia}` : (order.departamento || order.provincia || "LIMA")}</p>
                         </div>
                     </div>
                 </div>
