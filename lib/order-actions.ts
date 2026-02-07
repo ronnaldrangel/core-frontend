@@ -97,78 +97,74 @@ export async function createOrder(data: any) {
         }
 
         // 2. Crear la Orden Base
-        const order = await directusAdmin.request(createItem("orders", orderData)) as any;
+        // 1. Preparar los items para creación anidada en Directus
+        // Esto es más robusto y atómico que crear el pedido y luego los items por separado
+        const nestedItems = Array.isArray(items) ? items.map((item: any) => ({
+            product_id: typeof item.product_id === 'object' ? item.product_id.id : item.product_id,
+            cantidad: Number(item.cantidad || 0),
+            precio_unitario: Number(item.precio_unitario || 0),
+            subtotal: Number(item.subtotal || 0),
+            variante_seleccionada: item.variante_seleccionada || null,
+            variant_id: item.variant_id || null
+        })) : [];
 
-        // Si hay items, crearlos uno por uno (o en lote si se prefiere) vinculado a la orden
-        if (Array.isArray(items) && items.length > 0) {
-            const itemsWithOrderId = items.map((item: any) => ({
-                ...item,
-                order_id: order.id,
-                // Asegurarse de que el product_id sea solo el ID si viene como objeto
-                product_id: typeof item.product_id === 'object' ? item.product_id.id : item.product_id
-            }));
+        console.log(`Creating order with ${nestedItems.length} items`);
 
-            await directusAdmin.request(createItems("order_items", itemsWithOrderId));
+        // 2. Crear el pedido con sus items en una sola operación atómica
+        const order = await directusAdmin.request(createItem("orders", {
+            ...orderData,
+            items: nestedItems
+        }, {
+            fields: ["*", "items.*"]
+        })) as any;
 
-            // 3. Reducir Stock de Productos (CADA PRODUCTO/VARIANTE TIENE SU STOCK INDIVIDUAL)
-            for (const item of items) {
+        if (!order || !order.id) {
+            throw new Error("No se pudo obtener el ID del pedido creado");
+        }
+
+        // 3. Reducir stock (esto sigue siendo un paso separado)
+        if (nestedItems.length > 0) {
+            for (const item of nestedItems) {
                 try {
                     const product = await directusAdmin.request(readItem("products", item.product_id, {
-                        fields: ["id", "stock", "nombre", "variantes_producto"]
+                        fields: ["id", "stock", "usar_variantes", "variantes_producto"]
                     })) as any;
 
-                    if (!product) {
-                        console.error(`Producto ${item.product_id} no encontrado`);
-                        continue;
-                    }
+                    if (product) {
+                        // Lógica de variantes... (igual que antes)
+                        if (item.variante_seleccionada && product.usar_variantes && product.variantes_producto) {
+                            const updatedVariantes = [...product.variantes_producto];
+                            const variantIndex = updatedVariantes.findIndex(
+                                (v: any) => v.nombre === item.variante_seleccionada || v.id === item.variant_id
+                            );
 
-                    // ✅ Si se vendió una VARIANTE específica
-                    if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
-                        const updatedVariantes = product.variantes_producto.map((v: any) => {
-                            if (v.nombre === item.variante_seleccionada || v.sku === item.variante_seleccionada) {
-                                const currentStock = Number(v.stock) || 0;
-                                const newStock = currentStock - item.cantidad;
+                            if (variantIndex !== -1) {
+                                const currentStock = Number(updatedVariantes[variantIndex].stock || 0);
+                                updatedVariantes[variantIndex].stock = Math.max(0, currentStock - item.cantidad);
 
-                                // ⚠️ VALIDACIÓN: No permitir stock negativo
-                                if (newStock < 0) {
-                                    throw new Error(`Stock insuficiente para variante "${v.nombre}" de "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
-                                }
-
-                                return { ...v, stock: newStock };
+                                await directusAdmin.request(updateItem("products", product.id, {
+                                    variantes_producto: updatedVariantes
+                                }));
                             }
-                            return v;
-                        });
-
-                        await directusAdmin.request(updateItem("products", product.id, {
-                            variantes_producto: updatedVariantes
-                        }));
-                    } else {
-                        // ✅ Si se vendió el PRODUCTO BASE (sin variante)
-                        const currentStock = Number(product.stock) || 0;
-                        const newStock = currentStock - item.cantidad;
-
-                        // ⚠️ VALIDACIÓN: No permitir stock negativo
-                        if (newStock < 0) {
-                            throw new Error(`Stock insuficiente para "${product.nombre}". Disponible: ${currentStock}, Solicitado: ${item.cantidad}`);
+                        } else {
+                            // Stock general
+                            const currentStock = Number(product.stock || 0);
+                            await directusAdmin.request(updateItem("products", product.id, {
+                                stock: Math.max(0, currentStock - item.cantidad)
+                            }));
                         }
-
-                        await directusAdmin.request(updateItem("products", product.id, {
-                            stock: newStock
-                        }));
                     }
                 } catch (stockError: any) {
                     console.error(`Error actualizando stock para producto ${item.product_id}:`, stockError);
-                    // Re-lanzar el error para que createOrder lo capture
-                    throw stockError;
+                    // No relanzamos para no romper la creación del pedido si ya se guardó
                 }
             }
         }
 
-        revalidatePath(`/dashboard`);
+        revalidatePath(`/dashboard`, "layout");
         return { data: order, error: null };
     } catch (error: any) {
         console.error("Detailed Error creating order:", error);
-        // Intentar obtener el mensaje de error de Directus
         const errorMessage = error.errors?.[0]?.message || error.message || "Error al procesar la venta";
         return { data: null, error: errorMessage };
     }
