@@ -82,8 +82,8 @@ export async function getProductsByWorkspace(workspaceId: string) {
                 },
                 fields: [
                     "*",
-                    // Aseguramos traer el campo JSON de variantes si existe
-                    "variantes_producto"
+                    "variantes.*", // Fetch real variants from collection
+                    "category.*"   // Fetch category details
                 ],
                 sort: ["-date_created"]
             })

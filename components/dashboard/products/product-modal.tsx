@@ -130,6 +130,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
     const [descripcionNormal, setDescripcionNormal] = useState("");
     const [stock, setStock] = useState(0);
     const [variantes, setVariantes] = useState<{
+        id?: string;
         nombre: string;
         sku: string;
         precio: string;
@@ -178,10 +179,19 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
             setStock(product.stock);
 
             // Formatear precios y cargar imagenes de variantes si existen
-            const formattedVariantes = (product.variantes_producto || []).map((v: any) => ({
-                ...v,
+            // Prioridad: Relación O2M 'variantes' > JSON 'variantes_producto'
+            const sourceVariantes = (product.variantes && product.variantes.length > 0)
+                ? product.variantes
+                : (product.variantes_producto || []);
+
+            const formattedVariantes = sourceVariantes.map((v: any) => ({
+                id: v.id, // Preservar ID si existe (para updates O2M)
+                nombre: v.nombre,
+                sku: v.sku || "",
                 precio: v.precio ? Number(v.precio).toFixed(2) : "",
-                imagen_preview: v.imagen ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${v.imagen}` : null
+                stock: Number(v.stock || 0),
+                imagen: typeof v.imagen === 'object' ? v.imagen?.id : v.imagen,
+                imagen_preview: v.imagen ? `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${typeof v.imagen === 'object' ? v.imagen.id : v.imagen}` : null
             }));
             setVariantes(formattedVariantes);
 
@@ -283,6 +293,7 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                     const { data: uploadedFile, error: uploadError } = await uploadFile(formData);
                     if (!uploadError && uploadedFile) {
                         return {
+                            id: v.id, // Keep ID
                             nombre: v.nombre,
                             sku: v.sku,
                             precio: parseFloat(Number(v.precio).toFixed(2)) || 0,
@@ -292,12 +303,25 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                     }
                 }
                 return {
+                    id: v.id, // Keep ID
                     nombre: v.nombre,
                     sku: v.sku,
                     precio: parseFloat(Number(v.precio).toFixed(2)) || 0,
                     stock: parseInt(v.stock as any) || 0,
                     imagen: v.imagen || null
                 };
+            }));
+
+            // Preparar payload O2M (Product Variants Collection)
+            const variantsO2M = updatedVariantes.map(v => ({
+                id: v.id, // Si tiene ID, actualiza. Si no, crea.
+                workspace_id: workspaceId, // Required
+                nombre: v.nombre,
+                sku: v.sku,
+                precio: v.precio,
+                stock: v.stock,
+                imagen: v.imagen,
+                status: "published" // Required by interface
             }));
 
             const data = {
@@ -310,7 +334,9 @@ export function ProductModal({ isOpen, onClose, onSuccess, workspaceId, product 
                 descripcion_corta: descripcionCorta,
                 descripcion_normal: descripcionNormal,
                 stock: stock,
-                variantes_producto: updatedVariantes,
+                variantes: variantsO2M as any, // ✅ Envía relación O2M (Cast as any to avoid ID/Product ID checks on create)
+                variantes_producto: updatedVariantes, // ✅ Mantiene compatibilidad Legacy
+                tipo_producto: (variantsO2M.length > 0 ? "variable" : "simple") as "variable" | "simple", // ✅ Define tipo
                 workspace: workspaceId,
                 status: "published",
                 imagen: currentImageId,

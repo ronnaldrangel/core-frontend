@@ -572,11 +572,29 @@ export function POSSystem({
                 } else if (qty === 2 && p2 > 0) {
                     unitPrice = p2 / 2;
                     lineSubtotal = p2;
-                } else if (item.selectedVariant && item.variantes_producto) {
-                    const variant = (item.variantes_producto as any[]).find(v => v.nombre === item.selectedVariant);
+                } else if (item.selectedVariant) {
+                    // Lógica para variantes (prioridad: Relación O2M 'variantes', fallback: JSON deprecated)
+                    let variant = null;
+
+                    if (Array.isArray(item.variantes)) {
+                        variant = item.variantes.find((v: any) => v.nombre === item.selectedVariant);
+                    }
+
+                    if (!variant && Array.isArray(item.variantes_producto)) {
+                        variant = item.variantes_producto.find((v: any) => v.nombre === item.selectedVariant);
+                    }
+
                     if (variant && (variant.precio !== undefined && variant.precio !== null)) {
                         unitPrice = Number(variant.precio);
                         lineSubtotal = unitPrice * qty;
+                    }
+                }
+
+                let variantId = null;
+                if (item.selectedVariant) {
+                    if (Array.isArray(item.variantes)) {
+                        const v = item.variantes.find((v: any) => v.nombre === item.selectedVariant);
+                        if (v) variantId = v.id;
                     }
                 }
 
@@ -585,7 +603,8 @@ export function POSSystem({
                     cantidad: qty,
                     precio_unitario: unitPrice,
                     subtotal: lineSubtotal,
-                    variante_seleccionada: item.selectedVariant
+                    variante_seleccionada: item.selectedVariant,
+                    variant_id: variantId
                 };
             });
 

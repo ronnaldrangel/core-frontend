@@ -13,6 +13,7 @@ export interface OrderItem {
     precio_unitario: number;
     subtotal: number;
     variante_seleccionada?: string;
+    variant_id?: string;
 }
 
 export interface Order {
@@ -128,32 +129,48 @@ export async function createOrder(data: any) {
         if (nestedItems.length > 0) {
             for (const item of nestedItems) {
                 try {
-                    const product = await directusAdmin.request(readItem("products", item.product_id, {
-                        fields: ["id", "stock", "usar_variantes", "variantes_producto"]
-                    })) as any;
+                    // CASO 1: Producto con Variante (Nueva Arquitectura)
+                    if (item.variant_id) {
+                        const variant = await directusAdmin.request(readItem("product_variants", item.variant_id, {
+                            fields: ["id", "stock"]
+                        })) as any;
 
-                    if (product) {
-                        // Lógica de variantes... (igual que antes)
-                        if (item.variante_seleccionada && product.usar_variantes && product.variantes_producto) {
-                            const updatedVariantes = [...product.variantes_producto];
-                            const variantIndex = updatedVariantes.findIndex(
-                                (v: any) => v.nombre === item.variante_seleccionada || v.id === item.variant_id
-                            );
-
-                            if (variantIndex !== -1) {
-                                const currentStock = Number(updatedVariantes[variantIndex].stock || 0);
-                                updatedVariantes[variantIndex].stock = Math.max(0, currentStock - item.cantidad);
-
-                                await directusAdmin.request(updateItem("products", product.id, {
-                                    variantes_producto: updatedVariantes
-                                }));
-                            }
-                        } else {
-                            // Stock general
-                            const currentStock = Number(product.stock || 0);
-                            await directusAdmin.request(updateItem("products", product.id, {
+                        if (variant) {
+                            const currentStock = Number(variant.stock || 0);
+                            await directusAdmin.request(updateItem("product_variants", item.variant_id, {
                                 stock: Math.max(0, currentStock - item.cantidad)
                             }));
+                        }
+                    }
+                    // CASO 2: Producto Simple o Fallback Legacy
+                    else {
+                        const product = await directusAdmin.request(readItem("products", item.product_id, {
+                            fields: ["id", "stock", "variantes_producto"]
+                        })) as any;
+
+                        if (product) {
+                            // Fallback: Si no llegamos con ID pero tenemos nombre y el array JSON existe (Legacy)
+                            if (item.variante_seleccionada && Array.isArray(product.variantes_producto)) {
+                                const updatedVariantes = [...product.variantes_producto];
+                                const variantIndex = updatedVariantes.findIndex(
+                                    (v: any) => v.nombre === item.variante_seleccionada
+                                );
+
+                                if (variantIndex !== -1) {
+                                    const currentStock = Number(updatedVariantes[variantIndex].stock || 0);
+                                    updatedVariantes[variantIndex].stock = Math.max(0, currentStock - item.cantidad);
+
+                                    await directusAdmin.request(updateItem("products", product.id, {
+                                        variantes_producto: updatedVariantes
+                                    }));
+                                }
+                            } else {
+                                // Stock General (Producto Simple)
+                                const currentStock = Number(product.stock || 0);
+                                await directusAdmin.request(updateItem("products", product.id, {
+                                    stock: Math.max(0, currentStock - item.cantidad)
+                                }));
+                            }
                         }
                     }
                 } catch (stockError: any) {
