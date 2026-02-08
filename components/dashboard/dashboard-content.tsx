@@ -150,13 +150,7 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
             {/* Header con nombre del workspace y selector de tiempo */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                        <div
-                            className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm text-white text-xl"
-                            style={{ backgroundColor: themeColor }}
-                        >
-                            {workspace.icon === 'boxes' ? <Box className="h-5 w-5" /> : (workspace.name?.[0]?.toUpperCase() || "W")}
-                        </div>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
                         {workspace.name}
                     </h1>
                     <p className="text-muted-foreground mt-1">
@@ -165,7 +159,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-muted-foreground/70" />
                     <Select value={datePreset} onValueChange={(val: DatePreset) => setDatePreset(val)}>
                         <SelectTrigger className="h-10 w-[200px] bg-muted/10 border-border/40 font-medium rounded-lg">
                             <SelectValue placeholder="Periodo" />
@@ -206,7 +199,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Ingreso Bruto</CardTitle>
-                        <Receipt className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">S/ {stats.totalRevenue.toFixed(2)}</div>
@@ -220,7 +212,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Ingreso Neto</CardTitle>
-                        <CreditCard className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">S/ {stats.totalNet.toFixed(2)}</div>
@@ -234,7 +225,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Abono Faltante</CardTitle>
-                        <AlertCircle className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">S/ {stats.totalPending.toFixed(2)}</div>
@@ -248,7 +238,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="hover:shadow-md transition-shadow">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Ventas</CardTitle>
-                        <ShoppingBag className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.totalOrders}</div>
@@ -262,7 +251,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="hover:shadow-md transition-shadow col-span-2 md:col-span-1 lg:col-span-1">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Ticket Promedio</CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" style={{ color: themeColor }} />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">S/ {stats.ticketPromedio.toFixed(2)}</div>
@@ -286,7 +274,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="@container/orders-chart">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" style={{ color: themeColor }} />
                             <span className="hidden @[450px]/orders-chart:inline">Ventas en el Tiempo (Órdenes)</span>
                             <span className="@[450px]/orders-chart:hidden text-sm">Ventas por Día</span>
                         </CardTitle>
@@ -351,7 +338,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="@container/sales-table">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base @[400px]/sales-table:text-xl">
-                            <UserCheck className="h-5 w-5" style={{ color: themeColor }} />
                             <span className="hidden @[450px]/sales-table:inline">Comparación de Ventas por Vendedor</span>
                             <span className="@[450px]/sales-table:hidden">Ventas por Vendedor</span>
                         </CardTitle>
@@ -411,7 +397,6 @@ export function DashboardContent({ workspace, initialSalesData, topProducts, sal
                 <Card className="@container/products-table">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base @[400px]/products-table:text-xl">
-                            <Package className="h-5 w-5" style={{ color: themeColor }} />
                             <span className="hidden @[450px]/products-table:inline">Top Productos Más Vendidos</span>
                             <span className="@[450px]/products-table:hidden">Top Productos</span>
                         </CardTitle>
