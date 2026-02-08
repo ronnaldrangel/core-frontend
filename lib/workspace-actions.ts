@@ -341,8 +341,9 @@ export async function createWorkspace(data: CreateWorkspaceData) {
                 { workspace_id: workspaceId, name: "Confirmado", value: "confirmado", color: "#3B82F6", sort: 2 },
                 { workspace_id: workspaceId, name: "Preparando", value: "preparando", color: "#F59E0B", sort: 3 },
                 { workspace_id: workspaceId, name: "Enviado", value: "enviado", color: "#8B5CF6", sort: 4 },
-                { workspace_id: workspaceId, name: "Entregado", value: "entregado", color: "#10B981", sort: 5 },
-                { workspace_id: workspaceId, name: "Cancelado", value: "cancelado", color: "#EF4444", sort: 6 },
+                { workspace_id: workspaceId, name: "En destino", value: "en_destino", color: "#0891B2", sort: 5 },
+                { workspace_id: workspaceId, name: "Entregado", value: "entregado", color: "#10B981", sort: 6 },
+                { workspace_id: workspaceId, name: "Cancelado", value: "cancelado", color: "#EF4444", sort: 7 },
             ])
         );
 
