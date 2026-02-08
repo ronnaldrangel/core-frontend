@@ -213,20 +213,7 @@ export function MembersClient({
         };
     };
 
-    const formatDate = (dateString: string) => {
-        if (!dateString) return "-";
-        const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 60) return `hace ${diffMins} min`;
-        if (diffHours < 24) return `hace ${diffHours}h`;
-        if (diffDays < 7) return `hace ${diffDays}d`;
-        return date.toLocaleDateString();
-    };
 
     // --- Unified Data Preparation ---
 
@@ -396,7 +383,6 @@ export function MembersClient({
                                     <th className="px-4 py-3 min-w-[280px]">Usuario</th>
                                     <th className="px-4 py-3">Estado</th>
                                     <th className="px-4 py-3">Rol</th>
-                                    <th className="px-4 py-3">Fecha</th>
                                     <th className="px-4 py-3 text-right">Acciones</th>
                                 </tr>
                             </thead>
@@ -461,9 +447,7 @@ export function MembersClient({
                                                 </Badge>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-muted-foreground text-xs">
-                                            {row.type === 'invitation' ? formatDate(row.date) : (row.date ? formatDate(row.date) : '-')}
-                                        </td>
+
                                         <td className="px-4 py-3 text-right">
                                             {isAdmin && !row.isCurrentUser && row.type !== 'owner' && (
                                                 <>
@@ -515,7 +499,7 @@ export function MembersClient({
                                 ))}
                                 {allRows.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground italic">
+                                        <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">
                                             No hay miembros ni invitaciones.
                                         </td>
                                     </tr>

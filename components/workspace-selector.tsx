@@ -74,12 +74,16 @@ const getInviterInfo = (invited_by: Invitation["invited_by"]) => {
     return invited_by;
 };
 
+import { useRealtimeInvitations } from "@/hooks/use-realtime-invitations";
+import { type WorkspaceInvitation } from "@/lib/invitation-actions";
+
 export function WorkspaceSelector({
     initialWorkspaces,
-    pendingInvitations = [],
+    pendingInvitations: serverPendingInvitations = [],
     userName,
     userEmail,
 }: WorkspaceSelectorProps) {
+    const { invitations: pendingInvitations } = useRealtimeInvitations(serverPendingInvitations as any);
     const [searchTerm, setSearchTerm] = useState("");
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isPending, startTransition] = useTransition();

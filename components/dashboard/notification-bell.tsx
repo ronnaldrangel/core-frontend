@@ -20,8 +20,10 @@ interface NotificationBellProps {
     themeColor?: string;
 }
 
+import { useRealtimeInvitations } from "@/hooks/use-realtime-invitations";
+
 export function NotificationBell({ initialInvitations, themeColor }: NotificationBellProps) {
-    const [invitations, setInvitations] = useState<WorkspaceInvitation[]>(initialInvitations);
+    const { invitations, setInvitations } = useRealtimeInvitations(initialInvitations);
     const [isPendingAction, startTransition] = useTransition();
     const pendingCount = invitations.length;
 

@@ -55,7 +55,7 @@ export function SignupForm({
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)}>
+    <div className={cn("flex flex-col transition-all duration-300", success ? "gap-4" : "gap-6", className)}>
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-2xl font-bold">Crea tu cuenta</h1>
         <p className="text-muted-foreground text-sm text-balance">
@@ -63,7 +63,7 @@ export function SignupForm({
         </p>
       </div>
 
-      <div className="relative overflow-hidden min-h-[300px] flex flex-col justify-center">
+      <div className={cn("relative overflow-hidden transition-all duration-500 flex flex-col justify-center", success ? "min-h-[120px]" : "min-h-[300px]")}>
         {/* Form Fields Section */}
         <form
           className={cn(
@@ -141,13 +141,13 @@ export function SignupForm({
         {/* Success Message Section */}
         <div
           className={cn(
-            "transition-all duration-700 ease-out delay-150",
+            "transition-all duration-700 ease-out",
             success
               ? "opacity-100 visible translate-y-0 scale-100"
               : "opacity-0 invisible translate-y-4 scale-95 absolute"
           )}
         >
-          <div className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm">
+          <div className="rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm">
             <div className="flex items-start gap-4">
               <CheckCircle2Icon className="h-6 w-6 text-green-500 shrink-0 mt-0.5" />
               <div className="flex flex-col gap-1">

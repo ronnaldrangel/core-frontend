@@ -1,4 +1,4 @@
-import { createDirectus, rest, authentication, staticToken } from '@directus/sdk';
+import { createDirectus, rest, authentication, staticToken, realtime } from '@directus/sdk';
 
 const url = process.env.DIRECTUS_URL || process.env.NEXT_PUBLIC_DIRECTUS_URL || '';
 
@@ -39,7 +39,8 @@ export const directus = createDirectus(url, {
     },
 })
     .with(authentication("json"))
-    .with(rest());
+    .with(rest())
+    .with(realtime());
 
 // Client WITH ADMIN token - used ONLY for system operations (like RBAC verification)
 const adminToken = process.env.DIRECTUS_ADMIN_TOKEN || '';

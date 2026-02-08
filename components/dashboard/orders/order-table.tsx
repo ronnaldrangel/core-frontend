@@ -70,13 +70,13 @@ import { uploadFile, Product } from "@/lib/product-actions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRBAC } from "@/components/providers/rbac-provider";
-import { createOrderMessage, getOrderMessages } from "@/lib/message-actions";
-import { getVariants } from "@/lib/product-utils"; // ✅ Movido a utils
+import { createOrderMessage } from "@/lib/message-actions";
+import { getVariants } from "@/lib/product-utils";
 import type { ProductVariant } from "@/lib/product-actions";
-import { subscribeToOrderMessages, playNotificationSound } from "@/lib/websocket";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { OrderMessage } from "@/types/messages";
+import { useRealtimeOrderMessages } from "@/hooks/use-realtime-order-messages";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -152,63 +152,19 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
     const [isSavingAmounts, setIsSavingAmounts] = useState<string | null>(null);
 
     // Estados para mensajería
-    const [orderMessages, setOrderMessages] = useState<OrderMessage[]>([]);
+    // Reemplazo de estados locales por el hook de tiempo real
+    const {
+        messages: orderMessages,
+        setMessages: setOrderMessages,
+        isLoading: isLoadingMessages
+    } = useRealtimeOrderMessages(
+        selectedOrder?.id || null,
+        selectedOrder?.workspace_id || null
+    );
+
     const [newMessage, setNewMessage] = useState("");
     const [isSendingMessage, setIsSendingMessage] = useState(false);
-    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
-    // Cargar mensajes cuando se selecciona una orden
-    useEffect(() => {
-        if (selectedOrder) {
-            loadMessages(selectedOrder.id);
-        } else {
-            setOrderMessages([]);
-        }
-    }, [selectedOrder]);
-
-    const loadMessages = async (orderId: string) => {
-        setIsLoadingMessages(true);
-        try {
-            const result = await getOrderMessages(orderId, selectedOrder.workspace_id);
-            if (result.data) {
-                setOrderMessages(result.data);
-            }
-        } catch (error) {
-            console.error("Error loading messages:", error);
-        } finally {
-            setIsLoadingMessages(false);
-        }
-    };
-
-    // Suscribirse a nuevos mensajes en tiempo real
-    useEffect(() => {
-        if (!selectedOrder) return;
-
-        const unsubscribe = subscribeToOrderMessages(
-            selectedOrder.id,
-            selectedOrder.workspace_id,
-            (newMessages) => {
-                setOrderMessages((prev) => {
-                    const existingIds = new Set(prev.map((m) => m.id));
-                    const uniqueNewMessages = newMessages.filter(
-                        (m) => !existingIds.has(m.id)
-                    );
-
-                    if (uniqueNewMessages.length > 0) {
-                        playNotificationSound();
-                        return [...prev, ...uniqueNewMessages];
-                    }
-
-                    return prev;
-                });
-            },
-            (error) => {
-                console.error("Polling error:", error);
-            }
-        );
-
-        return unsubscribe;
-    }, [selectedOrder]);
 
     const [isEditingItems, setIsEditingItems] = useState(false);
     const [itemSearchTerm, setItemSearchTerm] = useState("");
