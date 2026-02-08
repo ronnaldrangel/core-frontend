@@ -345,6 +345,8 @@ export async function createWorkspace(data: CreateWorkspaceData) {
             createItems("payment_statuses", [
                 { workspace_id: workspaceId, name: "Pendiente", value: "pendiente", color: "#64748B", sort: 1 },
                 { workspace_id: workspaceId, name: "Pagado", value: "pagado", color: "#10B981", sort: 2 },
+                { workspace_id: workspaceId, name: "Adelanto", value: "adelanto", color: "#F59E0B", sort: 3 },
+                { workspace_id: workspaceId, name: "Sin Pago", value: "sin_pago", color: "#EF4444", sort: 4 },
             ])
         );
 
