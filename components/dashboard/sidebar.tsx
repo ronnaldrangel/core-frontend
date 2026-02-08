@@ -85,16 +85,16 @@ export function Sidebar({
 
     const sidebarItemsAfterProducts = [
         {
-            title: "Pedidos",
-            href: `/dashboard/${currentWorkspaceId}/orders`,
-            icon: Receipt,
-            permission: "orders.read",
-        },
-        {
             title: "Punto de Venta",
             href: `/dashboard/${currentWorkspaceId}/pos`,
             icon: ShoppingCart,
             permission: "orders.create",
+        },
+        {
+            title: "Pedidos",
+            href: `/dashboard/${currentWorkspaceId}/orders`,
+            icon: Receipt,
+            permission: "orders.read",
         },
         {
             title: "Caja",

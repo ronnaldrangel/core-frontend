@@ -1655,6 +1655,27 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                             className="h-10"
                                         />
                                     </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Fecha de Entrega</Label>
+                                        <Input
+                                            type="date"
+                                            min={new Date().toLocaleDateString('en-CA')} // Usar fecha local YYYY-MM-DD
+                                            value={orderToEdit.fecha_entrega ? String(orderToEdit.fecha_entrega).split('T')[0] : ""}
+                                            onChange={(e) => {
+                                                const selectedDate = e.target.value;
+                                                const today = new Date().toLocaleDateString('en-CA');
+
+                                                // Validación inmediata
+                                                if (selectedDate && selectedDate < today) {
+                                                    toast.error("No puedes seleccionar una fecha pasada");
+                                                    return;
+                                                }
+
+                                                setOrderToEdit({ ...orderToEdit, fecha_entrega: selectedDate })
+                                            }}
+                                            className="h-10"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* Envio */}
@@ -1963,6 +1984,16 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                 <Button
                                     onClick={async () => {
                                         try {
+                                            // Validar fecha de entrega antes de procesar
+                                            if (orderToEdit.fecha_entrega) {
+                                                const selectedDate = orderToEdit.fecha_entrega.split('T')[0]; // Asegurar YYYY-MM-DD
+                                                const today = new Date().toLocaleDateString('en-CA');
+                                                if (selectedDate < today) {
+                                                    toast.error("La fecha de entrega no puede ser anterior a hoy");
+                                                    return;
+                                                }
+                                            }
+
                                             // Preparar datos del cliente
                                             const clienteData: any = {};
                                             if (orderToEdit.cliente_id?.nombre_completo) {
@@ -2003,6 +2034,7 @@ export function OrderTable({ orders, orderStatuses, paymentStatuses, couriers, p
                                                 provincia: orderToEdit.provincia,
                                                 distrito: orderToEdit.distrito,
                                                 direccion: orderToEdit.direccion,
+                                                fecha_entrega: orderToEdit.fecha_entrega,
                                                 monto_adelanto: orderToEdit.monto_adelanto,
                                                 monto_faltante: orderToEdit.monto_faltante,
 

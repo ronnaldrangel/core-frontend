@@ -44,6 +44,7 @@ export interface Order {
     courier_nro_orden?: string;
     courier_codigo?: string;
     courier_clave?: string;
+    fecha_entrega?: string;
 }
 
 export interface OrderStatus {
