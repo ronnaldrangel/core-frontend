@@ -69,7 +69,8 @@ async function getUser(token: string) {
         first_name: user.first_name,
         last_name: user.last_name,
         email: user.email,
-        avatar: user.avatar as string,
+        avatar: user.avatar,
+        image: user.avatar ? `${directusUrl}/assets/${user.avatar}` : null,
         role: {
             id: role?.id || "",
             name: role?.name || "No Role",
@@ -178,6 +179,7 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
                             last_name: userData.last_name,
                             email: userData.email,
                             avatar: userData.avatar,
+                            image: userData.avatar ? `${directusUrl}/assets/${userData.avatar}` : null,
                             role: {
                                 id: role?.id || "",
                                 name: role?.name || "No Role",

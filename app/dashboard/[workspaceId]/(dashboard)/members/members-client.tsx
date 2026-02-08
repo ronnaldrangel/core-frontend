@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     Dialog,
     DialogContent,
@@ -207,6 +208,7 @@ export function MembersClient({
             name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Sin nombre' : 'Usuario',
             email: user?.email || 'Sin email',
             initials: user?.first_name?.[0]?.toUpperCase() || 'U',
+            avatar: user?.avatar || null,
             isOwner: false,
         };
     };
@@ -235,6 +237,7 @@ export function MembersClient({
             name: string;
             email: string;
             initials: string;
+            avatar?: string;
             id?: string;
         };
         roleName: string;
@@ -256,6 +259,7 @@ export function MembersClient({
                 name: `${owner.first_name || ''} ${owner.last_name || ''}`.trim(),
                 email: owner.email,
                 initials: owner.first_name?.[0]?.toUpperCase() || 'O',
+                avatar: owner.avatar,
                 id: owner.id
             },
             roleName: 'Propietario',
@@ -281,6 +285,7 @@ export function MembersClient({
                 name: info.name,
                 email: info.email,
                 initials: info.initials,
+                avatar: info.avatar,
                 id: info.id
             },
             roleName,
@@ -400,23 +405,31 @@ export function MembersClient({
                                     <tr key={row.id} className="hover:bg-muted/30 transition-colors group">
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-3">
-                                                <div className={cn(
-                                                    "h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 border",
-                                                    row.type === 'owner' ? "bg-yellow-500 text-white border-yellow-600" :
-                                                        row.type === 'invitation' ? "bg-muted/50 border-dashed text-muted-foreground" :
-                                                            "bg-muted text-muted-foreground"
-                                                )}>
-                                                    {row.type === 'invitation' ? '?' : row.user.initials}
-                                                </div>
+                                                <Avatar className="h-9 w-9 border border-border">
+                                                    {row.user.avatar && (
+                                                        <AvatarImage
+                                                            src={`${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${row.user.avatar}`}
+                                                            alt={row.user.name}
+                                                        />
+                                                    )}
+                                                    <AvatarFallback className={cn(
+                                                        "font-bold text-xs",
+                                                        row.type === 'owner' ? "bg-yellow-500 text-white" :
+                                                            row.type === 'invitation' ? "bg-muted/50 text-muted-foreground border-dashed" :
+                                                                "bg-muted text-muted-foreground"
+                                                    )}>
+                                                        {row.type === 'invitation' ? '?' : row.user.initials}
+                                                    </AvatarFallback>
+                                                </Avatar>
                                                 <div className="flex flex-col">
                                                     <div className="flex items-center gap-2">
                                                         <span className={cn("font-semibold", row.type === 'invitation' ? "text-muted-foreground" : "text-foreground")}>
                                                             {row.user.name}
                                                         </span>
                                                         {row.isCurrentUser && (
-                                                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                            <Badge className="bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300 border-transparent text-[10px] px-1.5 py-0 rounded font-bold uppercase tracking-wider h-4">
                                                                 Tú
-                                                            </span>
+                                                            </Badge>
                                                         )}
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">{row.user.email}</span>
@@ -425,12 +438,12 @@ export function MembersClient({
                                         </td>
                                         <td className="px-4 py-3">
                                             {row.status === 'active' ? (
-                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 w-fit">
+                                                <Badge className="bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 border-transparent gap-1 w-fit">
                                                     <CheckCircle2 className="h-3 w-3" />
                                                     Activo
                                                 </Badge>
                                             ) : (
-                                                <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 gap-1 border-dashed w-fit">
+                                                <Badge className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-transparent gap-1 border-dashed w-fit">
                                                     <Clock className="h-3 w-3" />
                                                     Pendiente
                                                 </Badge>
@@ -438,14 +451,14 @@ export function MembersClient({
                                         </td>
                                         <td className="px-4 py-3">
                                             {row.type === 'owner' ? (
-                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-semibold bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200/50 dark:border-yellow-700/50">
+                                                <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border-transparent gap-1.5 px-2 py-1">
                                                     <Crown className="h-3.5 w-3.5" />
                                                     Propietario
-                                                </div>
+                                                </Badge>
                                             ) : (
-                                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border bg-gray-50 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400">
+                                                <Badge className="bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-300 border-transparent font-medium px-2 py-1">
                                                     {row.roleName}
-                                                </div>
+                                                </Badge>
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground text-xs">
